@@ -1,6 +1,6 @@
 /* Persistence — localStorage autosave + restore. */
 
-import { serialize, parseTrack } from './track.js';
+import { serializeForSave, parseTrack } from './track.js';
 
 const KEY = 'm4wd.autosave';
 let autosaveTimer = null;
@@ -10,7 +10,7 @@ export function autosave(state) {
   autosaveTimer = setTimeout(() => {
     try {
       localStorage.setItem(KEY, JSON.stringify({
-        mode: state.mode, tool: state.tool, angle: state.angle, track: serialize(state.sprites),
+        mode: state.mode, tool: state.tool, angle: state.angle, track: serializeForSave(state.sprites),
       }));
     } catch (_) { /* private mode etc. */ }
   }, 350);

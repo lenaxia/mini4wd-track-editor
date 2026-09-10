@@ -41,6 +41,25 @@ test('autosave then restore round-trips through localStorage', async () => {
   ]);
 });
 
+test('autosave keeps negative-origin pieces (translated, not dropped)', async () => {
+  const state = {
+    mode: 3, tool: 'Move', angle: 0,
+    sprites: [
+      { name: 'Str1', x: -30, y: -68, a: 0, c: 0 },
+      { name: 'Str1', x: 100, y: 50, a: 0, c: 0 },
+    ],
+  };
+  autosave(state);
+  await new Promise((r) => setTimeout(r, 450));
+
+  const restored = { mode: 3, tool: 'Pan', angle: 0, sprites: [] };
+  assert.equal(restore(restored), true);
+  assert.equal(restored.sprites.length, 2);
+  assert.ok(restored.sprites.every((p) => p.x >= 0 && p.y >= 0));
+  assert.equal(restored.sprites[1].x - restored.sprites[0].x, 130); /* layout kept */
+  assert.equal(restored.sprites[1].y - restored.sprites[0].y, 118);
+});
+
 test('restore returns false with nothing saved', () => {
   const state = { mode: 3, tool: 'Pan', angle: 0, sprites: [] };
   assert.equal(restore(state), false);

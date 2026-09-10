@@ -33,8 +33,28 @@ export function parseTrack(text) {
 
 /* ---------- share links (#t=base64url of the serialized track) ---------- */
 
+/* The wire format drops negative-origin pieces (original editor worked in
+ * a positive-quadrant room). This fork has a free canvas, so persistence
+ * paths (autosave/export/share) normalize first: translate by the minimal
+ * amount that makes every origin non-negative. Pure — never mutates. */
+export function normalizeForSave(sprites) {
+  let dx = 0, dy = 0;
+  for (const p of sprites) {
+    if (p.x < dx) dx = p.x;
+    if (p.y < dy) dy = p.y;
+  }
+  if (dx === 0 && dy === 0) return sprites;
+  return sprites.map((p) => ({ ...p, x: p.x - dx, y: p.y - dy }));
+}
+
+/* Persistence-safe serialization: byte-identical to serialize() for
+ * non-negative tracks, lossless (translated) otherwise. */
+export function serializeForSave(sprites) {
+  return serialize(normalizeForSave(sprites));
+}
+
 export function encodeShare(sprites) {
-  const s = serialize(sprites);
+  const s = serializeForSave(sprites);
   return btoa(String.fromCharCode(...new TextEncoder().encode(s)))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }

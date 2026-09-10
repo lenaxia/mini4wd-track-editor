@@ -180,6 +180,26 @@ test('share-link hash restores the track on a fresh load', async ({ page }) => {
   expect(s.sprites[3].a).toBe(45);
 });
 
+test('autosave restores the track on reload (no hash)', async ({ page }) => {
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.5, 0.5);
+  const first = (await st(page)).sprites[0];
+  await page.locator('.chip').first().click(); /* second piece, offset */
+  await clickCanvas(page, 0.6, 0.5);
+  const second = (await st(page)).sprites[1];
+  const dx = second.x - first.x, dy = second.y - first.y;
+  await page.waitForTimeout(500); /* autosave debounces at 350ms */
+
+  await page.reload();
+  const s = await st(page);
+  expect(s.sprites).toHaveLength(2);
+  /* boot view centers the world origin, so placements can be negative;
+   * persistence normalizes (translates) — layout must survive exactly */
+  expect(s.sprites[1].x - s.sprites[0].x).toBe(dx);
+  expect(s.sprites[1].y - s.sprites[0].y).toBe(dy);
+  expect(s.sprites.every((p) => p.x >= 0 && p.y >= 0)).toBe(true);
+});
+
 test('keyboard 1 arms the first piece family', async ({ page }) => {
   await page.keyboard.press('1');
   expect((await st(page)).tool).toBe('Str1');
