@@ -141,3 +141,16 @@ test('solveGeo yields finite arcs for every corner and hairpin', () => {
     assert.ok(Number.isFinite(geo.a1) && Number.isFinite(geo.sweep), name);
   }
 });
+
+test('solveGeo arcs start exactly at v1 and end exactly at v2', () => {
+  for (const [name, def] of Object.entries(PIECES)) {
+    if (def.kind !== 'corner' && def.kind !== 'hairpin') continue;
+    const geo = solveGeo(name);
+    const at = (a) => ({ x: geo.cx + geo.R * Math.cos(a), y: geo.cy + geo.R * Math.sin(a) });
+    const p1 = at(geo.a1), p2 = at(geo.a1 + geo.sweep);
+    /* both candidate centers lie on the perpendicular bisector of v1-v2,
+     * so any solved arc must pass through the catalog vertices exactly */
+    assert.ok(Math.hypot(p1.x - def.v1[0], p1.y - def.v1[1]) < 1e-6, `${name}: start != v1`);
+    assert.ok(Math.hypot(p2.x - def.v2[0], p2.y - def.v2[1]) < 1e-6, `${name}: end != v2`);
+  }
+});
