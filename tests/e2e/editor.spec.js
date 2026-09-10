@@ -115,15 +115,35 @@ test('Esc dismisses the armed piece tool and returns to Pan', async ({ page }) =
   expect(s.sprites).toHaveLength(0);
 });
 
-test('X rotates the selection around its centroid', async ({ page }) => {
+test('X rotates the selection around its visual center', async ({ page }) => {
+  /* Str1 is centered on its origin: in-place rotation must not move it */
   await page.locator('.chip').first().click();
   await clickCanvas(page, 0.5, 0.5);
-  const before = (await st(page)).sprites[0];
-
+  const s1 = (await st(page)).sprites[0];
   await page.keyboard.press('x');
-  const after = (await st(page)).sprites[0];
-  expect(after.a).toBe(45);
-  expect(after.x).not.toBe(before.x); /* rotated off the old position */
+  const s1b = (await st(page)).sprites[0];
+  expect(s1b.a).toBe(45);
+  expect(s1b.x).toBe(s1.x);
+  expect(s1b.y).toBe(s1.y);
+
+  /* Cor1's center is (-5, -3.5) local: the origin moves so the center stays.
+   * 'z' first — the earlier 'x' left the armed angle at 45. */
+  await page.keyboard.press('z');
+  await page.keyboard.press('2'); /* arm Cor1 */
+  await clickCanvas(page, 0.3, 0.3);
+  const cor = (await st(page)).sprites[1];
+  await page.keyboard.press('x');
+  const corb = (await st(page)).sprites[1];
+  expect(corb.a).toBe(45);
+  const c = Math.SQRT1_2;
+  const centerBefore = { x: cor.x - 5, y: cor.y - 3.5 };
+  const centerAfter = {
+    x: corb.x + (-5 * c - -3.5 * c),
+    y: corb.y + (-5 * c + -3.5 * c),
+  };
+  expect(Math.abs(centerAfter.x - centerBefore.x)).toBeLessThan(1e-6);
+  expect(Math.abs(centerAfter.y - centerBefore.y)).toBeLessThan(1e-6);
+  expect(corb.x).not.toBe(cor.x); /* the origin itself moved */
 });
 
 test('R undoes the last change; empty history is a no-op', async ({ page }) => {
