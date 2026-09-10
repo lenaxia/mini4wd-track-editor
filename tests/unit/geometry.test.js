@@ -48,6 +48,29 @@ test('snapPiece leaves far pieces untouched', () => {
   assert.deepEqual({ x: ghost.x, y: ghost.y }, { x: 300, y: 300 });
 });
 
+test('snapPiece applies only the closest vertex pair', () => {
+  /* ghost v1=(173,100). A's v2 is exactly on ghost v1 (d=0); B's v1 is
+   * 8 from ghost v2. The d=0 pair must win alone — a second, worse snap
+   * must not pull the piece off the perfect connection. */
+  const a = { name: 'Str1', x: 146, y: 100, a: 0, c: 0 };  /* v2 = 173,100 */
+  const b = { name: 'Str1', x: 246, y: 100, a: 0, c: 0 };  /* v1 = 219,100 */
+  const ghost = { name: 'Str1', x: 200, y: 100, a: 0, c: 0 };
+  assert.equal(snapPiece(ghost, [a, b]), true);
+  assert.equal(ghost.x, 200); /* stays on the perfect connection */
+  assert.deepEqual(vertexOf(ghost, 1), vertexOf(a, 2));
+});
+
+test('snapPiece resolves equidistant pairs deterministically (array order)', () => {
+  /* both offers are 6 away: A v2 -> ghost v1 (+6), B v1 -> ghost v2 (-6).
+   * A comes first in the sprite array and must win the tie. */
+  const a = { name: 'Str1', x: 152, y: 100, a: 0, c: 0 };
+  const b = { name: 'Str1', x: 260, y: 100, a: 0, c: 0 };
+  const ghost = { name: 'Str1', x: 200, y: 100, a: 0, c: 0 };
+  assert.equal(snapPiece(ghost, [a, b]), true);
+  assert.equal(ghost.x, 206);
+  assert.deepEqual(vertexOf(ghost, 1), vertexOf(a, 2));
+});
+
 test('groupSnap moves the whole selection by the best vertex pair', () => {
   const anchor = { name: 'Str1', x: 100, y: 100, a: 0, c: 0 }; /* v2 = 127,100 */
   const moving = { name: 'Str1', x: 160, y: 100, a: 0, c: 0 };  /* v1 = 133,100 -> dist 6 */
