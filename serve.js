@@ -1,10 +1,10 @@
 /* Tiny zero-dependency dev server — serves the editor with no caching. */
 'use strict';
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const ROOT = __dirname;
+const ROOT = import.meta.dirname;
 const PORT = process.env.PORT || 3000;
 const MIME = {
   '.html': 'text/html; charset=utf-8',
