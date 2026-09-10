@@ -59,6 +59,17 @@ python3 -m http.server 3000   # or: npx serve
 # open http://localhost:3000 (works great in Chrome DevTools device mode)
 ```
 
+## Attribution & credits
+
+- **[Mini4WD Online Track Editor](https://mini4wd-track-editor.pimentoso.com)**
+  by **Pimentoso (Michele Ferri)** — the original website this project is based on.
+  This fork reuses its concept, track data format, and piece catalog, and is a
+  touch-friendly reimplementation of its editor. The original client code is
+  **MIT licensed (© 2016 Michele Ferri)**; the license notice is preserved at the
+  top of `editor.js`.
+- **Tamiya** — "Mini4WD" and all track piece designs and artwork are property of
+  Tamiya inc. The sprites in `assets/` originate from the original editor.
+
 ## Legal notes
 
 - The original editor JS is MIT (notice preserved at the top of `editor.js`).
