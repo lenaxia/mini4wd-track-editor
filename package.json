@@ -1,0 +1,14 @@
+{
+  "name": "mini4wd-track-editor",
+  "private": true,
+  "type": "module",
+  "description": "Touch-first Mini4WD track editor — zero-dependency static app. package.json exists for dev tooling only (test runners); the app itself has no runtime dependencies and no build step.",
+  "scripts": {
+    "serve": "node serve.js",
+    "test": "node --test",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0"
+  }
+}

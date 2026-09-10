@@ -28,7 +28,7 @@
       <button id="btnZoomOut" type="button" aria-label="Zoom out">−</button>
       <button id="btnFit"     type="button" aria-label="Fit track">⤢</button>
     </div>
-    <div id="hint" class="hint">Tap empty space to aim · tap the track / ghost to place · ✋ to pan</div>
+    <div id="hint" class="hint">Pick a piece · tap to place · keep dragging to position · tap empty space to deselect</div>
   </main>
 
   <footer id="toolbar">
@@ -79,12 +79,12 @@
   <dialog id="helpDialog">
     <h2>Help</h2>
     <ul class="help-list">
-      <li><b>Tap empty space</b> → aim: the ghost piece moves there, nothing is placed.</li>
-      <li><b>Tap the track or the ghost</b> → place the piece (it snaps to neighbours). Repeated taps on the track chain pieces.</li>
-      <li><b>Drag</b> with one finger → aim the ghost continuously; release places nothing.</li>
-      <li><b>✋</b> pan tool: drag to look around without placing. <b>⤢</b> zooms to fit the whole track.</li>
-      <li><b>Two fingers</b> → pan &amp; pinch-zoom.</li>
-      <li><b>⟲ / ⟳</b> rotate by 45°.</li>
+      <li><b>Pick a piece</b> in the palette, then <b>tap the canvas</b> — the piece is placed immediately and snaps to nearby track ends (dots turn green when connected). On desktop a translucent preview follows your cursor.</li>
+      <li><b>Keep dragging</b> before you release to fine-position the piece with live snapping.</li>
+      <li>After placing, the <b>✥ Move</b> tool is active with the new piece selected: <b>drag</b> it to adjust, <b>tap empty space</b> to deselect. Hold <kbd>Shift</kbd> on release to keep the same piece armed for rapid placing.</li>
+      <li><b>Chain pieces</b>: re-pick the piece and tap/press near the end of the track — it snaps on.</li>
+      <li><b>✋</b> pan tool: drag to look around without placing. <b>⤢</b> zooms to fit the whole track. <b>Two fingers</b> → pan &amp; pinch-zoom.</li>
+      <li><b>⟲ / ⟳</b> rotate the armed piece (or the selection) by 45°.</li>
       <li><b>✥</b> drag on empty space to rubber-band select · <b>ctrl/cmd+click</b> a piece to add/remove it · drag a selected piece to move the whole group (it snaps) · <b>⟲/⟳</b> rotate the selection.</li>
       <li><b>⌫</b> tap a piece to delete it. <b>◐</b> tap to cycle its color.</li>
       <li>Scale: 1 px = 1 cm, one grid square = 1 m (same as original).</li>
@@ -93,13 +93,13 @@
     <ul class="help-list">
       <li><kbd>1</kbd>–<kbd>9</kbd> pieces · <kbd>H</kbd> pan · <kbd>Q</kbd>/<kbd>W</kbd>/<kbd>E</kbd> select/delete/color</li>
       <li><kbd>Z</kbd>/<kbd>X</kbd> rotate · <kbd>R</kbd> undo · <kbd>F</kbd> fit · <kbd>+/−</kbd> zoom · <kbd>Shift+drag</kbd> pan</li>
-      <li><kbd>Del</kbd> delete selection · <kbd>Esc</kbd> deselect</li>
+      <li><kbd>Del</kbd> delete selection · <kbd>Esc</kbd> pan tool (dismisses armed piece / selection)</li>
     </ul>
     <div class="dialog-actions"><button type="button" class="secondary" id="helpClose">Close</button></div>
   </dialog>
 
   <div id="toast" role="status"></div>
 
-  <script src="editor.js?v=4"></script>
+  <script type="module" src="src/main.js?v=1"></script>
 </body>
 </html>

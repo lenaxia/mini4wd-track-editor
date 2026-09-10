@@ -1,0 +1,20 @@
+/* Sprite assets — Tamiya piece PNGs from the original editor (assets/Name.color.png). */
+
+import { PIECES } from './pieces.js';
+
+const IMAGES = {};
+
+export function imageFor(name, c) { return IMAGES[`${name}.${c}`] || null; }
+
+/* Preload every sprite; onload fires once per image that finishes loading
+ * (caller redraws + repaints palette chips, debounced on its side). */
+export function preloadImages(onload) {
+  for (const [name, def] of Object.entries(PIECES)) {
+    for (let c = 0; c < def.colors; c++) {
+      const img = new Image();
+      img.onload = onload;
+      img.src = `assets/${name}.${c}.png?v=3`;
+      IMAGES[`${name}.${c}`] = img;
+    }
+  }
+}

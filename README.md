@@ -1,7 +1,9 @@
 # Mini4WD Track Editor — mobile-friendly fork (proof of concept)
 
 A touch-first reimplementation of [Mini4WD Online Track Editor](https://mini4wd-track-editor.pimentoso.com)
-by Pimentoso. **No server, no build step, no dependencies** — open `index.html` and draw.
+by Pimentoso. **No build step, no runtime dependencies** — vanilla ES modules
+served statically (ES modules require http, so use `serve.js`; `file://` no
+longer works).
 
 ## What this proves
 
@@ -22,12 +24,15 @@ The original is desktop-only: `onmousemove`/`onclick`/`mousewheel`, no touch han
 fixed 800×600 canvas, 190 px sidebar — you literally cannot place a piece on a phone.
 This PoC implements:
 
-- **Tap to place**, drag to preview the ghost piece (with live snap vertices)
-- **Two-stage placement (touch-safe)**: tapping empty space only *aims* the ghost —
-  pieces are placed by tapping **on the track or the ghost**, so you can never
-  place a piece by accident while looking around; chained taps on the track
-  extend the layout one tap per piece
-- **Pan tool ✋ / <kbd>H</kbd>**: drag to look around without placing anything
+- **Tap to place**: pick a piece in the palette, then tap the canvas — the piece is
+  placed immediately and snaps to nearby track ends (green dots = connected).
+  Keep the finger/mouse down and drag to fine-position it before releasing.
+- **Figma-style flow — place → move → click away to deselect**: after each placement
+  the tool reverts to ✥ Move with the new piece selected; drag it to adjust, tap
+  empty space to deselect. Hold <kbd>Shift</kbd> on release to keep the piece armed
+  for rapid stamping.
+- **Pan tool ✋ / <kbd>H</kbd>** is the default tool (drag to look around without placing
+  anything); <kbd>Esc</kbd> always returns to it
 - **Multi-select & group move**: rubber-band drag on empty space, ctrl/cmd+click to
   toggle pieces, drag any selected piece to move the group (with group snapping),
   ⟲/⟳ rotate the selection around its centroid, <kbd>Del</kbd> deletes it
@@ -51,11 +56,53 @@ Str3-6, Cor2-5, Lan3/4, Chi2, Bri3/4, Ban2.
 - Import dialog also accepts a pasted `/load/CODE.js` response body.
 - Share links: `#t=<base64url>` — the whole track lives in the URL, no server needed.
 
+## Architecture
+
+```
+index.html            app shell (entry: <script type="module" src="src/main.js">)
+src/
+  pieces.js           piece catalog + constants (pure data)
+  geometry.js         rot/vertex/snap/fit math (pure, DOM-free)
+  track.js            serialize/parseTrack/share codec (byte-compatible, pure)
+  art.js              procedural sprite fallback (pure canvas ops)
+  assets.js           sprite preloading
+  storage.js          localStorage autosave/restore
+  store.js            model: state + actions + subscriptions (DOM-free)
+  render.js           canvas view (subscribes to the store)
+  input.js            Pointer Events gesture machine + keyboard
+  ui.js               DOM shell: palette, toolbar, dialogs, stats
+  main.js             boot/wiring (+ window.__m4wd test hook)
+serve.js              zero-dependency dev server (no caching)
+tests/
+  unit/               node --test (track codec, geometry, pieces, store)
+  e2e/                Playwright specs (see TESTPLAN.md)
+playwright.config.js
+package.json          dev tooling only — the app itself has no deps, no build
+```
+
+Dependency direction (acyclic): `main → render → input → ui → store →
+geometry/track/storage → pieces`. Pure modules (`pieces`, `geometry`,
+`track`, `store`) import nothing DOM-bound and run under plain node — that
+is what makes the unit layer possible.
+
+## Test plan & framework
+
+See [TESTPLAN.md](TESTPLAN.md). Two automated layers:
+
+- **Unit** — Node's built-in runner (`node --test`), zero dependencies:
+  byte-compat round-trips, snapping math, catalog integrity, store actions.
+- **E2E** — Playwright (dev-only dependency): gesture flows (place → move →
+  click-away deselect), chaining/snapping, undo, rotate, import, share
+  links, touch placement. Assertions read the model via `window.__m4wd`,
+  never pixel-diffed. Multi-touch pinch stays manual (see plan).
+
 ## Run it
 
 ```sh
-cd mini4wd-editor
-python3 -m http.server 3000   # or: npx serve
+node serve.js              # or: npm run serve  (port 3000)
+npm test                   # unit tests (node --test)
+npx playwright install chromium   # once
+npm run test:e2e           # e2e (auto-starts/reuses serve.js)
 # open http://localhost:3000 (works great in Chrome DevTools device mode)
 ```
 
