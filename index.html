@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#16181d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Mini4WD Track Editor — mobile fork (PoC)</title>
+  <meta name="description" content="Touch-first fork of the Mini4WD Online Track Editor. Same track format, works on phones.">
+  <link rel="stylesheet" href="style.css?v=3">
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">Mini4WD <span>Track Editor</span></div>
+    <div class="mode-switch" role="group" aria-label="Track type">
+      <button id="mode3" class="active" type="button">3 lane</button
+      ><button id="mode5" type="button">5 lane</button>
+    </div>
+    <div id="stats" class="stats" aria-live="polite">0.00 m · 0 pcs</div>
+    <button id="btnMenu" class="icon-btn" type="button" aria-label="Menu" title="Menu">☰</button>
+  </header>
+
+  <main id="stage">
+    <canvas id="editor"></canvas>
+    <div id="zoomControls">
+      <button id="btnZoomIn"  type="button" aria-label="Zoom in">+</button>
+      <button id="btnZoomOut" type="button" aria-label="Zoom out">−</button>
+      <button id="btnFit"     type="button" aria-label="Fit track">⤢</button>
+    </div>
+    <div id="hint" class="hint">Tap empty space to aim · tap the track / ghost to place · ✋ to pan</div>
+  </main>
+
+  <footer id="toolbar">
+    <div class="tool-row">
+      <button class="tool" id="btnRotL" type="button" title="Rotate left (Z)">⟲</button>
+      <button class="tool" id="btnRotR" type="button" title="Rotate right (X)">⟳</button>
+      <span class="sep"></span>
+      <button class="tool" data-tool="Pan"    type="button" title="Pan / view (H)">✋</button>
+      <button class="tool" data-tool="Move"   type="button" title="Select / move (Q)">✥</button>
+      <button class="tool" data-tool="Delete" type="button" title="Delete (W)">⌫</button>
+      <button class="tool" data-tool="Color"  type="button" title="Change color (E)">◐</button>
+      <span class="sep"></span>
+      <button class="tool" id="btnUndo"  type="button" title="Undo (R)">↩</button>
+      <button class="tool" id="btnClear" type="button" title="Delete all">🗑</button>
+    </div>
+    <div id="palette" class="palette" role="radiogroup" aria-label="Track pieces"></div>
+  </footer>
+
+  <dialog id="menuDialog">
+    <h2>Track</h2>
+    <div class="menu-actions">
+      <button id="btnShare"  type="button">🔗 Share link (no server)</button>
+      <button id="btnExport" type="button">⬇ Export track file</button>
+      <label class="file-label">⬆ Import track file<input type="file" id="fileImport" accept=".txt,.m4t,text/plain"></label>
+      <button id="btnImportText" type="button">📋 Paste / import code</button>
+      <button id="btnHelp" type="button">❓ Help &amp; shortcuts</button>
+      <button id="btnCloseMenu" type="button" class="secondary">Close</button>
+    </div>
+    <p class="credits">
+      Fork PoC of <a href="https://mini4wd-track-editor.pimentoso.com" target="_blank" rel="noopener">Mini4WD Online Track Editor</a>
+      by Pimentoso (editor logic MIT). Track format is 100% compatible with the original.
+      Mini4WD is a trademark of Tamiya inc. Piece artwork © Tamiya inc., from the original editor's assets.
+    </p>
+  </dialog>
+
+  <dialog id="ioDialog">
+    <h2 id="ioTitle">Import</h2>
+    <p class="io-hint" id="ioHint">Paste an original-site track string (<code>Name;x;y;angle;color#Name;…</code>)
+       or the full text of a <code>/load/CODE.js</code> response.</p>
+    <textarea id="ioText" rows="7" spellcheck="false" placeholder="Str2;100.000;100.000;0;0#Str1;154.000;100.000;0;0#…"></textarea>
+    <div class="dialog-actions">
+      <button id="ioAction" type="button" class="primary">Import</button>
+      <button id="ioCopy"   type="button">Copy</button>
+      <button id="ioClose"  type="button" class="secondary">Close</button>
+    </div>
+  </dialog>
+
+  <dialog id="helpDialog">
+    <h2>Help</h2>
+    <ul class="help-list">
+      <li><b>Tap empty space</b> → aim: the ghost piece moves there, nothing is placed.</li>
+      <li><b>Tap the track or the ghost</b> → place the piece (it snaps to neighbours). Repeated taps on the track chain pieces.</li>
+      <li><b>Drag</b> with one finger → aim the ghost continuously; release places nothing.</li>
+      <li><b>✋</b> pan tool: drag to look around without placing. <b>⤢</b> zooms to fit the whole track.</li>
+      <li><b>Two fingers</b> → pan &amp; pinch-zoom.</li>
+      <li><b>⟲ / ⟳</b> rotate by 45°.</li>
+      <li><b>✥</b> drag on empty space to rubber-band select · <b>ctrl/cmd+click</b> a piece to add/remove it · drag a selected piece to move the whole group (it snaps) · <b>⟲/⟳</b> rotate the selection.</li>
+      <li><b>⌫</b> tap a piece to delete it. <b>◐</b> tap to cycle its color.</li>
+      <li>Scale: 1 px = 1 cm, one grid square = 1 m (same as original).</li>
+    </ul>
+    <h3>Keyboard (desktop)</h3>
+    <ul class="help-list">
+      <li><kbd>1</kbd>–<kbd>9</kbd> pieces · <kbd>H</kbd> pan · <kbd>Q</kbd>/<kbd>W</kbd>/<kbd>E</kbd> select/delete/color</li>
+      <li><kbd>Z</kbd>/<kbd>X</kbd> rotate · <kbd>R</kbd> undo · <kbd>F</kbd> fit · <kbd>+/−</kbd> zoom · <kbd>Shift+drag</kbd> pan</li>
+      <li><kbd>Del</kbd> delete selection · <kbd>Esc</kbd> deselect</li>
+    </ul>
+    <div class="dialog-actions"><button type="button" class="secondary" id="helpClose">Close</button></div>
+  </dialog>
+
+  <div id="toast" role="status"></div>
+
+  <script src="editor.js?v=4"></script>
+</body>
+</html>

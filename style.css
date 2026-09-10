@@ -1,0 +1,143 @@
+/* Mini4WD Track Editor — mobile fork PoC */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0; padding: 0;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  display: flex; flex-direction: column;
+  height: 100vh; height: 100dvh;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #16181d; color: #e8eaed;
+  --accent: #ffd166; --accent-ink: #1a1a1a;
+  --panel: #1f2229; --panel-2: #262a33; --line: #333844;
+}
+
+/* ---------- top bar ---------- */
+#topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top));
+  background: var(--panel); border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.brand { font-weight: 700; font-size: 15px; white-space: nowrap; }
+.brand span { color: var(--accent); }
+.mode-switch { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.mode-switch button {
+  border: 0; background: transparent; color: #aab1bd;
+  font: inherit; font-size: 12px; padding: 5px 10px; cursor: pointer;
+}
+.mode-switch button.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.stats {
+  margin-left: auto; font-variant-numeric: tabular-nums;
+  font-size: 12px; color: #aab1bd; white-space: nowrap;
+}
+.icon-btn {
+  border: 1px solid var(--line); background: var(--panel-2); color: inherit;
+  border-radius: 8px; font-size: 16px; padding: 5px 10px; cursor: pointer;
+}
+
+/* ---------- stage / canvas ---------- */
+#stage { position: relative; flex: 1 1 auto; min-height: 0; }
+#editor {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block; touch-action: none; cursor: crosshair;
+}
+#zoomControls {
+  position: absolute; right: 10px; bottom: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+#zoomControls button {
+  width: 42px; height: 42px; border-radius: 10px; border: 1px solid var(--line);
+  background: rgba(31, 34, 41, .92); color: inherit; font-size: 19px; cursor: pointer;
+}
+.hint {
+  position: absolute; left: 50%; top: 10px; transform: translateX(-50%);
+  font-size: 11px; color: #9aa3af; background: rgba(22, 24, 29, .8);
+  padding: 4px 10px; border-radius: 999px; pointer-events: none;
+  transition: opacity .6s; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ---------- toolbar ---------- */
+#toolbar {
+  flex: 0 0 auto; background: var(--panel);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tool-row { display: flex; gap: 6px; padding: 8px 10px 4px; align-items: center; overflow-x: auto; }
+.tool {
+  min-width: 44px; height: 44px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel-2); color: inherit; font-size: 19px; cursor: pointer;
+  flex: 0 0 auto;
+}
+.tool.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.sep { width: 1px; height: 28px; background: var(--line); flex: 0 0 auto; margin: 0 2px; }
+
+.palette {
+  display: flex; gap: 8px; padding: 6px 10px 10px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+}
+.chip {
+  flex: 0 0 auto; width: 76px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel-2); color: #c8cdd6;
+  padding: 6px 4px 5px; cursor: pointer; text-align: center;
+}
+.chip canvas { width: 64px; height: 44px; display: block; margin: 0 auto; border-radius: 6px; background: #14161a; }
+.chip .chip-label { display: block; font-size: 10px; margin-top: 4px; line-height: 1.15; }
+.chip.active { border-color: var(--accent); background: #2e3140; color: #fff; box-shadow: 0 0 0 1px var(--accent); }
+
+/* ---------- dialogs ---------- */
+dialog {
+  margin: auto; max-width: 420px; width: calc(100vw - 32px);
+  background: var(--panel); color: inherit; border: 1px solid var(--line);
+  border-radius: 14px; padding: 18px;
+}
+dialog::backdrop { background: rgba(0, 0, 0, .55); }
+dialog h2 { margin: 0 0 12px; font-size: 17px; }
+dialog h3 { margin: 14px 0 6px; font-size: 14px; color: #aab1bd; }
+.menu-actions { display: flex; flex-direction: column; gap: 8px; }
+.menu-actions button, .file-label {
+  font: inherit; font-size: 14px; text-align: left; padding: 11px 12px;
+  border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: inherit; cursor: pointer; display: block;
+}
+.file-label input { display: none; }
+button.primary { background: var(--accent); color: var(--accent-ink); font-weight: 700; border-color: var(--accent); }
+button.secondary { background: transparent; }
+.dialog-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.dialog-actions button { flex: 1 1 auto; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); color: inherit; cursor: pointer; }
+.credits { font-size: 11px; color: #9aa3af; line-height: 1.5; margin: 14px 0 0; }
+.credits a { color: var(--accent); }
+.io-hint { font-size: 12px; color: #aab1bd; line-height: 1.5; }
+#ioText {
+  width: 100%; margin-top: 10px; resize: vertical;
+  background: #14161a; color: #dfe3ea; border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.help-list { margin: 0 0 8px; padding-left: 18px; font-size: 13px; line-height: 1.7; }
+kbd {
+  background: #14161a; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 5px; padding: 0 5px; font-size: 11px;
+}
+
+/* ---------- toast ---------- */
+#toast {
+  position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(8px);
+  background: #2e3140; border: 1px solid var(--line); color: #fff;
+  padding: 9px 16px; border-radius: 999px; font-size: 13px;
+  opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s;
+  max-width: 88vw; text-align: center; z-index: 50;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (min-width: 900px) {
+  /* desktop: toolbar becomes a left sidebar-ish wide palette, but flex works fine as-is */
+  .palette { flex-wrap: wrap; }
+  .hint { display: none; }
+}
