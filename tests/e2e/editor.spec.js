@@ -65,10 +65,11 @@ test('chaining: second placement snaps its vertex to the first piece exactly', a
   const first = (await st(page)).sprites[0];
   expect((await st(page)).tool).toBe('Move');
 
-  /* re-arm the same piece and click near the first piece's far vertex */
+  /* re-arm the same piece; click so the new piece's v1 lands within
+   * SNAP_RADIUS of the first piece's v2 (v1 is 27 left of the origin,
+   * so aim the origin ~4cm short of first.x + 54) */
   await page.locator('.chip').first().click();
-  const v2 = { x: first.x + 27, y: first.y + 0 }; /* Str1 v2 at angle 0 */
-  const pt = await toScreen(page, v2.x, v2.y);
+  const pt = await toScreen(page, first.x + 50, first.y);
   await page.mouse.click(pt.x, pt.y);
 
   const s = await st(page);
@@ -150,6 +151,9 @@ test('import dialog loads a pasted track', async ({ page }) => {
 
 test('share-link hash restores the track on a fresh load', async ({ page }) => {
   const code = Buffer.from(FIXTURE, 'utf8').toString('base64url');
+  /* a hash-only goto from '/' is a same-document navigation — boot()
+   * never re-runs. Hop via about:blank to force a real page load. */
+  await page.goto('about:blank');
   await page.goto(`/#t=${code}`);
   const s = await st(page);
   expect(s.sprites).toHaveLength(4);
