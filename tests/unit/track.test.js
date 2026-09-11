@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { serialize, parseTrack, encodeShare, decodeShare } from '../../src/track.js';
+import { serialize, serializeForSave, parseTrack, encodeShare, decodeShare } from '../../src/track.js';
 
 /* Byte-compat is a release blocker: parse → serialize must reproduce the
  * input exactly (original pimentoso format, trailing # included). */
@@ -49,4 +49,41 @@ test('share codec round-trips and matches Node base64url', () => {
   assert.equal(decodeShare(code), FIXTURE);
   assert.equal(code, Buffer.from(FIXTURE, 'utf8').toString('base64url'));
   assert.ok(!code.includes('+') && !code.includes('/') && !code.includes('='));
+});
+
+test('serializeForSave is byte-identical to serialize for non-negative tracks', () => {
+  const sprites = parseTrack(FIXTURE);
+  assert.equal(serializeForSave(sprites), serialize(sprites));
+  assert.equal(serializeForSave(sprites), FIXTURE);
+});
+
+test('serializeForSave translates negative-origin tracks instead of dropping pieces', () => {
+  const sprites = [
+    { name: 'Str1', x: -30, y: -68, a: 0, c: 0 },
+    { name: 'Str1', x: 100, y: 50, a: 45, c: 2 },
+  ];
+  const out = parseTrack(serializeForSave(sprites));
+  assert.equal(out.length, 2); /* nothing dropped */
+  /* minimal translation only: most-negative origin moves to 0 */
+  assert.deepEqual([out[0].x, out[0].y], [0, 0]);
+  assert.deepEqual([out[1].x, out[1].y], [130, 118]);
+  assert.equal(out[1].a, 45);
+  assert.equal(out[1].c, 2);
+});
+
+test('serializeForSave never mutates the model', () => {
+  const sprites = [{ name: 'Str1', x: -10, y: 5, a: 0, c: 0 }];
+  serializeForSave(sprites);
+  assert.deepEqual(sprites, [{ name: 'Str1', x: -10, y: 5, a: 0, c: 0 }]);
+});
+
+test('share links keep negative-origin pieces (normalized)', () => {
+  const sprites = [
+    { name: 'Str1', x: -30, y: -68, a: 0, c: 0 },
+    { name: 'Cor1', x: 100, y: 50, a: 45, c: 2 },
+  ];
+  const out = parseTrack(decodeShare(encodeShare(sprites)));
+  assert.equal(out.length, 2);
+  assert.equal(out[1].x - out[0].x, 130); /* relative layout preserved */
+  assert.equal(out[1].y - out[0].y, 118);
 });

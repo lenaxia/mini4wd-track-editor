@@ -17,10 +17,14 @@ dependencies: unit tests use Node's built-in runner; e2e uses Playwright
 
 1. **Track format byte-compatibility** — `parseTrack → serialize` must
    reproduce the original string exactly (unit, `track.test.js`). Any change
-   here is a release blocker per README-LLM.
+   here is a release blocker per README-LLM. Persistence paths (autosave,
+   share, export) serialize via `serializeForSave` — byte-identical for
+   non-negative tracks, minimal-translation for negative-origin ones
+   (the codec drops those; the fork's free canvas produces them).
 2. **Snapping correctness** — vertex snap and group snap (unit,
-   `geometry.test.js`); chained placement produces byte-exact connections
-   (e2e).
+   `geometry.test.js`): closest-pair-wins, applied once, ties resolved
+   deterministically by array order; chained placement produces byte-exact
+   connections (e2e).
 3. **Interaction model regressions** — the Figma-style flow (place → move →
    click-away deselect, Esc → Pan, tool revert) is pinned by e2e specs.
 
@@ -29,16 +33,23 @@ dependencies: unit tests use Node's built-in runner; e2e uses Playwright
 - `track.test.js` — round-trip byte-compat on a fixed fixture;
   `/load/CODE.js` body extraction; malformed segments skipped;
   negative-coordinate filtering in `serialize`; share codec round-trip
-  (verified against Node `Buffer` base64url).
+  (verified against Node `Buffer` base64url); `serializeForSave`
+  byte-identity for valid tracks + lossless translation for
+  negative-origin tracks (no model mutation).
 - `geometry.test.js` — `rot` basis rotations; `vertexOf` under rotation;
-  `snapPiece`/`groupSnap` snap within radius and never beyond; `topPieceAt`
-  z-order + bbox; `computeFit` clamping and centering; `solveGeo` returns
-  finite arcs for every corner/hairpin in the catalog.
+  `snapPiece` closest-pair-wins / deterministic ties / exact vertex
+  connection; `groupSnap` best pair; `topPieceAt` z-order + bbox;
+  `computeFit` clamping and centering; `solveGeo` finite arcs whose
+  endpoints equal the catalog `v1`/`v2` exactly.
 - `pieces.test.js` — catalog integrity: palette entries resolve, vertices
   finite, `colors >= 1`, footprints positive.
 - `store.test.js` — actions: place floors + snaps + selects; undo/pop
-  history (incl. 80-deep cap); rotate (selection vs armed angle); delete,
-  color cycle, clear, import; load-snapshots history.
+  history (incl. 80-deep cap); rotate (selection around visual centers,
+  armed angle only); delete, color cycle, clear, import; load-snapshots
+  history.
+- `storage.test.js` — autosave → restore round-trip through a Map-backed
+  localStorage stub (350ms debounce), negative-origin losslessness,
+  malformed-save tolerance.
 
 ## E2E tests (`tests/e2e/`, Playwright)
 
@@ -56,9 +67,12 @@ test hook (exposed by `src/main.js`) — never pixel-diffed.
 7. Rotate: `X` rotates selection (coords + angle).
 8. Undo: `R` steps back; empty-history is a no-op.
 9. Import: menu → paste → Import loads the fixture track.
-10. Share: `#t=` hash restores the track on a fresh load.
-11. Touch (`hasTouch`): tap-chip + tap-canvas places (mobile viewport).
-12. Keyboard: `1` arms the first piece family.
+10. Share: `#t=` hash restores the track on a fresh load (hash-only gotos
+    are same-document navigations — the spec hops via `about:blank`).
+11. Autosave: placed track survives a reload through localStorage
+    (layout preserved exactly; restored coords non-negative).
+12. Touch (`hasTouch`): tap-chip + tap-canvas places (mobile viewport).
+13. Keyboard: `1` arms the first piece family.
 
 ## Manual matrix (not automatable with current tooling)
 
@@ -82,4 +96,6 @@ Where the browser cannot launch, the specs still run unchanged in CI or on
 a developer machine; use the DOM-stub smoke trick or the unit layer for
 headless wiring verification in constrained environments.
 
-CI (roadmap): run both layers on every PR via the ai-workflows plumbing.
+CI: both layers run on every PR and on pushes to main via
+`.github/workflows/ci.yml` (unit → per-file syntax check → Playwright
+with `chromium --with-deps`).

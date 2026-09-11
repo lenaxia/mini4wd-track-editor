@@ -4,7 +4,7 @@
  * store is unit-testable under plain node. */
 
 import { PIECES, PALETTE, TOOLS } from './pieces.js';
-import { rot, snapPiece, groupSnap, worldFromScreen, clampScale, computeFit } from './geometry.js';
+import { rot, centerOf, snapPiece, groupSnap, worldFromScreen, clampScale, computeFit } from './geometry.js';
 import * as storage from './storage.js';
 
 export const state = {
@@ -107,13 +107,14 @@ export function clearAll() {
 }
 
 /* Rotate the armed angle and (when present) the selection around its
- * centroid. Returns true when a selection was rotated. */
+ * centroid (average of the pieces' visual centers, so off-center pieces
+ * like Cor1 spin in place). Returns true when a selection was rotated. */
 export function rotate(delta) {
   state.angle = (state.angle + delta + 360) % 360;
   if (state.selection.size) {
     pushHistory();
     let cx = 0, cy = 0;
-    for (const p of state.selection) { cx += p.x; cy += p.y; }
+    for (const p of state.selection) { const c = centerOf(p); cx += c.x; cy += c.y; }
     cx /= state.selection.size; cy /= state.selection.size;
     for (const p of state.selection) {
       const r = rot(p.x - cx, p.y - cy, delta);

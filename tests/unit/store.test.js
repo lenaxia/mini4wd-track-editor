@@ -57,6 +57,24 @@ test('rotate spins the selection around its centroid', () => {
   assert.equal(state.history.length, 1);
 });
 
+test('rotate spins a single off-center piece around its visual center', () => {
+  /* Cor1's visual center is (-5, -3.5) local, not the origin — rotating
+   * in place must keep the center fixed and move the origin instead. */
+  const p = { name: 'Cor1', x: 100, y: 100, a: 0, c: 0 };
+  state.sprites.push(p);
+  state.selection.add(p);
+  const before = { x: p.x - 5, y: p.y - 3.5 }; /* centerOf at a=0 */
+  assert.equal(rotate(90), true);
+  const after = {
+    x: p.x + (-5 * Math.cos(Math.PI / 2) - -3.5 * Math.sin(Math.PI / 2)),
+    y: p.y + (-5 * Math.sin(Math.PI / 2) + -3.5 * Math.cos(Math.PI / 2)),
+  };
+  assert.ok(Math.abs(after.x - before.x) < 1e-9, `x center moved: ${after.x} vs ${before.x}`);
+  assert.ok(Math.abs(after.y - before.y) < 1e-9, `y center moved: ${after.y} vs ${before.y}`);
+  assert.equal(p.a, 90);
+  assert.notEqual(p.x, 100); /* the origin itself moved */
+});
+
 test('rotate with no selection only changes the armed angle', () => {
   assert.equal(rotate(45), false);
   assert.equal(state.angle, 45);

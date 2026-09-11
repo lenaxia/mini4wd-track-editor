@@ -125,22 +125,23 @@ export function topPieceAt(sprites, w) {
 /* ---------- snapping ---------- */
 
 /* Snap a placed-or-about-to-be piece to the closest connection vertex of
- * every other piece (algorithm from the original MIT source). Mutates g. */
+ * every other piece (vertex-pair enumeration from the original MIT
+ * source; selection is closest-pair-wins, applied once). Mutates g. */
 export function snapPiece(g, sprites) {
-  let snapped = false;
+  let best = null;
   for (const s of sprites) {
     if (s === g) continue;
-    const pairs = [[1, 1], [1, 2], [2, 1], [2, 2]];
-    for (const [si, gi] of pairs) {
+    for (const [si, gi] of [[1, 1], [1, 2], [2, 1], [2, 2]]) {
       const a = vertexOf(s, si), b = vertexOf(g, gi);
-      if (Math.hypot(a.x - b.x, a.y - b.y) <= SNAP_RADIUS) {
-        g.x += a.x - b.x; g.y += a.y - b.y;
-        snapped = true;
-        break;
-      }
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d <= SNAP_RADIUS && (!best || d < best.d)) best = { d, dx: a.x - b.x, dy: a.y - b.y };
     }
   }
-  return snapped;
+  if (best) {
+    g.x += best.dx; g.y += best.dy;
+    return true;
+  }
+  return false;
 }
 
 /* Snap a dragged group by its best vertex pair against unselected pieces.

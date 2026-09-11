@@ -70,6 +70,20 @@ Two automated layers plus a manual matrix:
   specs are still valid and run in CI / locally).
 - **Manual:** two-finger pinch, real touch devices, sprite fidelity.
 
+### TDD (mandatory)
+
+- **Red-green for pure-module changes** (`store.js`, `geometry.js`,
+  `track.js`, `pieces.js`, `storage.js`): write the failing unit test
+  first, confirm it fails for the intended reason, then make it pass.
+  Bug fixes additionally keep a test that fails on the pre-fix code
+  (regression pin). `serialize()` byte-compat is never traded away.
+- **Spec-first for interaction changes** (`input.js`, `render.js`,
+  `ui.js`): write/adjust the Playwright spec that pins the intended
+  behavior before implementing, and state in the PR how it was verified
+  (e2e spec, or an exact recipe: tool, input sequence, expected result).
+  Specs encode intentions — when a spec and the interaction model in this
+  README disagree, resolve in favor of this README and fix the spec.
+
 Behavior changes in `input.js`/`render.js`/`ui.js` that unit tests cannot
 reach must state in the PR how they were verified (e2e spec, or an exact
 recipe: tool, input sequence, expected result).
@@ -78,7 +92,8 @@ recipe: tool, input sequence, expected result).
 
 ```bash
 npm test                              # unit — must be green
-node --check src/*.js serve.js        # syntax over the whole graph
+for f in src/*.js serve.js; do node --check "$f"; done   # per file —
+                                      # 'node --check a b' checks only a
 node serve.js & sleep 1
 curl -sf http://localhost:3000/ >/dev/null \
   && curl -sf http://localhost:3000/src/main.js >/dev/null \

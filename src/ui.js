@@ -6,7 +6,7 @@ import {
   state, subscribe, setTool, setMode, undo, clearAll, loadSprites, rotate, zoomAt, fitView,
 } from './store.js';
 import { PIECES, PALETTE } from './pieces.js';
-import { serialize, parseTrack, encodeShare } from './track.js';
+import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { drawPieceArt } from './art.js';
 
@@ -128,7 +128,7 @@ export function init(dimsGetter) {
   });
 
   $('btnExport').addEventListener('click', () => {
-    const blob = new Blob([serialize(state.sprites)], { type: 'text/plain' });
+    const blob = new Blob([serializeForSave(state.sprites)], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'mini4wd-track.txt';

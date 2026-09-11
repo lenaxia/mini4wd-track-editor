@@ -65,10 +65,11 @@ test('chaining: second placement snaps its vertex to the first piece exactly', a
   const first = (await st(page)).sprites[0];
   expect((await st(page)).tool).toBe('Move');
 
-  /* re-arm the same piece and click near the first piece's far vertex */
+  /* re-arm the same piece; click so the new piece's v1 lands within
+   * SNAP_RADIUS of the first piece's v2 (v1 is 27 left of the origin,
+   * so aim the origin ~4cm short of first.x + 54) */
   await page.locator('.chip').first().click();
-  const v2 = { x: first.x + 27, y: first.y + 0 }; /* Str1 v2 at angle 0 */
-  const pt = await toScreen(page, v2.x, v2.y);
+  const pt = await toScreen(page, first.x + 50, first.y);
   await page.mouse.click(pt.x, pt.y);
 
   const s = await st(page);
@@ -114,15 +115,35 @@ test('Esc dismisses the armed piece tool and returns to Pan', async ({ page }) =
   expect(s.sprites).toHaveLength(0);
 });
 
-test('X rotates the selection around its centroid', async ({ page }) => {
+test('X rotates the selection around its visual center', async ({ page }) => {
+  /* Str1 is centered on its origin: in-place rotation must not move it */
   await page.locator('.chip').first().click();
   await clickCanvas(page, 0.5, 0.5);
-  const before = (await st(page)).sprites[0];
-
+  const s1 = (await st(page)).sprites[0];
   await page.keyboard.press('x');
-  const after = (await st(page)).sprites[0];
-  expect(after.a).toBe(45);
-  expect(after.x).not.toBe(before.x); /* rotated off the old position */
+  const s1b = (await st(page)).sprites[0];
+  expect(s1b.a).toBe(45);
+  expect(s1b.x).toBe(s1.x);
+  expect(s1b.y).toBe(s1.y);
+
+  /* Cor1's center is (-5, -3.5) local: the origin moves so the center stays.
+   * 'z' first — the earlier 'x' left the armed angle at 45. */
+  await page.keyboard.press('z');
+  await page.keyboard.press('2'); /* arm Cor1 */
+  await clickCanvas(page, 0.3, 0.3);
+  const cor = (await st(page)).sprites[1];
+  await page.keyboard.press('x');
+  const corb = (await st(page)).sprites[1];
+  expect(corb.a).toBe(45);
+  const c = Math.SQRT1_2;
+  const centerBefore = { x: cor.x - 5, y: cor.y - 3.5 };
+  const centerAfter = {
+    x: corb.x + (-5 * c - -3.5 * c),
+    y: corb.y + (-5 * c + -3.5 * c),
+  };
+  expect(Math.abs(centerAfter.x - centerBefore.x)).toBeLessThan(1e-6);
+  expect(Math.abs(centerAfter.y - centerBefore.y)).toBeLessThan(1e-6);
+  expect(corb.x).not.toBe(cor.x); /* the origin itself moved */
 });
 
 test('R undoes the last change; empty history is a no-op', async ({ page }) => {
@@ -150,10 +171,33 @@ test('import dialog loads a pasted track', async ({ page }) => {
 
 test('share-link hash restores the track on a fresh load', async ({ page }) => {
   const code = Buffer.from(FIXTURE, 'utf8').toString('base64url');
+  /* a hash-only goto from '/' is a same-document navigation — boot()
+   * never re-runs. Hop via about:blank to force a real page load. */
+  await page.goto('about:blank');
   await page.goto(`/#t=${code}`);
   const s = await st(page);
   expect(s.sprites).toHaveLength(4);
   expect(s.sprites[3].a).toBe(45);
+});
+
+test('autosave restores the track on reload (no hash)', async ({ page }) => {
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.5, 0.5);
+  const first = (await st(page)).sprites[0];
+  await page.locator('.chip').first().click(); /* second piece, offset */
+  await clickCanvas(page, 0.6, 0.5);
+  const second = (await st(page)).sprites[1];
+  const dx = second.x - first.x, dy = second.y - first.y;
+  await page.waitForTimeout(500); /* autosave debounces at 350ms */
+
+  await page.reload();
+  const s = await st(page);
+  expect(s.sprites).toHaveLength(2);
+  /* boot view centers the world origin, so placements can be negative;
+   * persistence normalizes (translates) — layout must survive exactly */
+  expect(s.sprites[1].x - s.sprites[0].x).toBe(dx);
+  expect(s.sprites[1].y - s.sprites[0].y).toBe(dy);
+  expect(s.sprites.every((p) => p.x >= 0 && p.y >= 0)).toBe(true);
 });
 
 test('keyboard 1 arms the first piece family', async ({ page }) => {
