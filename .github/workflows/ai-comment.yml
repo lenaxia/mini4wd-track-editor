@@ -1,0 +1,65 @@
+# AI Commands — caller for lenaxia/ai-workflows.
+#
+# Delegates the slash-command AI flow (/ai, /fix, /implement, /review, /test,
+# /security, /analyze, /explain, /triage, /design, /merge, /help) to the central
+# reusable workflow, which owns prompt assembly (via route-command.sh), the
+# opencode run, and the once-per-thread command footer.
+#
+# The command-token + author_association filter MUST live here (the caller) — a
+# called workflow's job-level `if:` against github.event.comment.* is not
+# reliably evaluated for issue_comment / pull_request_review_comment events.
+# The `gate` job normalizes the comment body (newlines → spaces) and emits an
+# exact-token match; the `respond` job additionally applies the
+# author_association gate before invoking the reusable workflow. Keeping the
+# match in a prior job avoids GitHub-expression operator-precedence pitfalls
+# in long disjunctions (&& binds tighter than ||) and lets multi-line
+# invocations ("/review\nfocus on geometry") match like single-line ones.
+#
+# Pinned to ai-workflows v0.2.15 — bump by editing the tag below (or via propagate.yml).
+# Requires OPENAI_API_KEY / OPENAI_API_BASE secrets + OPENAI_MODEL variable (inherited).
+
+name: AI Commands
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  id-token: write
+  contents: write          # write — this workflow allows code changes
+  issues: write
+  pull-requests: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      trigger: ${{ steps.match.outputs.trigger }}
+    steps:
+      - id: match
+        env:
+          BODY: ${{ github.event.comment.body }}
+        run: |
+          norm="$(printf '%s' "$BODY" | tr '\n\t' '  ')"
+          hit=false
+          for t in ai review fix implement analyze test security explain triage help design merge; do
+            case "$norm" in
+              "/$t"|"/$t "*|*" /$t "*) hit=true; break ;;
+            esac
+          done
+          echo "trigger=$hit" >> "$GITHUB_OUTPUT"
+
+  respond:
+    needs: gate
+    if: |
+      needs.gate.outputs.trigger == 'true' &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
+    uses: lenaxia/ai-workflows/.github/workflows/ai-comment.yml@v0.2.15
+    secrets: inherit
+    with:
+      version: v0.2.15
+      project_name: mini4wd-track-editor
