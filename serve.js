@@ -21,11 +21,12 @@ http.createServer((req, res) => {
   const onError = (err) => { if (!res.headersSent) { try { res.writeHead(500); } catch (_) {} } try { res.end(); } catch (_) {} };
   res.on('error', onError);
   req.on('error', onError);
+  const log = () => console.log(`${new Date().toISOString()} ${req.method} ${req.url} -> ${res.statusCode !== 200 ? res.statusCode : 'ok'} [${req.headers['user-agent'] ? req.headers['user-agent'].slice(0, 40) : '?'}]`);
   const url = decodeURIComponent(req.url.split('?')[0]);
   let file = path.normalize(path.join(ROOT, url === '/' ? 'index.html' : url));
-  if (!file.startsWith(ROOT)) { res.writeHead(403); return res.end('forbidden'); }
+  if (!file.startsWith(ROOT)) { res.writeHead(403); res.end('forbidden'); return log(); }
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
-  if (!fs.existsSync(file)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('404'); }
+  if (!fs.existsSync(file)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('404'); return log(); }
   res.writeHead(200, {
     'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
     'Cache-Control': 'no-store, max-age=0',
@@ -34,7 +35,7 @@ http.createServer((req, res) => {
   const stream = fs.createReadStream(file);
   stream.on('error', onError);
   stream.pipe(res);
-  console.log(`${new Date().toISOString()} ${req.method} ${req.url} -> ${res.statusCode !== 200 ? res.statusCode : 'ok'} [${req.headers['user-agent'] ? req.headers['user-agent'].slice(0, 40) : '?'}]`);
+  res.on('finish', log);
 }).listen(PORT, '0.0.0.0', () => console.log(`mini4wd-editor dev server on http://localhost:${PORT} (no caching)`));
 
 process.on('uncaughtException', (e) => console.error('uncaught:', e.message));
