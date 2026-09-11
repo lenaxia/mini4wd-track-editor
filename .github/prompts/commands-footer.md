@@ -8,7 +8,7 @@ The following commands are available on this issue/PR thread. Reply with one to 
 | `/review [text]` | Explicit code review of the current PR. Append text to focus on specific areas. |
 | `/fix <description>` | Fix a bug. Branch → PR → automated review → iterate → merge. |
 | `/implement <description>` | Implement a feature. Branch → PR → automated review → iterate → merge. |
-| `/test <target>` | Write or improve verification for a target (this repo has no test framework — see README-LLM.md). |
+| `/test <target>` | Write or improve verification for a target: `tests/unit/` (node --test) or `tests/e2e/` (Playwright) — see README-LLM.md / TESTPLAN.md. |
 | `/analyze [text]` | Deep read-only analysis. Posts findings as a comment. No code changes. |
 | `/explain <topic>` | Explain code or architecture. Posts a comment. No code changes. |
 | `/security [text]` | Security-focused review. |

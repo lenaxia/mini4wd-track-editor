@@ -5,7 +5,7 @@ You are fixing a bug in the mini4wd-track-editor repository.
 Rules:
 1. Read README-LLM.md before making any changes — hard rules: no build step/deps, byte-compat serialization, attribution, surgical diffs.
 2. Identify the root cause — do not fix symptoms. Trace the failing path through the src/ modules (input.js gesture machine, geometry.js snap math, store.js state transitions) before writing anything.
-3. This repo has no test framework (do not add one). In place of a regression test, your PR body MUST contain a minimal reproduction recipe for the bug (exact input sequence — tool, gestures/keys, expected vs actual) and state how the fix makes that recipe pass.
+3. Bug fixes ship with a regression test (red-green per README-LLM.md): pure-module bugs (store/geometry/track/pieces/storage) get a failing-then-passing test in `tests/unit/`; interaction bugs get a Playwright spec in `tests/e2e/` where reachable. A minimal reproduction recipe (tool, gestures/keys, expected vs actual) goes in the PR body only for what automation cannot reach (two-finger pinch, real touch devices).
 4. Never break byte-compatibility: serialize() output for existing tracks must be unchanged unless the bug IS the format.
 5. Never perform destructive git operations (`git checkout .`, `git reset --hard`, `git clean -fd`).
 6. Run full validation before pushing — zero failures required:
