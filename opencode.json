@@ -21,19 +21,20 @@
     "*": "allow",
     "bash": {
       "*": "deny",
-      "git*": "allow",
-      "gh*": "allow",
-      "mkdir*": "allow",
       "cat*": "allow",
-      "ls*": "allow",
-      "pwd": "allow",
+      "curl*": "allow",
+      "echo*": "allow",
+      "gh*": "allow",
+      "git*": "allow",
+      "grep*": "allow",
       "jq*": "allow",
+      "ls*": "allow",
+      "mkdir*": "allow",
       "node*": "allow",
       "npm*": "allow",
       "npx*": "allow",
-      "curl*": "allow",
-      "echo*": "allow",
-      "grep*": "allow"
+      "pwd": "allow",
+      "sleep*": "allow"
     }
   }
 }
