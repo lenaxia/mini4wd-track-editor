@@ -8,6 +8,12 @@
 # The command-token + author_association filter MUST live here (the caller) — a
 # called workflow's job-level `if:` against github.event.comment.* is not
 # reliably evaluated for issue_comment / pull_request_review_comment events.
+# The `gate` job normalizes the comment body (newlines → spaces) and emits an
+# exact-token match; the `respond` job additionally applies the
+# author_association gate before invoking the reusable workflow. Keeping the
+# match in a prior job avoids GitHub-expression operator-precedence pitfalls
+# in long disjunctions (&& binds tighter than ||) and lets multi-line
+# invocations ("/review\nfocus on geometry") match like single-line ones.
 #
 # Pinned to ai-workflows v0.2.15 — bump by editing the tag below (or via propagate.yml).
 # Requires OPENAI_API_KEY / OPENAI_API_BASE secrets + OPENAI_MODEL variable (inherited).
@@ -27,24 +33,31 @@ permissions:
   pull-requests: write
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      trigger: ${{ steps.match.outputs.trigger }}
+    steps:
+      - id: match
+        env:
+          BODY: ${{ github.event.comment.body }}
+        run: |
+          norm="$(printf '%s' "$BODY" | tr '\n\t' '  ')"
+          hit=false
+          for t in ai review fix implement analyze test security explain triage help design merge; do
+            case "$norm" in
+              "/$t"|"/$t "*|*" /$t "*) hit=true; break ;;
+            esac
+          done
+          echo "trigger=$hit" >> "$GITHUB_OUTPUT"
+
   respond:
+    needs: gate
     if: |
-      (github.event.comment.body == '/ai' || startsWith(github.event.comment.body, '/ai ') || contains(github.event.comment.body, ' /ai ')) ||
-      (github.event.comment.body == '/review' || startsWith(github.event.comment.body, '/review ') || contains(github.event.comment.body, ' /review ')) ||
-      (github.event.comment.body == '/fix' || startsWith(github.event.comment.body, '/fix ') || contains(github.event.comment.body, ' /fix ')) ||
-      (github.event.comment.body == '/implement' || startsWith(github.event.comment.body, '/implement ') || contains(github.event.comment.body, ' /implement ')) ||
-      (github.event.comment.body == '/analyze' || startsWith(github.event.comment.body, '/analyze ') || contains(github.event.comment.body, ' /analyze ')) ||
-      (github.event.comment.body == '/test' || startsWith(github.event.comment.body, '/test ') || contains(github.event.comment.body, ' /test ')) ||
-      (github.event.comment.body == '/security' || startsWith(github.event.comment.body, '/security ') || contains(github.event.comment.body, ' /security ')) ||
-      (github.event.comment.body == '/explain' || startsWith(github.event.comment.body, '/explain ') || contains(github.event.comment.body, ' /explain ')) ||
-      (github.event.comment.body == '/triage' || startsWith(github.event.comment.body, '/triage ') || contains(github.event.comment.body, ' /triage ')) ||
-      (github.event.comment.body == '/help' || startsWith(github.event.comment.body, '/help ') || contains(github.event.comment.body, ' /help ')) ||
-      (github.event.comment.body == '/design' || startsWith(github.event.comment.body, '/design ') || contains(github.event.comment.body, ' /design ')) ||
-      (github.event.comment.body == '/merge' || startsWith(github.event.comment.body, '/merge ') || contains(github.event.comment.body, ' /merge ')) &&
+      needs.gate.outputs.trigger == 'true' &&
       (github.event.comment.author_association == 'OWNER' ||
        github.event.comment.author_association == 'MEMBER' ||
        github.event.comment.author_association == 'COLLABORATOR')
-
     uses: lenaxia/ai-workflows/.github/workflows/ai-comment.yml@v0.2.15
     secrets: inherit
     with:
