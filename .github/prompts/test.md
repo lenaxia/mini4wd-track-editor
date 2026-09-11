@@ -8,7 +8,7 @@ This repository has two test layers (dev tooling only — the app itself stays z
 2. **E2E (`tests/e2e/`, Playwright + Chromium):** the wired app — placement, snapping, share links, autosave-reload, touch (`hasTouch`). Run with `npm run test:e2e` (needs `npx playwright install chromium` once). Assertions read the model via the `window.__m4wd` hook — never pixel-diff.
 3. **Manual recipes:** for what automation cannot reach (two-finger pinch, real touch devices, sprite fidelity), write a precise recipe (tool, gesture sequence, expected result) in the PR body.
 
-Rules (TDD is mandatory — see README-LLM.md):
+Rules (TDD is mandatory):
 
 - Red-green for pure-module changes (`store`/`geometry`/`track`/`pieces`/`storage`): write the failing test first, confirm it fails for the intended reason, then make it pass. Bug fixes keep a regression test that fails on the pre-fix code.
 - Spec-first for interaction changes (`input`/`render`/`ui`): write/adjust the Playwright spec that pins the intended behavior before implementing.
