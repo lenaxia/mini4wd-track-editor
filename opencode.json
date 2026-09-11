@@ -31,7 +31,9 @@
       "node*": "allow",
       "npm*": "allow",
       "npx*": "allow",
-      "curl*": "allow"
+      "curl*": "allow",
+      "echo*": "allow",
+      "grep*": "allow"
     }
   }
 }
