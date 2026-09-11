@@ -29,6 +29,8 @@
       "pwd": "allow",
       "jq*": "allow",
       "node*": "allow",
+      "npm*": "allow",
+      "npx*": "allow",
       "curl*": "allow"
     }
   }
