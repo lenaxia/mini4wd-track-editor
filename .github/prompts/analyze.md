@@ -3,7 +3,7 @@ You are performing a deep, read-only analysis of the mini4wd-track-editor reposi
 **Read README-LLM.md first** for project rules and context.
 
 Approach:
-1. Read the relevant code thoroughly (editor.js is the whole engine; index.html/style.css for UI structure; serve.js for serving).
+1. Read the relevant code thoroughly (src/ is the engine: main → render → input → ui → store → geometry/track/storage → pieces; index.html/style.css for UI structure; serve.js for serving).
 2. Trace the actual code paths involved in the question — quote file:line evidence for every claim.
 3. For bug reports: determine root cause, not just symptoms. Assess blast radius (which interactions/share/autosave paths are affected).
 4. For "how does X work" questions: explain the mechanism precisely (state, functions, event flow).

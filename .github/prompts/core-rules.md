@@ -2,36 +2,36 @@
 
 These rules apply to every response. They are non-negotiable. The authoritative source is README-LLM.md (read it in full before making changes).
 
-### 1. Zero-dependency, no-build is sacred
+### 1. Zero-runtime-dependency, no-build is sacred
 
-No package.json, no bundler, no imports, no npm install, no frameworks. Vanilla JS + CSS + HTML only, loaded by a plain `<script>` tag. Never introduce a build step or a runtime dependency.
+No bundler, no frameworks, no new npm packages in the app's import graph. The app is vanilla ES modules served statically. Dev-only tooling (Node's built-in test runner, Playwright) is allowed and lives behind `package.json` scripts — `package.json` never ships a runtime dependency. Keep the module graph acyclic: `main → render → input → ui → store → geometry/track/storage → pieces`.
 
 ### 2. Track format byte-compatibility is a hard requirement
 
-`serialize()` / `parseTrack()` speak `Name;x;y;angle;color#…` exactly as the original pimentoso editor does. Any change that alters the serialized output of existing tracks is a bug. Coordinates are `toFixed(3)`, angle in degrees, color index integer. If a change touches these functions, verify round-trip fidelity.
+`src/track.js` `serialize()` / `parseTrack()` speak `Name;x;y;angle;color#…` exactly as the original pimentoso editor does. Any change that alters the serialized output of existing tracks is a bug. Coordinates are `toFixed(3)`, angle in degrees, color index integer. Round-trip fidelity is pinned by `tests/unit/track.test.js` — `npm test` must stay green.
 
-### 3. Validation before every push (no test framework exists)
+### 3. Validation before every push
 
-This repo has NO test suite — do not add one without an explicit request. The mandatory validation is:
+The mandatory validation is (see README-LLM.md for the canonical block):
 
 ```bash
-node --check editor.js     # syntax must pass
-node --check serve.js
-node serve.js & sleep 1    # dev server on :3000
+npm test                              # unit — must be green (node --test)
+for f in src/*.js serve.js; do node --check "$f"; done   # per file
+node serve.js & sleep 1               # dev server on :3000
 curl -sf http://localhost:3000/ >/dev/null && echo index ok
-curl -sf http://localhost:3000/editor.js >/dev/null && echo js ok
+curl -sf http://localhost:3000/src/main.js >/dev/null && echo js ok
 curl -sf http://localhost:3000/style.css >/dev/null && echo css ok
 ```
 
-For behavior changes in editor.js: trace the affected code path in the source and state precisely how you verified it (which functions, which input sequences). If you cannot verify a behavior from code reading alone, say so explicitly rather than claiming it works.
+`node --check a b` validates only the first file — check per file. Behavior changes in `input.js`/`render.js`/`ui.js` that unit tests cannot reach must state in the PR how they were verified (e2e spec via `npm run test:e2e`, or an exact recipe: tool, input sequence, expected result). If you cannot verify a behavior from code reading alone, say so explicitly rather than claiming it works.
 
 ### 4. Preserve attribution and license headers
 
-editor.js carries an MIT license notice derived from the original editor (Michele Ferri / Pimentoso) — it must remain at the top of the file. "Mini4WD" and the piece artwork are Tamiya's; never add Tamiya assets beyond the existing set, and keep the credits/mentions in index.html and README.md accurate.
+`src/main.js` carries the full MIT notice derived from the original editor (Michele Ferri / Pimentoso) at the top, with short derived-data notices in `pieces.js`/`geometry.js`/`track.js` — all stay. "Mini4WD" and the piece artwork are Tamiya's; never add Tamiya assets beyond the existing set, and keep the credits/mentions in index.html and README.md accurate.
 
-### 5. Cache-bust when changing editor.js or style.css
+### 5. Cache-bust when changing app code
 
-index.html references `editor.js?v=N` and `style.css?v=N`. Bump the version query when their content changes.
+index.html loads `src/main.js?v=N`. Bump the version query whenever app code under `src/` changes.
 
 ### 6. Touch-first parity
 

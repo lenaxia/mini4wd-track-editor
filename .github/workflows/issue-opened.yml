@@ -14,7 +14,7 @@ on:
 
 permissions:
   id-token: write
-  contents: read
+  contents: write         # issue-responder may branch + open a PR for code-change issues
   issues: write
   pull-requests: write
 

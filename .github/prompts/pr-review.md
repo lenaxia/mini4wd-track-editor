@@ -13,16 +13,16 @@ CORRECTNESS
 PROJECT INVARIANTS (README-LLM.md)
 - **No build step / no dependencies:** any new import, require, package.json, or framework? Flag it immediately.
 - **Byte-compatibility:** if serialize()/parseTrack() or the piece catalog changed, does the serialized form of existing tracks stay identical? (Format: `Name;x;y;angle;color#…`, x/y `toFixed(3)`.)
-- **Attribution:** is the MIT header at the top of editor.js intact? Are credits in index.html/README.md still accurate? Any new Tamiya assets?
-- **Cache-bust:** did editor.js or style.css change without bumping `?v=N` in index.html?
+- **Attribution:** is the MIT header at the top of src/main.js intact? Are credits in index.html/README.md still accurate? Any new Tamiya assets?
+- **Cache-bust:** did app code under src/ change without bumping `?v=N` in index.html?
 - **Touch parity:** does the change work for touch (single finger, two-finger pan/zoom), mouse, AND keyboard shortcuts? devicePixelRatio rendering preserved?
 
 VERIFICATION
-- Does the PR describe how the change was verified? For editor.js changes, `node --check editor.js` must pass and the dev-server smoke must be clean:
+- Does the PR describe how the change was verified? For src/ changes, `npm test` must pass and the dev-server smoke must be clean:
   ```bash
-  node --check editor.js && node --check serve.js
+  npm test && for f in src/*.js serve.js; do node --check "$f"; done
   node serve.js & sleep 1
-  curl -sf http://localhost:3000/ >/dev/null && curl -sf http://localhost:3000/editor.js >/dev/null && echo smoke ok
+  curl -sf http://localhost:3000/ >/dev/null && curl -sf http://localhost:3000/src/main.js >/dev/null && echo smoke ok
   ```
 - Trace the changed code path in the source: is the claimed behavior actually what the code does? Call out any behavior claim you cannot confirm from the code.
 

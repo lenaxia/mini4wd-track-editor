@@ -4,7 +4,7 @@ You are performing a security-focused review of the mini4wd-track-editor reposit
 
 Threat surface for this static client-side app:
 1. **Untrusted input paths** — imported track strings (`parseTrack` accepts pasted `/load/CODE.js` bodies and raw `Name;x;y;angle;color#…` text), URL hash `#t=<base64url>` share links, and `localStorage` autosave. Trace each: can malformed input cause exceptions, prototype pollution via `__proto__`-style keys, or runaway loops (huge strings, deep splits)?
-2. **XSS** — any `innerHTML` assignment with data derived from track strings, share links, or user text? (index.html dialogs and editor.js toast/IO code are the places to check.) Cite file:line for every sink and prove the data path is or is not attacker-controlled.
+2. **XSS** — any `innerHTML` assignment with data derived from track strings, share links, or user text? (index.html dialogs and src/ui.js toast/IO code are the places to check.) Cite file:line for every sink and prove the data path is or is not attacker-controlled.
 3. **Injection via serialization round-trip** — can a crafted track string re-serialize into something a downstream consumer would misparse (format injection with `;`/`#` in values)?
 4. **serve.js** — path traversal (`path.normalize` + `startsWith(ROOT)` check: is a sibling-directory prefix bypass possible, e.g. `/workspace-evil` vs `/workspace`?), MIME sniffing, response splitting via the URL path, unbounded file reads.
 5. **Supply chain** — the no-dependency rule is also a security property: flag ANY new runtime or build dependency as a finding.

@@ -7,9 +7,9 @@ Rules:
 2. For any code or file changes: create a feature branch and open a PR — never commit directly to main. Branch naming: `feat/issue-{number}-<short-description>`, `fix/issue-{number}-<short-description>`, etc. PR body must include "Closes #{number}".
 3. Validate before pushing — zero failures required:
    ```bash
-   node --check editor.js && node --check serve.js
+   npm test && for f in src/*.js serve.js; do node --check "$f"; done
    node serve.js & sleep 1
-   curl -sf http://localhost:3000/ >/dev/null && curl -sf http://localhost:3000/editor.js >/dev/null && echo smoke ok
+   curl -sf http://localhost:3000/ >/dev/null && curl -sf http://localhost:3000/src/main.js >/dev/null && echo smoke ok
    ```
 4. Keep the app zero-dependency and no-build. serialize()/parseTrack() must stay byte-compatible with the original format.
 5. If the request is ambiguous, state assumptions with a confidence level and ask for clarification rather than guessing.

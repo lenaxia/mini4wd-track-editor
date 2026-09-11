@@ -10,9 +10,9 @@ Rules:
 5. Never perform destructive git operations.
 6. Run full validation before pushing — zero failures required:
    ```bash
-   node --check editor.js && node --check serve.js
+   npm test && for f in src/*.js serve.js; do node --check "$f"; done
    node serve.js & sleep 1
-   curl -sf http://localhost:3000/ >/dev/null && curl -sf http://localhost:3000/editor.js >/dev/null && echo smoke ok
+   curl -sf http://localhost:3000/ >/dev/null && curl -sf http://localhost:3000/src/main.js >/dev/null && echo smoke ok
    ```
-7. Bump the `?v=N` cache-bust in index.html if editor.js or style.css changed.
+7. Bump the `?v=N` cache-bust in index.html if app code under src/ changed.
 8. In the PR body, describe how the feature was verified: which functions were traced, which input sequences were reasoned through, and any behavior you could NOT verify (be explicit).

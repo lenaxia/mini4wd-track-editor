@@ -4,7 +4,7 @@ Every code change MUST follow this review-iterate-approve cycle without exceptio
 
 1. **Read README-LLM.md** — all project rules apply (no build step, byte-compatibility, validation, style).
 2. **Branch:** Create a feature branch (`feat/`, `fix/`, `test/`, `security/`, or `docs/` prefix). Never commit to main.
-3. **Implement** the change surgically; bump the `?v=N` cache-bust in index.html if editor.js or style.css changed.
+3. **Implement** the change surgically; bump the `?v=N` cache-bust in index.html if app code under src/ changed.
 4. **PR:** Open a pull request with a clear description (what, why, how verified). Reference the triggering issue or comment.
 5. **Wait for review:** The automated PR review triggers on every PR open and push. Wait for it to complete before proceeding.
 6. **Address feedback:** Read every finding. Fix ALL real issues. Push to the same branch — this triggers automatic re-review.
@@ -25,9 +25,9 @@ Every code change MUST follow this review-iterate-approve cycle without exceptio
 - NEVER perform destructive git ops (`git checkout .`, `git reset --hard`, `git clean -fd`)
 - **Full validation required before pushing:**
   ```bash
-  node --check editor.js
-  node --check serve.js
+  npm test
+  for f in src/*.js serve.js; do node --check "$f"; done
   node serve.js & sleep 1
-  curl -sf http://localhost:3000/ >/dev/null && curl -sf http://localhost:3000/editor.js >/dev/null && echo smoke ok
+  curl -sf http://localhost:3000/ >/dev/null && curl -sf http://localhost:3000/src/main.js >/dev/null && echo smoke ok
   ```
 - If the review cycle exceeds 3 iterations, step back and reassess the approach — something is wrong
