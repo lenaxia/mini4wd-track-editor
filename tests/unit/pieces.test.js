@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PIECES, PALETTE, TOOLS, VARIANT_COLORS, SNAP_RADIUS } from '../../src/pieces.js';
 
-test('every palette entry resolves to a piece definition', () => {
+const TAMIYA = new Set([...PALETTE[3], ...PALETTE[5]]);
+
+test('every palette entry resolves to a piece definition (all drawers)', () => {
   for (const mode of [3, 5]) {
     assert.ok(PALETTE[mode].length > 0);
     for (const name of PALETTE[mode]) {
@@ -34,10 +36,12 @@ test('catalog fields are sane for every piece', () => {
         minSep = Math.min(minSep, d);
       }
     }
-    /* Tamiya pieces keep >2x SNAP_RADIUS (no pair ambiguity); rucdoc's
-     * tight 1-lane corners sit at ~1.6x — closest-pair determinism still
-     * holds, only the both-vertices-in-range window widens. */
-    assert.ok(minSep > 1.5 * SNAP_RADIUS, `${name}: vertex separation ${minSep} too small`);
+    /* Tamiya keeps the strict no-pair-ambiguity floor (>2x SNAP_RADIUS);
+     * rucdoc's tight 1-lane corners sit at ~1.65x — closest-pair
+     * determinism still holds, only the both-vertices window widens
+     * (hysteresis deferred: docs/design/orient-elevation.md §9). */
+    const floor = TAMIYA.has(name) ? 2 : 1.5;
+    assert.ok(minSep > floor * SNAP_RADIUS, `${name}: vertex separation ${minSep} < ${floor}x snap radius`);
     if (def.kind === 'corner' || def.kind === 'hairpin') {
       assert.ok(def.R > 0 && def.band > 0, name);
     }

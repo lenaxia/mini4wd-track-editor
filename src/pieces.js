@@ -44,7 +44,8 @@ export const PIECES = {
   Chi2: { label: 'Wave',          lanes: 5, l: 6,    w: 120, h: 72,  colors: 1, verts: [[-60, 6], [60, 6]],             kind: 'wave' },
 
   /* ---------- rucdoc 3D-printed system (seed set, published dims) ----------
-   * Derived analytically from rucdoc's published dimensions (115mm lanes +
+   * Dimensions published by rucdoc (MIT (c) rucdoc, thangs.com/designer/
+   * rucdoc). Derived analytically (115mm lanes +
    * 50mm walls => 1L 13cm / 2L 25cm / 3L 37cm wide; corners: centerline
    * R = IR + width/2; ramps carry real rise as zOff in mm). Procedural art
    * fallback renders these until top-down ortho projections land

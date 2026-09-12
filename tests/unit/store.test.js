@@ -232,7 +232,7 @@ test('chained adjacency is not plan overlap (no false _over on slope chains)', (
   assert.equal(above._warn, false); /* dz=75 clears */
 });
 
-test('setMode supports the rucdoc drawer and storage round-trips it', async () => {
+test('setMode supports the rucdoc drawer (re-arm semantics)', () => {
   setTool('Str1'); /* a 3-lane piece armed */
   setMode('rucdoc');
   assert.equal(state.mode, 'rucdoc');
