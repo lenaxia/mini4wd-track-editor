@@ -26,6 +26,14 @@ body {
 .brand { font-weight: 700; font-size: 15px; white-space: nowrap; }
 .brand span { color: var(--accent); }
 .mode-switch { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+/* narrow screens: the segmented control collapses to one cycling button
+ * (pure CSS — the app never toggles visibility, so viewport changes
+ * can't leave the switcher in a stale state) */
+#modeCycle { display: none; }
+@media (max-width: 540px) {
+  .mode-switch > button:not(#modeCycle) { display: none; }
+  #modeCycle { display: block; }
+}
 .mode-switch button {
   border: 0; background: transparent; color: #aab1bd;
   font: inherit; font-size: 12px; padding: 5px 10px; cursor: pointer;

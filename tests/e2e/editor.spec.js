@@ -511,3 +511,35 @@ test('Rudoc mode survives reload through autosave', async ({ page }) => {
   expect((await st(page)).mode).toBe('rucdoc');
   expect((await st(page)).sprites[0].name).toBe('R1S250');
 });
+
+test('mobile top bar: the mode control collapses to one cycling button', async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
+  const page = await ctx.newPage();
+  await page.goto('/');
+  await expect(page.locator('#modeCycle')).toBeVisible();
+  await expect(page.locator('#mode3')).toBeHidden();
+  await expect(page.locator('.brand')).toHaveText('Mini4WD Track');
+  await page.locator('#modeCycle').click();
+  expect((await st(page)).mode).toBe(5);
+  await expect(page.locator('#modeCycle')).toHaveText('5L ▸');
+  await page.locator('#modeCycle').click();
+  expect((await st(page)).mode).toBe('rucdoc');
+  await expect(page.locator('#modeCycle')).toHaveText('Rudoc ▸');
+  await page.locator('#modeCycle').click();
+  expect((await st(page)).mode).toBe(3);
+  await ctx.close();
+
+  /* viewport crossing must not stale the controls (rotation trap): the
+   * cycle button shows/hides purely via CSS, no JS visibility state */
+  const page2 = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await page2.goto('/');
+  await expect(page2.locator('#modeCycle')).toBeHidden();
+  await expect(page2.locator('#mode3')).toBeVisible();
+  await page2.setViewportSize({ width: 390, height: 780 });
+  await expect(page2.locator('#modeCycle')).toBeVisible();
+  await expect(page2.locator('#mode3')).toBeHidden();
+  await page2.setViewportSize({ width: 1280, height: 800 });
+  await expect(page2.locator('#modeCycle')).toBeHidden();
+  await expect(page2.locator('#mode3')).toBeVisible();
+  await page2.close();
+});
