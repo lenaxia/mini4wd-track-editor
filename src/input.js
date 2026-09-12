@@ -7,7 +7,7 @@ import {
   undo, removePiece, cycleColor, deleteSelected, rotate, bumpLevel, zoomAt, fitView,
 } from './store.js';
 import { TOOLS } from './pieces.js';
-import { topPieceAt, isHit, groupSnap, worldFromScreen, clampScale, pieceHalfExtents } from './geometry.js';
+import { topPieceAt, isHit, snapPiece, groupSnap, worldFromScreen, clampScale, pieceHalfExtents } from './geometry.js';
 import { toast } from './ui.js';
 
 const pointers = new Map();
@@ -105,7 +105,7 @@ function onPointerDown(e) {
     const w = world(s);
     const before = snapshot();
     const piece = place(state.tool, w.x, w.y, state.angle);
-    groupDrag = { start: w, snapshot: before, orig: [[piece, piece.x, piece.y]], moved: false, placed: piece };
+    groupDrag = { start: w, snapshot: before, orig: [[piece, piece.x, piece.y, piece.a, piece.z]], moved: false, placed: piece };
     if (hintShown) { hintShown = false; document.getElementById('hint').style.opacity = '0'; }
     updateLight(() => {});
   }
@@ -151,7 +151,16 @@ function onPointerMove(e) {
     const dx = w.x - groupDrag.start.x, dy = w.y - groupDrag.start.y;
     for (const [p, x0, y0] of groupDrag.orig) { p.x = x0 + dx; p.y = y0 + dy; }
     if (Math.hypot(dx, dy) > 2) groupDrag.moved = true;
-    dragSnapped_ = groupSnap(state.selection, state.sprites);
+    if (groupDrag.placed) {
+      /* single-piece placement drag: full joint semantics — restore the
+       * armed angle/level each frame, then snapPiece orients + connects
+       * exactly + adopts the neighbor level (spec §4) */
+      const [p, , , a0, z0] = groupDrag.orig[0];
+      p.a = a0; p.z = z0;
+      dragSnapped_ = snapPiece(p, state.sprites);
+    } else {
+      dragSnapped_ = groupSnap(state.selection, state.sprites); /* position-only by design */
+    }
     updateLight(() => {});
     return;
   }

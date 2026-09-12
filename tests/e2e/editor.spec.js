@@ -335,3 +335,60 @@ test('Delete and Color act on the z-topmost piece at a crossover', async ({ page
   const s2 = await st(page);
   expect(s2.sprites[0].c).toBe(1);
 });
+
+test('dragging a placement to a joint auto-orients (press far, drag to connect)', async ({ page }) => {
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.3, 0.5);
+  const first = (await st(page)).sprites[0];
+  await page.keyboard.press('Escape'); /* deselect so z only arms the angle */
+
+  /* arm the corner at a WRONG angle (315) — drag from far away to the joint */
+  await page.keyboard.press('2');
+  await page.keyboard.press('z');
+  const start = await toScreen(page, first.x + 200, first.y + 60);
+  /* drag the ORIGIN to where the armed-315 corner's v0 (local rot(-26,-8,315)
+   * ~ (-24,+12.7)) lands on first's v2 — the user drags watching the dots */
+  const end = await toScreen(page, first.x + 51, first.y - 12.7);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 12 });
+  const mid = await st(page); /* held at the joint: oriented + welded already */
+  expect(mid.sprites[1].a).toBeLessThan(0.5);
+  const mc = mid.sprites[1];
+  expect(Math.hypot(mc.x - 53 - first.x, mc.y - 8 - first.y)).toBeLessThan(0.05); /* joint exact: origin at first+(53,+8) */
+
+  /* still holding: drag away — the snap releases and the armed angle returns */
+  const away = await toScreen(page, first.x + 200, first.y + 60);
+  await page.mouse.move(away.x, away.y, { steps: 8 });
+  const mid2 = await st(page);
+  expect(mid2.sprites[1].a).toBe(315);
+  await page.mouse.up();
+
+  const s = await st(page);
+  expect(s.sprites).toHaveLength(2);
+  expect(s.sprites[1].name).toBe('Cor1');
+  expect(s.sprites[1].a).toBe(315); /* released free: armed orientation kept */
+});
+
+test('pressing ON a joint welds immediately; dragging away keeps that orientation', async ({ page }) => {
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.3, 0.5);
+  const first = (await st(page)).sprites[0];
+  await page.keyboard.press('Escape');
+
+  /* press directly in snap range: place() orients at press, and the drag
+   * snapshot captures the WELDED angle — dragging away keeps it (not the
+   * armed angle, which was superseded at press) */
+  await page.keyboard.press('2');
+  await page.keyboard.press('z');
+  const onJoint = await toScreen(page, first.x + 51, first.y - 12.7);
+  await page.mouse.move(onJoint.x, onJoint.y);
+  await page.mouse.down();
+  const held = await st(page);
+  expect(held.sprites[1].a).toBeLessThan(0.5); /* welded at press already */
+  const away = await toScreen(page, first.x + 200, first.y + 60);
+  await page.mouse.move(away.x, away.y, { steps: 8 });
+  const held2 = await st(page);
+  expect(held2.sprites[1].a).toBeLessThan(0.5); /* press-welded orientation kept */
+  await page.mouse.up();
+});
