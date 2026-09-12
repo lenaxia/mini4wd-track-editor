@@ -231,3 +231,16 @@ test('chained adjacency is not plan overlap (no false _over on slope chains)', (
   assert.equal(above._over, true);
   assert.equal(above._warn, false); /* dz=75 clears */
 });
+
+test('setMode supports the rucdoc drawer and storage round-trips it', async () => {
+  setTool('Str1'); /* a 3-lane piece armed */
+  setMode('rucdoc');
+  assert.equal(state.mode, 'rucdoc');
+  assert.equal(state.tool, 'R1S250'); /* re-armed from the drawer's head */
+  setTool('R1C45I150');
+  setMode(3); /* tool not in 3-lane palette -> re-arm */
+  assert.equal(state.tool, 'Str1');
+  setTool('Pan'); /* tool-tools survive mode switches */
+  setMode('rucdoc');
+  assert.equal(state.tool, 'Pan');
+});

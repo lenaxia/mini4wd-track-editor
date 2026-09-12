@@ -42,12 +42,31 @@ export const PIECES = {
   Bri4: { label: 'Slope',         lanes: 5, l: 6,    w: 120, h: 60,  colors: 1, verts: [[-60, 0], [60, 0, 75]],         kind: 'slope' },
   Ban2: { label: 'Bank',          lanes: 5, l: 2.7,  w: 54,  h: 60,  colors: 1, verts: [[-27, 0], [27, 0]],             kind: 'bank' },
   Chi2: { label: 'Wave',          lanes: 5, l: 6,    w: 120, h: 72,  colors: 1, verts: [[-60, 6], [60, 6]],             kind: 'wave' },
+
+  /* ---------- rucdoc 3D-printed system (seed set, published dims) ----------
+   * Derived analytically from rucdoc's published dimensions (115mm lanes +
+   * 50mm walls => 1L 13cm / 2L 25cm / 3L 37cm wide; corners: centerline
+   * R = IR + width/2; ramps carry real rise as zOff in mm). Procedural art
+   * fallback renders these until top-down ortho projections land
+   * (docs/design/orient-elevation.md SS6). */
+  R1S250: { label: 'R 1L straight 250mm', lanes: 1, l: 0.25, w: 25, h: 13, colors: 1, verts: [[-12.5, 0], [12.5, 0]], kind: 'straight' },
+  R1C45I150: { label: 'R 1L corner 45\u00B0 IR150', lanes: 1, l: 0.17, w: 31, h: 22, colors: 1, verts: [[7.6, 3.15], [-7.6, -3.15]], kind: 'corner', R: 21.5, band: 13 },
+  R1C90I150: { label: 'R 1L corner 90\u00B0 IR150', lanes: 1, l: 0.34, w: 37, h: 37, colors: 1, verts: [[10.75, 10.75], [-10.75, -10.75]], kind: 'corner', R: 21.5, band: 13 },
+  R1R250: { label: 'R 1L ramp 250mm R50', lanes: 1, l: 0.25, w: 25, h: 13, colors: 1, verts: [[-12.5, 0], [12.5, 0, 50]], kind: 'slope' },
+  R2S250: { label: 'R 2L straight 250mm', lanes: 2, l: 0.25, w: 25, h: 25, colors: 1, verts: [[-12.5, 0], [12.5, 0]], kind: 'straight' },
+  R2C45I150: { label: 'R 2L corner 45\u00B0 IR150', lanes: 2, l: 0.22, w: 47, h: 36, colors: 1, verts: [[9.72, 4.03], [-9.72, -4.03]], kind: 'corner', R: 27.5, band: 25 },
+  R2R250: { label: 'R 2L ramp 250mm R50', lanes: 2, l: 0.25, w: 25, h: 25, colors: 1, verts: [[-12.5, 0], [12.5, 0, 50]], kind: 'slope' },
+  R3S250: { label: 'R 3L straight 250mm', lanes: 3, l: 0.25, w: 25, h: 37, colors: 1, verts: [[-12.5, 0], [12.5, 0]], kind: 'straight' },
+  R3C45I115: { label: 'R 3L corner 45\u00B0 IR115', lanes: 3, l: 0.24, w: 61, h: 48, colors: 1, verts: [[10.61, 4.39], [-10.61, -4.39]], kind: 'corner', R: 30, band: 37 },
+  R3R250: { label: 'R 3L ramp 250mm R50', lanes: 3, l: 0.25, w: 25, h: 37, colors: 1, verts: [[-12.5, 0], [12.5, 0, 50]], kind: 'slope' },
 };
 
-/* palette order mirrors the original sidebar radios */
+/* palette order mirrors the original sidebar radios; the rucdoc drawer is
+ * grouped by lane count (his catalog's own organization) */
 export const PALETTE = {
   3: ['Str1', 'Cor1', 'Lan1', 'Chi1', 'Str2', 'Bri1', 'Ban1', 'Bri2', 'Lan2'],
   5: ['Str3', 'Str4', 'Str5', 'Str6', 'Cor2', 'Cor3', 'Cor4', 'Cor5', 'Lan4', 'Lan3', 'Chi2', 'Bri3', 'Bri4', 'Ban2'],
+  rucdoc: ['R1S250', 'R1C45I150', 'R1C90I150', 'R1R250', 'R2S250', 'R2C45I150', 'R2R250', 'R3S250', 'R3C45I115', 'R3R250'],
 };
 
 export const VARIANT_COLORS = ['#c9d1dc', '#e05263', '#4f8fdd', '#2ea89b', '#e5b84b',

@@ -76,6 +76,8 @@ test hook (exposed by `src/main.js`) — never pixel-diffed.
     (layout preserved exactly; restored coords non-negative).
 12. Touch (`hasTouch`): tap-chip + tap-canvas places (mobile viewport).
 13. Keyboard: `1` arms the first piece family.
+14. Rudoc drawer: mode switch + re-arm, reload via autosave, 1L 45° corner
+    chains at its real geometry (chirality-agnostic weld).
 
 ## Manual matrix (not automatable with current tooling)
 
