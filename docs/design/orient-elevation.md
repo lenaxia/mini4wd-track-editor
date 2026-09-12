@@ -66,8 +66,10 @@ Revisit when 3-vertex pieces (splits) land.
 set `g.a` absolutely so inward/outward tangents align, then translate for
 vertex coincidence (exact), then adopt level: `g.z = zS(vertex si) −
 verts[gj].zOff`. Armed angle is overridden when snapping; it still applies
-to free placement. Group-drag snap stays position-only (documented
-limitation).
+to free placement. Multi-piece group-drag snap stays position-only (documented
+limitation); single-piece drags — placement or move-tool — carry full
+joint semantics (field report: tap-place then Move-drag is the primary
+touch flow).
 
 **Rotation (X/Z):** if the selection has **exactly one** external joint
 (ε above) → pivot about that joint vertex (keeps it coincident; tangent

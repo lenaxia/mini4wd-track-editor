@@ -392,3 +392,33 @@ test('pressing ON a joint welds immediately; dragging away keeps that orientatio
   expect(held2.sprites[1].a).toBeLessThan(0.5); /* press-welded orientation kept */
   await page.mouse.up();
 });
+
+test('move-tool drag of a single piece to a joint orients it (the mobile flow)', async ({ page }) => {
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.3, 0.5);
+  const first = (await st(page)).sprites[0];
+  await page.keyboard.press('Escape');
+
+  /* place a corner LOOSE (far from any joint) — tool reverts to Move */
+  await page.keyboard.press('2');
+  await page.keyboard.press('z');
+  await clickCanvas(page, 0.7, 0.7);
+  const corner = (await st(page)).sprites[1];
+  expect(corner.a).toBe(315); /* loose placement keeps the armed angle */
+  expect((await st(page)).tool).toBe('Move');
+
+  /* Move-tool drag (tool already Move, piece selected after placement):
+   * drag the corner's origin so its armed-315 v0 lands on first's v2 */
+  const bb = await canvasBox(page);
+  const onPiece = await toScreen(page, corner.x, corner.y);
+  const jointAim = await toScreen(page, first.x + 51, first.y - 12.7);
+  await page.mouse.move(onPiece.x, onPiece.y);
+  await page.mouse.down();
+  await page.mouse.move(jointAim.x, jointAim.y, { steps: 12 });
+  const mid = await st(page);
+  expect(mid.sprites[1].a).toBeLessThan(0.5); /* oriented during move-drag */
+  expect(Math.hypot(mid.sprites[1].x - 53 - first.x, mid.sprites[1].y - 8 - first.y)).toBeLessThan(0.05);
+  await page.mouse.up();
+  const done = await st(page);
+  expect(done.sprites[1].a).toBeLessThan(0.5); /* committed */
+});
