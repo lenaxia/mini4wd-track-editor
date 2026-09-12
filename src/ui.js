@@ -85,6 +85,10 @@ function syncToolUi() {
   $('mode3').classList.toggle('active', state.mode === 3);
   $('mode5').classList.toggle('active', state.mode === 5);
   $('modeR').classList.toggle('active', state.mode === 'rucdoc');
+  const label = state.mode === 'rucdoc' ? 'Rudoc' : `${state.mode}L`;
+  const cycle = $('modeCycle');
+  cycle.hidden = !window.matchMedia('(max-width: 540px)').matches;
+  cycle.textContent = `${label} \u25B8`;
 }
 
 function onStoreChange() {
@@ -186,6 +190,10 @@ export function init(dimsGetter) {
   $('mode3').addEventListener('click', () => setMode(3));
   $('mode5').addEventListener('click', () => setMode(5));
   $('modeR').addEventListener('click', () => setMode('rucdoc'));
+  $('modeCycle').addEventListener('click', () => {
+    const order = [3, 5, 'rucdoc'];
+    setMode(order[(order.indexOf(state.mode) + 1) % order.length]);
+  });
 
   window.addEventListener('beforeunload', (e) => {
     if (state.sprites.length) { e.preventDefault(); e.returnValue = ''; }

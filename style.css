@@ -26,6 +26,12 @@ body {
 .brand { font-weight: 700; font-size: 15px; white-space: nowrap; }
 .brand span { color: var(--accent); }
 .mode-switch { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+/* narrow screens: the segmented control collapses to one cycling button */
+@media (max-width: 540px) {
+  .mode-switch > button:not(#modeCycle) { display: none; }
+  #modeCycle[hidden] { display: none; }
+  #modeCycle { display: block; }
+}
 .mode-switch button {
   border: 0; background: transparent; color: #aab1bd;
   font: inherit; font-size: 12px; padding: 5px 10px; cursor: pointer;
