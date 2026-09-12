@@ -14,6 +14,9 @@ test('every palette entry resolves to a piece definition (all drawers)', () => {
 });
 
 test('palette respects lane mode of its pieces', () => {
+  /* inverse guard: procedural on a Tamiya def would silently skip its
+   * sprite preload with zero failures elsewhere */
+  for (const name of TAMIYA) assert.ok(!PIECES[name].procedural, `${name}: Tamiya defs must not be procedural`);
   for (const name of PALETTE[3]) assert.equal(PIECES[name].lanes, 3);
   for (const name of PALETTE[5]) assert.equal(PIECES[name].lanes, 5);
   /* the rucdoc drawer is mixed-lane by design (1/2/3) — pin the range */
