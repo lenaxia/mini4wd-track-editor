@@ -7,8 +7,7 @@ import {
   undo, removePiece, cycleColor, deleteSelected, rotate, bumpLevel, zoomAt, fitView,
 } from './store.js';
 import { TOOLS } from './pieces.js';
-import { topPieceAt, groupSnap, worldFromScreen, clampScale, pieceHalfExtents } from './geometry.js';
-import * as storage from './storage.js';
+import { topPieceAt, isHit, groupSnap, worldFromScreen, clampScale, pieceHalfExtents } from './geometry.js';
 import { toast } from './ui.js';
 
 const pointers = new Map();
@@ -54,13 +53,9 @@ function beginPinch() {
 function actAt(pt) {
   if (!['Delete', 'Color'].includes(state.tool)) return;
   const hit = topPieceAt(state.sprites, pt); /* z-ordered like Move: bridges win taps */
-  if (!hit || !isHitLocal(hit, pt)) return;
+  if (!hit || !isHit(hit, pt)) return; /* isHit honors centerOf + HITBOX_RADIUS */
   if (state.tool === 'Delete') removePiece(hit);
   else cycleColor(hit);
-}
-function isHitLocal(p, pt) {
-  const c = { x: p.x, y: p.y };
-  return Math.hypot(pt.x - c.x, pt.y - c.y) <= 18;
 }
 
 function updateRubberSelection() {
@@ -181,9 +176,9 @@ function onPointerEnd(e) {
     dragSnapped_ = false;
     if (g.moved || g.placed) {
       pushSnapshot(g.snapshot);
-      update(() => {}); /* emit: refreshFlags + autosave (stale after Shift-release otherwise) */
+      if (g.placed && !e.shiftKey) setTool('Move'); /* Figma revert — this emits */
+      else update(() => {}); /* shift-kept placement / plain drag — emit once */
     }
-    if (g.placed && !e.shiftKey) setTool('Move'); /* Figma: tool reverts to Move after placing */
     updateLight(() => {});
     return;
   }

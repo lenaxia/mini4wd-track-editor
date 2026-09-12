@@ -305,3 +305,33 @@ test('drag perf smoke: 60-move drag on a 500-piece track stays interactive', asy
   const dt = Date.now() - t0;
   expect(dt).toBeLessThan(15000); /* order-of-magnitude regression gate only */
 });
+
+test('Delete and Color act on the z-topmost piece at a crossover', async ({ page }) => {
+  /* build a two-level crossing: ground straight + raised straight above it */
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.5, 0.5);
+  const ground = (await st(page)).sprites[0];
+  await page.keyboard.press('Escape');
+  await page.locator('#btnLvlUp').click();
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.52, 0.5); /* overlaps ground, z=10 */
+  const raised = (await st(page)).sprites[1];
+  expect(raised.z).toBe(10);
+
+  /* Delete tool: tap inside the overlap (16cm from raised's center, still
+   * within ground's bbox) — the raised (visually top) piece goes */
+  await page.keyboard.press('w');
+  const pt = await toScreen(page, raised.x - 16, ground.y);
+  await page.mouse.click(pt.x, pt.y);
+  const s1 = await st(page);
+  expect(s1.sprites).toHaveLength(1);
+  expect(s1.sprites[0].x).toBe(ground.x); /* the ground piece survived */
+  expect(s1.sprites[0].z).toBe(0);
+
+  /* Color tool: tap the remaining piece — cycles its color */
+  await page.keyboard.press('e');
+  const gpt = await toScreen(page, ground.x, ground.y);
+  await page.mouse.click(gpt.x, gpt.y);
+  const s2 = await st(page);
+  expect(s2.sprites[0].c).toBe(1);
+});

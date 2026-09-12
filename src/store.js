@@ -191,7 +191,10 @@ function refreshFlags() {
 
 function bboxOverlap(a, b) {
   /* strict with a 1cm inset: edge-touching (chained joints, adjacency) is
-   * NOT plan overlap — the slope-chaining flow must not read as "over" */
+   * NOT plan overlap — the slope-chaining flow must not read as "over".
+   * AABB is a proxy: a manually re-leveled connected corner chain can flag
+   * without true plan overlap (narrow case, already _bad-flagged by the
+   * level break); a true plan-overlap test can replace this when needed. */
   const ea = pieceHalfExtents(a), eb = pieceHalfExtents(b);
   const inset = 1;
   return Math.abs(a.x - b.x) < ea.hx + eb.hx - inset && Math.abs(a.y - b.y) < ea.hy + eb.hy - inset;
