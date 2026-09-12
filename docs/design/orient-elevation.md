@@ -66,8 +66,10 @@ Revisit when 3-vertex pieces (splits) land.
 set `g.a` absolutely so inward/outward tangents align, then translate for
 vertex coincidence (exact), then adopt level: `g.z = zS(vertex si) −
 verts[gj].zOff`. Armed angle is overridden when snapping; it still applies
-to free placement. Group-drag snap stays position-only (documented
-limitation).
+to free placement. Multi-piece group-drag snap stays position-only (documented
+limitation); single-piece drags — placement or move-tool — carry full
+joint semantics (field report: tap-place then Move-drag is the primary
+touch flow).
 
 **Rotation (X/Z):** if the selection has **exactly one** external joint
 (ε above) → pivot about that joint vertex (keeps it coincident; tangent
@@ -137,6 +139,7 @@ to its origin with matching level, `open` otherwise. Full validation
 | solveGeo sweep-range coverage test | rucdoc corner parameters land |
 | Flow roles on splits | splits land |
 | Full clearance validation + 75 mm constant promotion | first crossover track saved |
+| Pinch starting mid-move-drag commits the drag (gesture-machine debt) | gesture machine rework |
 | rucdoc attribution (MIT © rucdoc) + license file | first rucdoc asset lands |
 
 ## 10. Test map (red-green)

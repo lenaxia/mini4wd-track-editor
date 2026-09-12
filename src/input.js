@@ -89,7 +89,7 @@ function onPointerDown(e) {
       groupDrag = {
         start: w,
         snapshot: snapshot(),
-        orig: [...state.selection].map((p) => [p, p.x, p.y]),
+        orig: [...state.selection].map((p) => [p, p.x, p.y, p.a, p.z]),
         moved: false,
       };
     } else {
@@ -151,16 +151,25 @@ function onPointerMove(e) {
     const dx = w.x - groupDrag.start.x, dy = w.y - groupDrag.start.y;
     for (const [p, x0, y0] of groupDrag.orig) { p.x = x0 + dx; p.y = y0 + dy; }
     if (Math.hypot(dx, dy) > 2) groupDrag.moved = true;
-    if (groupDrag.placed) {
-      /* single-piece placement drag: full joint semantics — restore the
-       * armed angle/level each frame, then snapPiece orients + connects
-       * exactly + adopts the neighbor level (spec §4) */
+    if (groupDrag.placed || groupDrag.orig.length === 1) {
+      /* single-piece drag (placement OR move): full joint semantics —
+       * restore the press-time angle/level each frame, then snapPiece
+       * orients + connects exactly + adopts the neighbor level (spec §4).
+       * orig.length (not live selection.size) is authoritative: Esc can
+       * clear the selection mid-drag. Only multi-piece groups snap
+       * position-only. */
       const [p, , , a0, z0] = groupDrag.orig[0];
       p.a = a0; p.z = z0;
       dragSnapped_ = snapPiece(p, state.sprites);
     } else {
-      dragSnapped_ = groupSnap(state.selection, state.sprites); /* position-only by design */
+      dragSnapped_ = groupSnap(state.selection, state.sprites); /* multi-piece: position-only by design */
     }
+    /* ANY successful snap displaces pieces (position-only welds translate
+     * up to SNAP_RADIUS with <=2cm of drag) — it must be undoable, so it
+     * counts as a move even under the translation threshold. A no-op undo
+     * step for an already-welded jiggle is cosmetic; an unundoable weld
+     * (or undo deleting the piece) is not. */
+    if (dragSnapped_) groupDrag.moved = true;
     updateLight(() => {});
     return;
   }
