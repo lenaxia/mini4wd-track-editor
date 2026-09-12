@@ -86,9 +86,7 @@ function syncToolUi() {
   $('mode5').classList.toggle('active', state.mode === 5);
   $('modeR').classList.toggle('active', state.mode === 'rucdoc');
   const label = state.mode === 'rucdoc' ? 'Rudoc' : `${state.mode}L`;
-  const cycle = $('modeCycle');
-  cycle.hidden = !window.matchMedia('(max-width: 540px)').matches;
-  cycle.textContent = `${label} \u25B8`;
+  $('modeCycle').textContent = `${label} \u25B8`;
 }
 
 function onStoreChange() {

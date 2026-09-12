@@ -528,4 +528,18 @@ test('mobile top bar: the mode control collapses to one cycling button', async (
   await page.locator('#modeCycle').click();
   expect((await st(page)).mode).toBe(3);
   await ctx.close();
+
+  /* viewport crossing must not stale the controls (rotation trap): the
+   * cycle button shows/hides purely via CSS, no JS visibility state */
+  const page2 = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await page2.goto('/');
+  await expect(page2.locator('#modeCycle')).toBeHidden();
+  await expect(page2.locator('#mode3')).toBeVisible();
+  await page2.setViewportSize({ width: 390, height: 780 });
+  await expect(page2.locator('#modeCycle')).toBeVisible();
+  await expect(page2.locator('#mode3')).toBeHidden();
+  await page2.setViewportSize({ width: 1280, height: 800 });
+  await expect(page2.locator('#modeCycle')).toBeHidden();
+  await expect(page2.locator('#mode3')).toBeVisible();
+  await page2.close();
 });

@@ -79,19 +79,20 @@ def process(name, cfg, out_dir, expect):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     objs = load_model(cfg['model'])
     lo, hi = world_bbox(objs)
-    w_cm = (hi[0]-lo[0]) * 100.0; h_cm = (hi[1]-lo[1]) * 100.0
     dz_e = surface_z_at(objs, *cfg['entry'][:2])
     dz_x = surface_z_at(objs, *cfg['exit'][:2])
     dz = None if dz_e is None or dz_x is None else round(dz_x - dz_e)
 
     # canonical pose: center bbox on origin, travel +x is assumed to be the
     # model's +x (heading_deg rotates first if annotated)
-    if cfg.get('heading_deg'):
-        import mathutils
+    heading = cfg.get('heading_deg', 0)
+    if heading:
+        import math
         for o in objs:
-            o.rotation_euler.rotate_axis('Z', math.radians(-cfg['heading_deg']))
-            bpy.context.view_layer.update()
+            o.rotation_euler.rotate_axis('Z', math.radians(-heading))
+        bpy.context.view_layer.update()
         lo, hi = world_bbox(objs)
+    w_cm = (hi[0]-lo[0]) * 100.0; h_cm = (hi[1]-lo[1]) * 100.0
     cx, cy = (lo[0]+hi[0])/2, (lo[1]+hi[1])/2
     from mathutils import Vector as _V
     for o in objs: o.location -= _V((cx, cy, 0))
@@ -107,7 +108,6 @@ def process(name, cfg, out_dir, expect):
     scene.camera = cam
     span_x, span_y = (hi[0]-lo[0]), (hi[1]-lo[1])
     px_x = max(16, round(w_cm * PX_PER_CM * 1.02)); px_y = max(16, round(h_cm * PX_PER_CM * 1.02))
-    cam_data.ortho_scale = span_x * 1.02
     cam_data.ortho_scale = max(span_x, span_y * px_x / px_y) * 1.02
 
     # lighting + base materials: assign wall/bed separation is model-specific;
@@ -126,14 +126,29 @@ def process(name, cfg, out_dir, expect):
     bed.node_tree.nodes['Emission'].inputs[0].default_value = (*MASK_BED, 1)
     render_pass(scene, os.path.join(out_dir, f'{name}.mask.png'), px_x, px_y)
 
-    entry = [round(v - c, 2) for v, c in zip(cfg['entry'], ((lo[0]+hi[0])/2*1000, (lo[1]+hi[1])/2*1000))]
-    exit_ = [round(v - c, 2) for v, c in zip(cfg['exit'], ((lo[0]+hi[0])/2*1000, (lo[1]+hi[1])/2*1000))]
+    # annotations are model-space: rotate them into the canonical frame by
+    # the same -heading the objects got, THEN center them (frame consistency)
+    import math as _m
+    ca, sa = _m.cos(_m.radians(-heading)), _m.sin(_m.radians(-heading))
+    def canon(pt):
+        x, y = pt[0] * ca - pt[1] * sa, pt[0] * sa + pt[1] * ca
+        return [round(x - (lo[0]+hi[0])/2*1000, 2), round(y - (lo[1]+hi[1])/2*1000, 2)]
+    entry, exit_ = canon(cfg['entry']), canon(cfg['exit'])
+    # connector running-surface heights, sliced on the CANONICAL x (post-
+    # rotation) so the piece-end faces are found regardless of heading
+    dz_e = surface_z_at(objs, entry[0], entry[1])
+    dz_x = surface_z_at(objs, exit_[0], exit_[1])
+    dz = None if dz_e is None or dz_x is None else round(dz_x - dz_e)
     if dz is not None and dz != 0: exit_ = exit_[:2] + [dz]
     result = {'w': round(w_cm, 1), 'h': round(h_cm, 1), 'verts': [entry, exit_], 'dz': dz}
     if expect:
         for k in ('w', 'h', 'dz'):
             if k in expect and expect[k] is not None and result[k] != expect[k]:
                 print(f'  DIFF {name}.{k}: measured {result[k]} vs seed {expect[k]}')
+        if 'verts' in expect:
+            for got, want in zip(result['verts'], expect['verts']):
+                if any(abs(g - w) > 0.05 for g, w in zip(got[:2], want[:2])):
+                    print(f'  DIFF {name}.verts: measured {got} vs seed {want}')
     print(f'{name}: w={result["w"]} h={result["h"]} verts={result["verts"]} dz={result["dz"]}')
     print(f'  {{ label: ..., w: {result["w"]}, h: {result["h"]}, verts: {json.dumps(result["verts"])}, ... }},')
     return result

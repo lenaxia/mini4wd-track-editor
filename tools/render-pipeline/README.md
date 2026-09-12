@@ -17,8 +17,9 @@ index.html/README.md lands with the first rendered asset (design spec §9).
 
 ## Per-piece config
 
-```json
-{
+```jsonc
+{  // comments here are illustrative — the real file must be valid JSON
+
   "R1S250": {
     "model": "models/1L_straight_250.stl",
     "entry": [-125, 0, 0],          // model-space connector midpoint (mm)
