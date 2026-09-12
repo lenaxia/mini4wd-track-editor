@@ -23,7 +23,7 @@ export function restore(state) {
     const raw = localStorage.getItem(KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
-    if (data.mode === 3 || data.mode === 5) state.mode = data.mode;
+    if (data.mode === 3 || data.mode === 5 || data.mode === 'rucdoc') state.mode = data.mode;
     if (data.track) {
       state.sprites = parseTrack(data.track);
       if (data.angle) state.angle = data.angle;

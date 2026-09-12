@@ -14,6 +14,7 @@ async function st(page) {
       angle: s.angle,
       sel: s.selection.size,
       view: s.view,
+      mode: s.mode,
     };
   });
 }
@@ -469,4 +470,44 @@ test('position-only micro-weld is undoable (sub-2cm drag, weld displaces ~10cm)'
   const undone = await st(page);
   expect(undone.sprites).toHaveLength(2);
   expect(undone.sprites[1].x).toBe(loose.x); /* exactly the loose pose restored */
+});
+
+test('Rudoc mode: place and chain the 1L corner at its real 45 deg geometry', async ({ page }) => {
+  await page.locator('#modeR').click();
+  expect((await st(page)).mode).toBe('rucdoc');
+
+  /* place the 1L straight, then chain the 1L 45 corner onto its end */
+  await page.locator('.chip').first().click();
+  expect((await st(page)).tool).toBe('R1S250');
+  await clickCanvas(page, 0.4, 0.5);
+  const first = (await st(page)).sprites[0];
+  expect(first.name).toBe('R1S250');
+
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('2'); /* corners family in the rucdoc drawer */
+  expect((await st(page)).tool).toBe('R1C45I150');
+  /* corner v1 local (7.6,3.15): aim the origin so v1 lands on first's v2 */
+  const pt = await toScreen(page, first.x + 4.9, first.y - 3.15);
+  await page.mouse.click(pt.x, pt.y);
+  const s = await st(page);
+  expect(s.sprites[1].name).toBe('R1C45I150');
+  /* welded: the corner's NEAREST vertex sits on the joint (chirality of
+   * the derived entry tangent decides which one — check both) */
+  const c = s.sprites[1];
+  const j = { x: first.x + 12.5, y: first.y };
+  const d = Math.min(
+    Math.hypot(c.x + 7.6 - j.x, c.y + 3.15 - j.y),
+    Math.hypot(c.x - 7.6 - j.x, c.y - 3.15 - j.y));
+  expect(d).toBeLessThan(1.0);
+});
+
+test('Rudoc mode survives reload through autosave', async ({ page }) => {
+  await page.locator('#modeR').click();
+  await page.locator('.chip').first().click();
+  expect((await st(page)).tool).toBe('R1S250');
+  await clickCanvas(page, 0.5, 0.5);
+  await page.waitForTimeout(500);
+  await page.reload();
+  expect((await st(page)).mode).toBe('rucdoc');
+  expect((await st(page)).sprites[0].name).toBe('R1S250');
 });

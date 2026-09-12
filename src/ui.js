@@ -84,6 +84,7 @@ function syncToolUi() {
   document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c.dataset.piece === state.tool));
   $('mode3').classList.toggle('active', state.mode === 3);
   $('mode5').classList.toggle('active', state.mode === 5);
+  $('modeR').classList.toggle('active', state.mode === 'rucdoc');
 }
 
 function onStoreChange() {
@@ -184,6 +185,7 @@ export function init(dimsGetter) {
   $('btnFit').addEventListener('click', () => fitView(getDims().w, getDims().h));
   $('mode3').addEventListener('click', () => setMode(3));
   $('mode5').addEventListener('click', () => setMode(5));
+  $('modeR').addEventListener('click', () => setMode('rucdoc'));
 
   window.addEventListener('beforeunload', (e) => {
     if (state.sprites.length) { e.preventDefault(); e.returnValue = ''; }

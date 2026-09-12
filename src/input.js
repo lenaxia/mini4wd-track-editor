@@ -229,7 +229,8 @@ function onKeyDown(e) {
   if (k >= '1' && k <= '9') {
     /* cycle within piece families, mirroring the original hotkeys */
     const families = { 3: { 1: ['Str1'], 2: ['Cor1'], 3: ['Lan1'], 4: ['Chi1'], 5: ['Str2'], 6: ['Bri1'], 7: ['Ban1'], 8: ['Bri2'], 9: ['Lan2'] },
-                       5: { 1: ['Str3', 'Str4', 'Str5', 'Str6'], 2: ['Cor2', 'Cor3', 'Cor4', 'Cor5'], 3: ['Lan4', 'Lan3'], 4: ['Chi2'], 5: ['Bri3', 'Bri4'], 6: ['Ban2'] } };
+                       5: { 1: ['Str3', 'Str4', 'Str5', 'Str6'], 2: ['Cor2', 'Cor3', 'Cor4', 'Cor5'], 3: ['Lan4', 'Lan3'], 4: ['Chi2'], 5: ['Bri3', 'Bri4'], 6: ['Ban2'] },
+                       rucdoc: { 1: ['R1S250', 'R2S250', 'R3S250'], 2: ['R1C45I150', 'R1C90I150', 'R2C45I150', 'R3C45I115'], 3: ['R1R250', 'R2R250', 'R3R250'] } };
     const fam = families[state.mode][+k];
     if (fam) {
       const i = fam.indexOf(state.tool);

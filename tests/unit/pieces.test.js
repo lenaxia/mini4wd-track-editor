@@ -2,18 +2,30 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PIECES, PALETTE, TOOLS, VARIANT_COLORS, SNAP_RADIUS } from '../../src/pieces.js';
 
-test('every palette entry resolves to a piece definition', () => {
-  for (const mode of [3, 5]) {
-    assert.ok(PALETTE[mode].length > 0);
+const TAMIYA = new Set([...PALETTE[3], ...PALETTE[5]]);
+
+test('every palette entry resolves to a piece definition (all drawers)', () => {
+  for (const mode of Object.keys(PALETTE)) {
+    assert.ok(PALETTE[mode].length > 0, `drawer ${mode} is empty`);
     for (const name of PALETTE[mode]) {
-      assert.ok(PIECES[name], `${name} (mode ${mode})`);
+      assert.ok(PIECES[name], `${name} (drawer ${mode}) does not resolve`);
     }
   }
 });
 
 test('palette respects lane mode of its pieces', () => {
+  /* inverse guard: procedural on a Tamiya def would silently skip its
+   * sprite preload with zero failures elsewhere */
+  for (const name of TAMIYA) assert.ok(!PIECES[name].procedural, `${name}: Tamiya defs must not be procedural`);
   for (const name of PALETTE[3]) assert.equal(PIECES[name].lanes, 3);
   for (const name of PALETTE[5]) assert.equal(PIECES[name].lanes, 5);
+  /* the rucdoc drawer is mixed-lane by design (1/2/3) — pin the range */
+  for (const name of PALETTE.rucdoc) {
+    assert.ok([1, 2, 3].includes(PIECES[name].lanes), `${name}: lanes not 1/2/3`);
+    /* procedural: true drives the preload skip — if it detaches, 10 sprite
+     * requests 404 on every load again */
+    assert.equal(PIECES[name].procedural, true, `${name}: procedural flag missing`);
+  }
 });
 
 test('catalog fields are sane for every piece', () => {
@@ -34,7 +46,12 @@ test('catalog fields are sane for every piece', () => {
         minSep = Math.min(minSep, d);
       }
     }
-    assert.ok(minSep > 2 * SNAP_RADIUS, `${name}: vertex separation ${minSep} must exceed 2x snap radius`);
+    /* Tamiya keeps the strict no-pair-ambiguity floor (>2x SNAP_RADIUS);
+     * rucdoc's tight 1-lane corners sit at ~1.65x — closest-pair
+     * determinism still holds, only the both-vertices window widens
+     * (hysteresis deferred: docs/design/orient-elevation.md §9). */
+    const floor = TAMIYA.has(name) ? 2 : 1.5;
+    assert.ok(minSep > floor * SNAP_RADIUS, `${name}: vertex separation ${minSep} < ${floor}x snap radius`);
     if (def.kind === 'corner' || def.kind === 'hairpin') {
       assert.ok(def.R > 0 && def.band > 0, name);
     }
