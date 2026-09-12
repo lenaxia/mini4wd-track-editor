@@ -3,7 +3,7 @@
 
 import { state, subscribe } from './store.js';
 import { PIECES, TOOLS, HITBOX_RADIUS } from './pieces.js';
-import { rad, centerOf, vertexOf, pieceHalfExtents, worldFromScreen, snapPiece } from './geometry.js';
+import { rad, centerOf, vertexOf, vertsOf, pieceHalfExtents, worldFromScreen, snapPiece } from './geometry.js';
 import { imageFor } from './assets.js';
 import { drawPieceArt } from './art.js';
 import * as input from './input.js';
@@ -139,7 +139,7 @@ function drawRubberBand() {
 function drawVertices(p, snapped) {
   ctx.save();
   ctx.fillStyle = snapped ? '#7CE38B' : '#ffd166';
-  for (const v of [vertexOf(p, 1), vertexOf(p, 2)]) {
+  for (let i = 0; i < vertsOf(p).length; i++) { const v = vertexOf(p, i);
     ctx.beginPath();
     ctx.arc(v.x, v.y, 6 / state.view.scale + 2, 0, Math.PI * 2);
     ctx.fill();
