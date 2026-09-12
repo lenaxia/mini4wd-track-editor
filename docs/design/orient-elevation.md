@@ -139,6 +139,7 @@ to its origin with matching level, `open` otherwise. Full validation
 | solveGeo sweep-range coverage test | rucdoc corner parameters land |
 | Flow roles on splits | splits land |
 | Full clearance validation + 75 mm constant promotion | first crossover track saved |
+| Pinch starting mid-move-drag commits the drag (gesture-machine debt) | gesture machine rework |
 | rucdoc attribution (MIT © rucdoc) + license file | first rucdoc asset lands |
 
 ## 10. Test map (red-green)

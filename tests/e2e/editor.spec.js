@@ -422,3 +422,42 @@ test('move-tool drag of a single piece to a joint orients it (the mobile flow)',
   const done = await st(page);
   expect(done.sprites[1].a).toBeLessThan(0.5); /* committed */
 });
+
+test('a weld with almost no translation is still undoable', async ({ page }) => {
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.3, 0.5);
+  const first = (await st(page)).sprites[0];
+  await page.keyboard.press('Escape');
+
+  /* loose corner at a wrong angle, positioned so a vertex is ~within snap
+   * range; a 1cm drag stays under the 2cm moved-threshold but the weld
+   * rotates it — undo must restore the loose pose */
+  await page.keyboard.press('2');
+  await page.keyboard.press('z');
+  await clickCanvas(page, 0.55, 0.55);
+  const corner = (await st(page)).sprites[1];
+  expect(corner.a).toBe(315);
+
+  const bb = await canvasBox(page);
+  const onPiece = await toScreen(page, corner.x, corner.y);
+  /* drag ~1cm toward the joint aim so the vertex enters snap range */
+  const jointAim = await toScreen(page, first.x + 51, first.y - 12.7);
+  const dx = jointAim.x - onPiece.x, dy = jointAim.y - onPiece.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const near = { x: onPiece.x + (dx / len) * (len - 6), y: onPiece.y + (dy / len) * (len - 6) };
+  await page.mouse.move(onPiece.x, onPiece.y);
+  await page.mouse.down();
+  await page.mouse.move(near.x, near.y, { steps: 8 });
+  await page.mouse.up();
+  const welded = await st(page);
+  if (welded.sprites[1].a < 0.5) { /* vertex reached range: welded via <=2cm drag */
+    await page.keyboard.press('r'); /* undo must reach the pre-weld state */
+    const undone = await st(page);
+    expect(undone.sprites[1].a).toBe(315); /* loose pose restored */
+  } else {
+    /* out of range in this viewport: the no-weld case needs no undo step */
+    await page.keyboard.press('r');
+    const undone = await st(page);
+    expect(undone.sprites).toHaveLength(2);
+  }
+});

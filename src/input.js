@@ -151,15 +151,19 @@ function onPointerMove(e) {
     const dx = w.x - groupDrag.start.x, dy = w.y - groupDrag.start.y;
     for (const [p, x0, y0] of groupDrag.orig) { p.x = x0 + dx; p.y = y0 + dy; }
     if (Math.hypot(dx, dy) > 2) groupDrag.moved = true;
-    if (groupDrag.placed || state.selection.size === 1) {
+    if (groupDrag.placed || groupDrag.orig.length === 1) {
       /* single-piece drag (placement OR move): full joint semantics —
        * restore the press-time angle/level each frame, then snapPiece
        * orients + connects exactly + adopts the neighbor level (spec §4).
-       * Dragging a lone piece to a joint is the same physical act either
-       * way; only multi-piece groups snap position-only. */
+       * orig.length (not live selection.size) is authoritative: Esc can
+       * clear the selection mid-drag. Only multi-piece groups snap
+       * position-only. */
       const [p, , , a0, z0] = groupDrag.orig[0];
       p.a = a0; p.z = z0;
       dragSnapped_ = snapPiece(p, state.sprites);
+      /* a weld can change a/z with <=2cm of translation — that must be
+       * undoable too, so treat any effective orient/level change as a move */
+      if (dragSnapped_ && (p.a !== a0 || p.z !== z0)) groupDrag.moved = true;
     } else {
       dragSnapped_ = groupSnap(state.selection, state.sprites); /* multi-piece: position-only by design */
     }
