@@ -104,10 +104,12 @@ function drawPiece(p, alpha) {
    * experience depends on seeing what you bridge over (docs/design §5) */
   ctx.globalAlpha = alpha * (p._over ? 0.8 : 1);
   if (z > 0) {
+    /* world-frame offset: the shadow falls one way regardless of piece angle */
     const o = Math.min(12, z * 0.15);
+    ctx.translate(p.x + o, p.y + o);
+    ctx.rotate(rad(p.a));
     ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.translate(p.x, p.y); ctx.rotate(rad(p.a));
-    ctx.fillRect(-def.w / 2 + o, -def.h / 2 + o, def.w, def.h);
+    ctx.fillRect(-def.w / 2, -def.h / 2, def.w, def.h);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.translate(state.view.x, state.view.y); ctx.scale(state.view.scale, state.view.scale);
   }

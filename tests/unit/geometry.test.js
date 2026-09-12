@@ -120,7 +120,7 @@ test('snapPiece chained onto a slope top gives the next piece +75 level', () => 
   assert.equal(ghost.x, 208);
 });
 
-test('snapPiece reversed entry onto a slope top lands at level 0 (descends)', () => {
+test('snapPiece onto a slope vertex adopts the joint level (75)', () => {
   /* ghost's v1 snapping to the slope's v2 means travel exits the slope there:
      adoption uses the level at that joint (75) minus the ghost's own v-entry
      offset — a flat ghost entering at its v1 lands at 75. Reversed slope

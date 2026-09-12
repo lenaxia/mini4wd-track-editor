@@ -192,8 +192,10 @@ export function init(dimsGetter) {
   buildPalette();
 }
 
-/* Elevation feedback for the ▲▼ buttons / PageUp-PageDown. */
+/* Elevation feedback for the level buttons / PageUp-PageDown. */
 function levelToast(which) {
-  const mm = which === 'selection' ? [...state.selection].map((p) => p.z) : [state.zArm];
-  return `level ${mm[0]} mm`;
+  const mm = which === 'selection' ? [...state.selection].map((p) => p.z || 0) : [state.zArm];
+  const uniq = [...new Set(mm)];
+  const v = uniq.length === 1 ? String(uniq[0]) : Math.min(...uniq) + '..' + Math.max(...uniq);
+  return 'level ' + v + ' mm';
 }

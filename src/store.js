@@ -190,8 +190,11 @@ function refreshFlags() {
 }
 
 function bboxOverlap(a, b) {
+  /* strict with a 1cm inset: edge-touching (chained joints, adjacency) is
+   * NOT plan overlap — the slope-chaining flow must not read as "over" */
   const ea = pieceHalfExtents(a), eb = pieceHalfExtents(b);
-  return Math.abs(a.x - b.x) <= ea.hx + eb.hx && Math.abs(a.y - b.y) <= ea.hy + eb.hy;
+  const inset = 1;
+  return Math.abs(a.x - b.x) < ea.hx + eb.hx - inset && Math.abs(a.y - b.y) < ea.hy + eb.hy - inset;
 }
 
 /* Replace the whole track (import / share). */

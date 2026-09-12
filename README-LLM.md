@@ -35,7 +35,7 @@ zero installs. ES modules require http — `file://` does not work; use
    and `README.md` accurate.
 4. **Touch + desktop parity.** Every interaction must work with touch
    (single finger, two-finger pan/pinch), mouse, and keyboard (1-9, Q/W/E,
-   H, Z/X, R, F, Esc, Del, Shift). devicePixelRatio-correct rendering must
+   H, Z/X, R, F, Esc, Del, Shift, PageUp/PageDown). devicePixelRatio-correct rendering must
    be preserved.
 5. **Cache-bust.** Bump `?v=N` on the `src/main.js` reference in
    `index.html` whenever app code changes.

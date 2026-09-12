@@ -215,3 +215,19 @@ test('refreshFlags marks overlap alpha, clearance warnings, bad joints', () => {
   rotate(45);
   assert.equal(b._bad, true); /* pivot leaves a tangent kink — flagged */
 });
+
+test('chained adjacency is not plan overlap (no false _over on slope chains)', () => {
+  const S = (name, x, y, z) => ({ name, x, y, a: 0, c: 0, z });
+  const slope = S('Bri1', 100, 100, 0);
+  const chainedTop = S('Str1', 154, 100, 75); /* exact chain: edge-touching only */
+  state.sprites.push(slope, chainedTop);
+  setTool('Move'); /* emit -> refreshFlags */
+  assert.equal(chainedTop._over, false); /* joints/adjacency are not overlap */
+  assert.equal(slope._over, false);
+  /* a real different-level overlap still flags */
+  const above = S('Str1', 190, 90, 150); /* overlaps the raised straight's body */
+  state.sprites.push(above);
+  setTool('Pan');
+  assert.equal(above._over, true);
+  assert.equal(above._warn, false); /* dz=75 clears */
+});

@@ -3,11 +3,11 @@
  * (per-frame). Render queries the exported accessors for overlays. */
 
 import {
-  state, updateLight, setTool, place, snapshot, pushSnapshot,
+  state, updateLight, update, setTool, place, snapshot, pushSnapshot,
   undo, removePiece, cycleColor, deleteSelected, rotate, bumpLevel, zoomAt, fitView,
 } from './store.js';
 import { TOOLS } from './pieces.js';
-import { topPieceAt, groupSnap, worldFromScreen, clampScale, pieceHalfExtents, isHit } from './geometry.js';
+import { topPieceAt, groupSnap, worldFromScreen, clampScale, pieceHalfExtents } from './geometry.js';
 import * as storage from './storage.js';
 import { toast } from './ui.js';
 
@@ -53,13 +53,14 @@ function beginPinch() {
 /* ---------- tap actions for the Delete / Color tools ---------- */
 function actAt(pt) {
   if (!['Delete', 'Color'].includes(state.tool)) return;
-  let hit = null;
-  for (let i = state.sprites.length - 1; i >= 0; i--) {
-    if (isHit(state.sprites[i], pt)) { hit = state.sprites[i]; break; }
-  }
-  if (!hit) return;
+  const hit = topPieceAt(state.sprites, pt); /* z-ordered like Move: bridges win taps */
+  if (!hit || !isHitLocal(hit, pt)) return;
   if (state.tool === 'Delete') removePiece(hit);
   else cycleColor(hit);
+}
+function isHitLocal(p, pt) {
+  const c = { x: p.x, y: p.y };
+  return Math.hypot(pt.x - c.x, pt.y - c.y) <= 18;
 }
 
 function updateRubberSelection() {
@@ -180,7 +181,7 @@ function onPointerEnd(e) {
     dragSnapped_ = false;
     if (g.moved || g.placed) {
       pushSnapshot(g.snapshot);
-      storage.autosave(state);
+      update(() => {}); /* emit: refreshFlags + autosave (stale after Shift-release otherwise) */
     }
     if (g.placed && !e.shiftKey) setTool('Move'); /* Figma: tool reverts to Move after placing */
     updateLight(() => {});
