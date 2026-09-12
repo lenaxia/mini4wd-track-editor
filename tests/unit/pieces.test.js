@@ -5,10 +5,10 @@ import { PIECES, PALETTE, TOOLS, VARIANT_COLORS, SNAP_RADIUS } from '../../src/p
 const TAMIYA = new Set([...PALETTE[3], ...PALETTE[5]]);
 
 test('every palette entry resolves to a piece definition (all drawers)', () => {
-  for (const mode of [3, 5]) {
-    assert.ok(PALETTE[mode].length > 0);
+  for (const mode of Object.keys(PALETTE)) {
+    assert.ok(PALETTE[mode].length > 0, `drawer ${mode} is empty`);
     for (const name of PALETTE[mode]) {
-      assert.ok(PIECES[name], `${name} (mode ${mode})`);
+      assert.ok(PIECES[name], `${name} (drawer ${mode}) does not resolve`);
     }
   }
 });
@@ -16,6 +16,10 @@ test('every palette entry resolves to a piece definition (all drawers)', () => {
 test('palette respects lane mode of its pieces', () => {
   for (const name of PALETTE[3]) assert.equal(PIECES[name].lanes, 3);
   for (const name of PALETTE[5]) assert.equal(PIECES[name].lanes, 5);
+  /* the rucdoc drawer is mixed-lane by design (1/2/3) — pin the range */
+  for (const name of PALETTE.rucdoc) {
+    assert.ok([1, 2, 3].includes(PIECES[name].lanes), `${name}: lanes not 1/2/3`);
+  }
 });
 
 test('catalog fields are sane for every piece', () => {
