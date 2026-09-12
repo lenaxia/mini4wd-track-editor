@@ -161,12 +161,15 @@ function onPointerMove(e) {
       const [p, , , a0, z0] = groupDrag.orig[0];
       p.a = a0; p.z = z0;
       dragSnapped_ = snapPiece(p, state.sprites);
-      /* a weld can change a/z with <=2cm of translation — that must be
-       * undoable too, so treat any effective orient/level change as a move */
-      if (dragSnapped_ && (p.a !== a0 || p.z !== z0)) groupDrag.moved = true;
     } else {
       dragSnapped_ = groupSnap(state.selection, state.sprites); /* multi-piece: position-only by design */
     }
+    /* ANY successful snap displaces pieces (position-only welds translate
+     * up to SNAP_RADIUS with <=2cm of drag) — it must be undoable, so it
+     * counts as a move even under the translation threshold. A no-op undo
+     * step for an already-welded jiggle is cosmetic; an unundoable weld
+     * (or undo deleting the piece) is not. */
+    if (dragSnapped_) groupDrag.moved = true;
     updateLight(() => {});
     return;
   }

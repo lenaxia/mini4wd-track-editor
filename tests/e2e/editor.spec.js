@@ -423,41 +423,50 @@ test('move-tool drag of a single piece to a joint orients it (the mobile flow)',
   expect(done.sprites[1].a).toBeLessThan(0.5); /* committed */
 });
 
-test('a weld with almost no translation is still undoable', async ({ page }) => {
+test('position-only micro-weld is undoable (sub-2cm drag, weld displaces ~10cm)', async ({ page }) => {
   await page.locator('.chip').first().click();
   await clickCanvas(page, 0.3, 0.5);
   const first = (await st(page)).sprites[0];
   await page.keyboard.press('Escape');
 
-  /* loose corner at a wrong angle, positioned so a vertex is ~within snap
-   * range; a 1cm drag stays under the 2cm moved-threshold but the weld
-   * rotates it — undo must restore the loose pose */
-  await page.keyboard.press('2');
-  await page.keyboard.press('z');
-  await clickCanvas(page, 0.55, 0.55);
-  const corner = (await st(page)).sprites[1];
-  expect(corner.a).toBe(315);
+  /* place a loose collinear straight with a ~11cm vertex gap: out of snap
+   * range (no placement weld), same angle/level — the coming weld will be
+   * POSITION-ONLY (orientAngle returns exactly a0, levelAt exactly z0).
+   * World->screen->world accumulates float noise and place() floors, so
+   * converge on the actual gap by re-placing until it sits in window. */
+  await page.locator('.chip').first().click();
+  let aim = 66, loose = null, gap = 0;
+  for (let i = 0; i < 3; i++) {
+    const pt = await toScreen(page, first.x + aim, first.y);
+    await page.mouse.click(pt.x, pt.y);
+    loose = (await st(page)).sprites[(await st(page)).sprites.length - 1];
+    gap = loose.x - first.x - 54;
+    if (gap > 10.5 && gap < 11.5) break;
+    await page.keyboard.press('w'); /* Delete tool */
+    const del = await toScreen(page, loose.x, loose.y);
+    await page.mouse.click(del.x, del.y);
+    aim += 11 - gap;
+    await page.locator('.chip').first().click(); /* re-arm */
+  }
+  expect(gap).toBeGreaterThan(10.5); /* not welded at placement */
+  expect(gap).toBeLessThan(11.5); /* sub-2cm drag will reach snap range */
 
-  const bb = await canvasBox(page);
-  const onPiece = await toScreen(page, corner.x, corner.y);
-  /* drag ~1cm toward the joint aim so the vertex enters snap range */
-  const jointAim = await toScreen(page, first.x + 51, first.y - 12.7);
-  const dx = jointAim.x - onPiece.x, dy = jointAim.y - onPiece.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const near = { x: onPiece.x + (dx / len) * (len - 6), y: onPiece.y + (dy / len) * (len - 6) };
+  /* Move-drag LEFT so the vertex lands ~9.5cm from the joint: under the
+   * 2cm translation threshold, but the weld displaces the piece ~10cm */
+  const onPiece = await toScreen(page, loose.x, loose.y);
+  const { view } = await st(page);
   await page.mouse.move(onPiece.x, onPiece.y);
   await page.mouse.down();
-  await page.mouse.move(near.x, near.y, { steps: 8 });
+  await page.mouse.move(onPiece.x - (gap - 9.5) * view.scale, onPiece.y, { steps: 4 });
   await page.mouse.up();
   const welded = await st(page);
-  if (welded.sprites[1].a < 0.5) { /* vertex reached range: welded via <=2cm drag */
-    await page.keyboard.press('r'); /* undo must reach the pre-weld state */
-    const undone = await st(page);
-    expect(undone.sprites[1].a).toBe(315); /* loose pose restored */
-  } else {
-    /* out of range in this viewport: the no-weld case needs no undo step */
-    await page.keyboard.press('r');
-    const undone = await st(page);
-    expect(undone.sprites).toHaveLength(2);
-  }
+  expect(welded.sprites[1].x).toBe(first.x + 54); /* welded exactly */
+  expect(welded.sprites[1].a).toBe(0); /* angle never changed */
+  expect(welded.sprites).toHaveLength(2);
+
+  /* undo must restore the loose pose — not delete the piece */
+  await page.keyboard.press('r');
+  const undone = await st(page);
+  expect(undone.sprites).toHaveLength(2);
+  expect(undone.sprites[1].x).toBe(loose.x); /* exactly the loose pose restored */
 });
