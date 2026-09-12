@@ -4,7 +4,7 @@
 
 import {
   state, updateLight, setTool, place, snapshot, pushSnapshot,
-  undo, removePiece, cycleColor, deleteSelected, rotate, zoomAt, fitView,
+  undo, removePiece, cycleColor, deleteSelected, rotate, bumpLevel, zoomAt, fitView,
 } from './store.js';
 import { TOOLS } from './pieces.js';
 import { topPieceAt, groupSnap, worldFromScreen, clampScale, pieceHalfExtents, isHit } from './geometry.js';
@@ -240,6 +240,8 @@ function onKeyDown(e) {
     setTool('Pan'); /* Esc returns to the default tool */
   }
   else if (k === 'delete' || k === 'backspace') deleteSelected();
+  else if (k === 'pageup') bumpLevel(1);
+  else if (k === 'pagedown') bumpLevel(-1);
   else if (k === '+' || k === '=') zoomAt(getDims().w / 2, getDims().h / 2, 1.25);
   else if (k === '-') zoomAt(getDims().w / 2, getDims().h / 2, 0.8);
 }

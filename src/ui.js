@@ -3,7 +3,7 @@
  * of render/input — keeps the module graph acyclic). */
 
 import {
-  state, subscribe, setTool, setMode, undo, clearAll, loadSprites, rotate, zoomAt, fitView,
+  state, subscribe, setTool, setMode, undo, clearAll, loadSprites, rotate, bumpLevel, zoomAt, fitView,
 } from './store.js';
 import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
@@ -173,6 +173,8 @@ export function init(dimsGetter) {
   $('btnRotL').addEventListener('click', () => { if (!rotate(-45)) toast(`${state.angle}\u00B0`); });
   $('btnRotR').addEventListener('click', () => { if (!rotate(45)) toast(`${state.angle}\u00B0`); });
   $('btnUndo').addEventListener('click', () => { if (!undo()) toast('Nothing to undo'); });
+  $('btnLvlUp').addEventListener('click', () => toast(levelToast(bumpLevel(1))));
+  $('btnLvlDown').addEventListener('click', () => toast(levelToast(bumpLevel(-1))));
   $('btnClear').addEventListener('click', () => {
     if (!state.sprites.length) return;
     if (confirm('Delete all pieces?')) clearAll();
@@ -188,4 +190,10 @@ export function init(dimsGetter) {
   });
 
   buildPalette();
+}
+
+/* Elevation feedback for the ▲▼ buttons / PageUp-PageDown. */
+function levelToast(which) {
+  const mm = which === 'selection' ? [...state.selection].map((p) => p.z) : [state.zArm];
+  return `level ${mm[0]} mm`;
 }

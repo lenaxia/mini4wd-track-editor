@@ -45,7 +45,15 @@ function render() {
 
   drawGrid();
 
-  for (const p of state.sprites) drawPiece(p, 1);
+  /* painter's order by elevation (flat tracks: array order = today's
+   * behavior); viewport culling keeps dense tracks cheap on phones */
+  const tl = worldFromScreen(state.view, 0, 0), br = worldFromScreen(state.view, cssW, cssH);
+  const byZ = [...state.sprites].sort((a, b) => (a.z || 0) - (b.z || 0));
+  for (const p of byZ) {
+    const { hx, hy } = pieceHalfExtents(p);
+    if (p.x + hx < tl.x || p.x - hx > br.x || p.y + hy < tl.y || p.y - hy > br.y) continue;
+    drawPiece(p, 1);
+  }
   drawHitboxesIfTool();
 
   /* hover preview of the armed piece: same floor+snap the placement tap applies */
@@ -90,14 +98,32 @@ function drawGrid() {
 function drawPiece(p, alpha) {
   const def = PIECES[p.name];
   const img = imageFor(p.name, p.c);
+  const z = p.z || 0;
   ctx.save();
-  ctx.globalAlpha = alpha;
+  /* elevation shadow + semi-transparency over lower track: the crossover
+   * experience depends on seeing what you bridge over (docs/design §5) */
+  ctx.globalAlpha = alpha * (p._over ? 0.8 : 1);
+  if (z > 0) {
+    const o = Math.min(12, z * 0.15);
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.translate(p.x, p.y); ctx.rotate(rad(p.a));
+    ctx.fillRect(-def.w / 2 + o, -def.h / 2 + o, def.w, def.h);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.translate(state.view.x, state.view.y); ctx.scale(state.view.scale, state.view.scale);
+  }
   ctx.translate(p.x, p.y);
   ctx.rotate(rad(p.a));
   if (img && img.complete && img.naturalWidth) {
     ctx.drawImage(img, -def.w / 2, -def.h / 2, def.w, def.h);
   } else {
     drawPieceArt(ctx, p.name, p.c); /* fallback until sprites load */
+  }
+  if (p._warn) { /* insufficient clearance over lower track (75 mm rule) */
+    ctx.strokeStyle = '#e05263';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(-def.w / 2, -def.h / 2, def.w, def.h);
+    ctx.setLineDash([]);
   }
   ctx.restore();
 }
@@ -115,6 +141,15 @@ function drawSelection() {
     ctx.rect(p.x - hx - 2, p.y - hy - 2, 2 * hx + 4, 2 * hy + 4);
     ctx.fill();
     ctx.stroke();
+    if (p.z) { /* elevation badge on selected raised pieces */
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#7dd3fc';
+      ctx.font = `${12 / state.view.scale}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`${p.z}mm`, p.x, p.y - hy - 6 / state.view.scale);
+      ctx.setLineDash([6 / state.view.scale, 4 / state.view.scale]);
+      ctx.fillStyle = 'rgba(255,209,102,.08)';
+    }
   }
   ctx.restore();
 }
@@ -138,7 +173,7 @@ function drawRubberBand() {
 
 function drawVertices(p, snapped) {
   ctx.save();
-  ctx.fillStyle = snapped ? '#7CE38B' : '#ffd166';
+  ctx.fillStyle = p._bad ? '#e05263' : snapped ? '#7CE38B' : '#ffd166';
   for (let i = 0; i < vertsOf(p).length; i++) { const v = vertexOf(p, i);
     ctx.beginPath();
     ctx.arc(v.x, v.y, 6 / state.view.scale + 2, 0, Math.PI * 2);

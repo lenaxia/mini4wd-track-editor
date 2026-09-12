@@ -3,15 +3,16 @@
  * Subscribers (render, ui) are notified on every change. DOM-free: the
  * store is unit-testable under plain node. */
 
-import { PIECES, PALETTE, TOOLS } from './pieces.js';
-import { rot, centerOf, snapPiece, groupSnap, worldFromScreen, clampScale, computeFit } from './geometry.js';
+import { PIECES, PALETTE, TOOLS, CLEARANCE_MM } from './pieces.js';
+import { rot, centerOf, snapPiece, groupSnap, externalJoint, worldFromScreen, clampScale, computeFit, vertsOf, vertexOf, levelAt, outwardTangent, inwardTangent, pieceHalfExtents } from './geometry.js';
 import * as storage from './storage.js';
 
 export const state = {
   mode: 3,
   tool: 'Pan',          // piece name, or one of TOOLS (Pan is the default tool)
   angle: 0,
-  sprites: [],           // placed pieces: {name,x,y,a,c}
+  zArm: 0,              // armed elevation (mm) for the next placement
+  sprites: [],           // placed pieces: {name,x,y,a,c,z}
   selection: new Set(),  // pieces selected with the Move tool
   view: { x: 0, y: 0, scale: 0.62 },
   history: [],
@@ -22,8 +23,8 @@ export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
 
 function notify() { for (const fn of subs) fn(); }
 
-/* Discrete change: notify + autosave. */
-function emit() { notify(); storage.autosave(state); }
+/* Discrete change: notify + autosave + refresh cached joint/overlap flags. */
+function emit() { refreshFlags(); notify(); storage.autosave(state); }
 
 /* Transient change (drag/pan/pinch frames): notify only. */
 export function updateLight(mut) { mut(state); notify(); }
@@ -65,10 +66,11 @@ export function setMode(mode) {
 
 /* ---------- pieces ---------- */
 
-/* Figma-style placement: create, snap to neighbours, select. Caller owns
+/* Figma-style placement: create, make the joint proper (snap orients,
+ * connects exactly, adopts the neighbor level), select. Caller owns
  * the history snapshot (gestures commit history on release). */
-export function place(name, x, y, angle) {
-  const piece = { name, x: Math.floor(x), y: Math.floor(y), a: angle, c: 0 };
+export function place(name, x, y, angle, z = state.zArm) {
+  const piece = { name, x: Math.floor(x), y: Math.floor(y), a: angle, c: 0, z: Math.round(z) };
   snapPiece(piece, state.sprites);
   state.sprites.push(piece);
   state.selection.clear();
@@ -106,16 +108,21 @@ export function clearAll() {
   emit();
 }
 
-/* Rotate the armed angle and (when present) the selection around its
- * centroid (average of the pieces' visual centers, so off-center pieces
- * like Cor1 spin in place). Returns true when a selection was rotated. */
+/* Rotate the armed angle and (when present) the selection. With exactly one
+ * external joint the selection pivots about it (the connection survives);
+ * otherwise it spins around the visual-center centroid (docs/design §4). */
 export function rotate(delta) {
   state.angle = (state.angle + delta + 360) % 360;
   if (state.selection.size) {
     pushHistory();
-    let cx = 0, cy = 0;
-    for (const p of state.selection) { const c = centerOf(p); cx += c.x; cy += c.y; }
-    cx /= state.selection.size; cy /= state.selection.size;
+    const joint = externalJoint(state.selection, state.sprites);
+    let cx, cy;
+    if (joint) { cx = joint.x; cy = joint.y; }
+    else {
+      cx = 0; cy = 0;
+      for (const p of state.selection) { const c = centerOf(p); cx += c.x; cy += c.y; }
+      cx /= state.selection.size; cy /= state.selection.size;
+    }
     for (const p of state.selection) {
       const r = rot(p.x - cx, p.y - cy, delta);
       p.x = cx + r.x; p.y = cy + r.y;
@@ -126,6 +133,65 @@ export function rotate(delta) {
   }
   notify();
   return false;
+}
+
+/* Elevation: +-10 mm steps on the armed piece or the selection
+ * (clamped +-300 mm). Manual z is a power tool — touch users get levels
+ * via ramp chaining (snap adoption). */
+export function bumpLevel(steps) {
+  const dz = steps * 10;
+  if (state.selection.size) {
+    pushHistory();
+    for (const p of state.selection) p.z = Math.max(-300, Math.min(300, (p.z || 0) + dz));
+    emit();
+    return 'selection';
+  }
+  state.zArm = Math.max(-300, Math.min(300, state.zArm + dz));
+  emit();
+  return 'armed';
+}
+
+/* ---------- cached joint/overlap flags (computed on mutation, never per
+ * frame — docs/design §5) ---------- */
+
+const JOINT_EPS = 1e-6;
+
+function refreshFlags() {
+  const sprites = state.sprites;
+  for (const p of sprites) { p._over = false; p._warn = false; p._bad = false; }
+  for (let i = 0; i < sprites.length; i++) {
+    for (let j = i + 1; j < sprites.length; j++) {
+      const a = sprites[i], b = sprites[j];
+      const za = a.z || 0, zb = b.z || 0;
+      if (za === zb) continue;
+      const [hi, lo] = za > zb ? [a, b] : [b, a];
+      if (!bboxOverlap(hi, lo)) continue;
+      hi._over = true; /* drawn semi-transparent so under-track stays visible */
+      if ((hi.z || 0) - (lo.z || 0) < CLEARANCE_MM) hi._warn = true; /* can't clear */
+    }
+  }
+  /* imperfect joints: coincident vertices where tangent or level mismatch */
+  for (let i = 0; i < sprites.length; i++) {
+    const s = sprites[i];
+    for (let si = 0; si < vertsOf(s).length; si++) {
+      const a = vertexOf(s, si);
+      for (let j = 0; j < sprites.length; j++) {
+        if (i === j) continue;
+        const g = sprites[j];
+        for (let gi = 0; gi < vertsOf(g).length; gi++) {
+          const b = vertexOf(g, gi);
+          if (Math.hypot(a.x - b.x, a.y - b.y) > JOINT_EPS) continue;
+          const dT = Math.abs(((outwardTangent(s, si) - inwardTangent(g, gi) + 540) % 360) - 180);
+          if (dT > 0.05 || levelAt(s, si) !== levelAt(g, gi)) { s._bad = true; g._bad = true; }
+        }
+      }
+    }
+  }
+}
+
+function bboxOverlap(a, b) {
+  const ea = pieceHalfExtents(a), eb = pieceHalfExtents(b);
+  return Math.abs(a.x - b.x) <= ea.hx + eb.hx && Math.abs(a.y - b.y) <= ea.hy + eb.hy;
 }
 
 /* Replace the whole track (import / share). */
