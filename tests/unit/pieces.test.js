@@ -19,6 +19,9 @@ test('palette respects lane mode of its pieces', () => {
   /* the rucdoc drawer is mixed-lane by design (1/2/3) — pin the range */
   for (const name of PALETTE.rucdoc) {
     assert.ok([1, 2, 3].includes(PIECES[name].lanes), `${name}: lanes not 1/2/3`);
+    /* procedural: true drives the preload skip — if it detaches, 10 sprite
+     * requests 404 on every load again */
+    assert.equal(PIECES[name].procedural, true, `${name}: procedural flag missing`);
   }
 });
 
