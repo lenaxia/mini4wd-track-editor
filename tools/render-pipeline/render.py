@@ -79,15 +79,10 @@ def process(name, cfg, out_dir, expect):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     objs = load_model(cfg['model'])
     lo, hi = world_bbox(objs)
-    dz_e = surface_z_at(objs, *cfg['entry'][:2])
-    dz_x = surface_z_at(objs, *cfg['exit'][:2])
-    dz = None if dz_e is None or dz_x is None else round(dz_x - dz_e)
-
     # canonical pose: center bbox on origin, travel +x is assumed to be the
     # model's +x (heading_deg rotates first if annotated)
     heading = cfg.get('heading_deg', 0)
     if heading:
-        import math
         for o in objs:
             o.rotation_euler.rotate_axis('Z', math.radians(-heading))
         bpy.context.view_layer.update()
@@ -128,16 +123,16 @@ def process(name, cfg, out_dir, expect):
 
     # annotations are model-space: rotate them into the canonical frame by
     # the same -heading the objects got, THEN center them (frame consistency)
-    import math as _m
-    ca, sa = _m.cos(_m.radians(-heading)), _m.sin(_m.radians(-heading))
+    ca, sa = math.cos(math.radians(-heading)), math.sin(math.radians(-heading))
     def canon(pt):
+        # catalog verts are piece-local CM; dz stays MM (zOff is a mm field)
         x, y = pt[0] * ca - pt[1] * sa, pt[0] * sa + pt[1] * ca
-        return [round(x - (lo[0]+hi[0])/2*1000, 2), round(y - (lo[1]+hi[1])/2*1000, 2)]
+        return [round((x - (lo[0]+hi[0])/2*1000) / 10, 3), round((y - (lo[1]+hi[1])/2*1000) / 10, 3)]
     entry, exit_ = canon(cfg['entry']), canon(cfg['exit'])
     # connector running-surface heights, sliced on the CANONICAL x (post-
     # rotation) so the piece-end faces are found regardless of heading
-    dz_e = surface_z_at(objs, entry[0], entry[1])
-    dz_x = surface_z_at(objs, exit_[0], exit_[1])
+    dz_e = surface_z_at(objs, entry[0] * 10, entry[1] * 10)
+    dz_x = surface_z_at(objs, exit_[0] * 10, exit_[1] * 10)
     dz = None if dz_e is None or dz_x is None else round(dz_x - dz_e)
     if dz is not None and dz != 0: exit_ = exit_[:2] + [dz]
     result = {'w': round(w_cm, 1), 'h': round(h_cm, 1), 'verts': [entry, exit_], 'dz': dz}
