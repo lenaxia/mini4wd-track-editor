@@ -42,6 +42,8 @@
       <button class="tool" data-tool="Color"  type="button" title="Change color (E)">◐</button>
       <span class="sep"></span>
       <button class="tool" id="btnUndo"  type="button" title="Undo (R)">↩</button>
+      <button class="tool" id="btnLvlUp"   type="button" title="Raise level +10mm (PageUp)">▲</button>
+      <button class="tool" id="btnLvlDown" type="button" title="Lower level −10mm (PageDown)">▼</button>
       <button class="tool" id="btnClear" type="button" title="Delete all">🗑</button>
     </div>
     <div id="palette" class="palette" role="radiogroup" aria-label="Track pieces"></div>
@@ -59,7 +61,7 @@
     </div>
     <p class="credits">
       Fork PoC of <a href="https://mini4wd-track-editor.pimentoso.com" target="_blank" rel="noopener">Mini4WD Online Track Editor</a>
-      by Pimentoso (editor logic MIT). Track format is 100% compatible with the original.
+      by Pimentoso (editor logic MIT). Original-site tracks import unchanged; this fork's saves add an elevation field.
       Mini4WD is a trademark of Tamiya inc. Piece artwork © Tamiya inc., from the original editor's assets.
     </p>
   </dialog>
@@ -93,6 +95,7 @@
     <ul class="help-list">
       <li><kbd>1</kbd>–<kbd>9</kbd> pieces · <kbd>H</kbd> pan · <kbd>Q</kbd>/<kbd>W</kbd>/<kbd>E</kbd> select/delete/color</li>
       <li><kbd>Z</kbd>/<kbd>X</kbd> rotate · <kbd>R</kbd> undo · <kbd>F</kbd> fit · <kbd>+/−</kbd> zoom · <kbd>Shift+drag</kbd> pan</li>
+      <li><kbd>PageUp</kbd>/<kbd>PageDown</kbd> (or <b>▲▼</b>) raise/lower the armed piece or selection by 10 mm — or just chain off a slope and the level is adopted automatically</li>
       <li><kbd>Del</kbd> delete selection · <kbd>Esc</kbd> pan tool (dismisses armed piece / selection)</li>
     </ul>
     <div class="dialog-actions"><button type="button" class="secondary" id="helpClose">Close</button></div>
@@ -100,6 +103,6 @@
 
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=2"></script>
+  <script type="module" src="src/main.js?v=3"></script>
 </body>
 </html>

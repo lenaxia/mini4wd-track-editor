@@ -204,3 +204,134 @@ test('keyboard 1 arms the first piece family', async ({ page }) => {
   await page.keyboard.press('1');
   expect((await st(page)).tool).toBe('Str1');
 });
+
+test('corner chaining auto-orients the next piece exactly', async ({ page }) => {
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.4, 0.5);
+  const first = (await st(page)).sprites[0];
+
+  /* arm the corner at a WRONG angle (z -> 315) so orientation has real work.
+   * At a=315 its v0 (local -26,-8) lands at rot(-26,-8,315) ~= (-24,+12.7):
+   * aim the ORIGIN so that armed v0 sits on first's v2 (27,0). */
+  /* deselect first (Esc) so the z-press only arms the angle — otherwise the
+   * still-selected straight rotates too and the joint moves out from under us */
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('2');
+  await page.keyboard.press('z');
+  const pt = await toScreen(page, first.x + 51, first.y - 12.7);
+  await page.mouse.click(pt.x, pt.y);
+  const s = await st(page);
+  expect(s.sprites).toHaveLength(2);
+  expect(s.sprites[1].name).toBe('Cor1');
+  expect(s.sprites[1].a).toBeLessThan(0.5); /* re-oriented to chain: entry tangent 0 */
+  /* joint exact: corner v0 world == first v2 world (catalog data is ~0.03°
+   * off ideal, so sub-mm tolerance rather than exactness) */
+  const c = s.sprites[1];
+  const vx = c.x + -26, vy = c.y + -8; /* a~=0: no rotation */
+  expect(Math.hypot(vx - (first.x + 27), vy - first.y)).toBeLessThan(0.05);
+});
+
+test('slope chaining elevates the next piece (+75 mm, adopted)', async ({ page }) => {
+  await page.keyboard.press('6'); /* Bri1 slope, 3-lane family 6 */
+  await clickCanvas(page, 0.4, 0.5);
+  const slope = (await st(page)).sprites[0];
+  expect(slope.name).toBe('Bri1');
+  expect(slope.z).toBe(0);
+
+  await page.locator('.chip').first().click(); /* straight */
+  /* aim 4cm short of the exact chained origin (slope.x + 54) so snap works */
+  const pt = await toScreen(page, slope.x + 50, slope.y + 3);
+  await page.mouse.click(pt.x, pt.y);
+  const top = (await st(page)).sprites[1];
+  expect(top.z).toBe(75); /* adopted the slope-top level */
+  expect(top.x).toBe(slope.x + 54); /* chained exactly */
+});
+
+test('rotate pivots a connected piece about the joint (joint survives)', async ({ page }) => {
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.5, 0.5);
+  const first = (await st(page)).sprites[0];
+  await page.locator('.chip').first().click();
+  const pt = await toScreen(page, first.x + 50, first.y);
+  await page.mouse.click(pt.x, pt.y);
+  const second = (await st(page)).sprites[1];
+  expect(second.x).toBe(first.x + 54); /* chained exactly */
+
+  await page.keyboard.press('x'); /* rotate selection about the joint */
+  const s = await st(page);
+  const moved = s.sprites[1];
+  expect(moved.a).toBe(45);
+  /* joint still coincident: first's v2 == moved's v0 (27 left of origin at 45deg) */
+  const jx = first.x + 27, jy = first.y;
+  const vx = moved.x + -27 * Math.SQRT1_2, vy = moved.y + -27 * Math.SQRT1_2;
+  expect(Math.hypot(vx - jx, vy - jy)).toBeLessThan(1e-6);
+});
+
+test('manual elevation: PageUp raises the armed piece, persists through reload', async ({ page }) => {
+  await page.locator('.chip').first().click();
+  await page.keyboard.press('PageUp'); await page.keyboard.press('PageUp'); await page.keyboard.press('PageUp');
+  await clickCanvas(page, 0.5, 0.5);
+  const p = (await st(page)).sprites[0];
+  expect(p.z).toBe(30);
+  await page.waitForTimeout(500); /* autosave debounce */
+
+  await page.reload();
+  const s = await st(page);
+  expect(s.sprites[0].z).toBe(30);
+});
+
+test('level buttons work (touch parity for elevation)', async ({ page }) => {
+  await page.locator('#btnLvlUp').click();
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.5, 0.5);
+  expect((await st(page)).sprites[0].z).toBe(10);
+});
+
+test('drag perf smoke: 60-move drag on a 500-piece track stays interactive', async ({ page }) => {
+  const names = ['Str1','Cor1','Lan1','Chi1','Str2','Bri1','Ban1','Bri2','Lan2'];
+  let track = '';
+  for (let i = 0; i < 500; i++) track += `${names[i % 9]};${(i * 7) % 3000 + 100}.000;${(i * 11) % 2000 + 100}.000;${(i % 8) * 45};${i % 3};${(i % 2) * 75}#`;
+  const code = Buffer.from(track, 'utf8').toString('base64url');
+  await page.goto('about:blank');
+  await page.goto(`/#t=${code}`);
+  await page.waitForFunction(() => window.__m4wd && window.__m4wd.state.sprites.length === 500, null, { timeout: 20000 });
+  const bb = await canvasBox(page);
+  await page.keyboard.press('q'); /* Move tool */
+  const t0 = Date.now();
+  await page.mouse.move(bb.x + bb.width * 0.6, bb.y + bb.height * 0.5);
+  await page.mouse.down();
+  for (let i = 0; i < 60; i++) await page.mouse.move(bb.x + bb.width * (0.6 + i * 0.003), bb.y + bb.height * 0.5);
+  await page.mouse.up();
+  const dt = Date.now() - t0;
+  expect(dt).toBeLessThan(15000); /* order-of-magnitude regression gate only */
+});
+
+test('Delete and Color act on the z-topmost piece at a crossover', async ({ page }) => {
+  /* build a two-level crossing: ground straight + raised straight above it */
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.5, 0.5);
+  const ground = (await st(page)).sprites[0];
+  await page.keyboard.press('Escape');
+  await page.locator('#btnLvlUp').click();
+  await page.locator('.chip').first().click();
+  await clickCanvas(page, 0.52, 0.5); /* overlaps ground, z=10 */
+  const raised = (await st(page)).sprites[1];
+  expect(raised.z).toBe(10);
+
+  /* Delete tool: tap inside the overlap (16cm from raised's center, still
+   * within ground's bbox) — the raised (visually top) piece goes */
+  await page.keyboard.press('w');
+  const pt = await toScreen(page, raised.x - 16, ground.y);
+  await page.mouse.click(pt.x, pt.y);
+  const s1 = await st(page);
+  expect(s1.sprites).toHaveLength(1);
+  expect(s1.sprites[0].x).toBe(ground.x); /* the ground piece survived */
+  expect(s1.sprites[0].z).toBe(0);
+
+  /* Color tool: tap the remaining piece — cycles its color */
+  await page.keyboard.press('e');
+  const gpt = await toScreen(page, ground.x, ground.y);
+  await page.mouse.click(gpt.x, gpt.y);
+  const s2 = await st(page);
+  expect(s2.sprites[0].c).toBe(1);
+});

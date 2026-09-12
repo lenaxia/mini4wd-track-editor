@@ -12,7 +12,7 @@ longer works).
 | Component | Original | Status for a fork |
 |---|---|---|
 | Editor logic (`editor.js`) | JavaScript, **MIT licensed** (© 2016 Michele Ferri) | ✅ Legally reusable — piece catalog, snapping, serialization all extracted |
-| Track format | `Name;x;y;angle;color#…` (1 px = 1 cm) | ✅ Fully decoded; this fork is **byte-compatible** (verified against real track `CMNPX6`) |
+| Track format | `Name;x;y;angle;color;z#…` (1 px = 1 cm) | ✅ Fully decoded; legacy tracks import unchanged (5-field parses to z=0); writes add the elevation field — see `docs/design/orient-elevation.md` §3 |
 | Save/Load | Rails: `POST /save` → 6-char code, `GET /load/CODE.js` | ✅ Trivial to re-implement; this PoC replaces it with URL-hash sharing + localStorage + file export |
 | Gallery / API | `GET /api/tracks/:code` JSON | ✅ Easy to add later; original API has no CORS headers, so live import needs a tiny proxy |
 | Piece artwork | PNGs of Tamiya track pieces | ✅ Reused (`assets/`) with attribution — © Tamiya inc. |
@@ -63,7 +63,7 @@ index.html            app shell (entry: <script type="module" src="src/main.js">
 src/
   pieces.js           piece catalog + constants (pure data)
   geometry.js         rot/vertex/snap/fit math (pure, DOM-free)
-  track.js            serialize/parseTrack/share codec (byte-compatible, pure)
+  track.js            serialize/parseTrack/share codec (v2 writes, legacy import, pure)
   art.js              procedural sprite fallback (pure canvas ops)
   assets.js           sprite preloading
   storage.js          localStorage autosave/restore
@@ -90,7 +90,7 @@ is what makes the unit layer possible.
 See [TESTPLAN.md](TESTPLAN.md). Two automated layers:
 
 - **Unit** — Node's built-in runner (`node --test`), zero dependencies:
-  byte-compat round-trips, snapping math, catalog integrity, store actions.
+  codec-v2 round-trips + legacy import, snapping math, catalog integrity, store actions.
 - **E2E** — Playwright (dev-only dependency): gesture flows (place → move →
   click-away deselect), chaining/snapping, undo, rotate, import, share
   links, touch placement. Assertions read the model via `window.__m4wd`,

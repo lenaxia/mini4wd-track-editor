@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PIECES, PALETTE, TOOLS, VARIANT_COLORS } from '../../src/pieces.js';
+import { PIECES, PALETTE, TOOLS, VARIANT_COLORS, SNAP_RADIUS } from '../../src/pieces.js';
 
 test('every palette entry resolves to a piece definition', () => {
   for (const mode of [3, 5]) {
@@ -22,9 +22,19 @@ test('catalog fields are sane for every piece', () => {
     assert.ok(def.l === 3 || def.lanes === def.lanes, name); /* lanes present */
     assert.ok(def.l > 0 && def.w > 0 && def.h > 0, name);
     assert.ok(Number.isInteger(def.colors) && def.colors >= 1, name);
-    for (const v of [def.v1, def.v2]) {
-      assert.ok(Array.isArray(v) && v.length === 2 && v.every(Number.isFinite), name);
+    assert.ok(def.verts.length >= 2, name);
+    let minSep = Infinity;
+    for (const v of def.verts) {
+      assert.ok(Array.isArray(v) && v.length >= 2 && v.slice(0, 2).every(Number.isFinite), name);
+      if (v.length === 3) assert.ok(Number.isInteger(v[2]), `${name}: zOff integer`);
     }
+    for (let i = 0; i < def.verts.length; i++) {
+      for (let j = i + 1; j < def.verts.length; j++) {
+        const d = Math.hypot(def.verts[i][0] - def.verts[j][0], def.verts[i][1] - def.verts[j][1]);
+        minSep = Math.min(minSep, d);
+      }
+    }
+    assert.ok(minSep > 2 * SNAP_RADIUS, `${name}: vertex separation ${minSep} must exceed 2x snap radius`);
     if (def.kind === 'corner' || def.kind === 'hairpin') {
       assert.ok(def.R > 0 && def.band > 0, name);
     }

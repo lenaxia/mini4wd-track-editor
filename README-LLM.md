@@ -20,11 +20,14 @@ zero installs. ES modules require http — `file://` does not work; use
    tooling (node --test, Playwright) is allowed and lives behind
    `package.json` scripts. Keep the module graph acyclic:
    `main → render → input → ui → store → geometry/track/storage → pieces`.
-2. **Track format byte-compatibility.** `src/track.js` `serialize()` /
-   `parseTrack()` speak `Name;x;y;angle;color#…` (1 px = 1 cm, x/y
-   `toFixed(3)`) exactly like the original editor. Changes must not alter
-   the serialized output for existing tracks. Round-trip fidelity is a
-   release blocker (pinned by `tests/unit/track.test.js`).
+2. **Track format: v2 writes, legacy imports.** `src/track.js`
+   `serialize()` speaks `Name;x;y;angle;color;z#` (1 px = 1 cm, x/y
+   `toFixed(3)`, angle 3-dp, z integer mm) — the z field is the
+   owner-approved breaking change (docs/design/orient-elevation.md §3;
+   the original site has no export to stay byte-identical with).
+   `parseTrack()` must keep accepting 5-field legacy strings, 6-field
+   v2, and `/load/CODE.js` wrappers forever. v2 round-trip fidelity is
+   a release blocker (pinned by `tests/unit/track.test.js`).
 3. **Attribution is load-bearing.** The MIT notice (© 2016 Michele Ferri)
    at the top of `src/main.js` stays, with the short derived-data notices
    in `pieces.js`/`geometry.js`/`track.js`. "Mini4WD" and the piece
@@ -32,7 +35,7 @@ zero installs. ES modules require http — `file://` does not work; use
    and `README.md` accurate.
 4. **Touch + desktop parity.** Every interaction must work with touch
    (single finger, two-finger pan/pinch), mouse, and keyboard (1-9, Q/W/E,
-   H, Z/X, R, F, Esc, Del, Shift). devicePixelRatio-correct rendering must
+   H, Z/X, R, F, Esc, Del, Shift, PageUp/PageDown). devicePixelRatio-correct rendering must
    be preserved.
 5. **Cache-bust.** Bump `?v=N` on the `src/main.js` reference in
    `index.html` whenever app code changes.

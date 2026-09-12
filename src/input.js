@@ -3,12 +3,11 @@
  * (per-frame). Render queries the exported accessors for overlays. */
 
 import {
-  state, updateLight, setTool, place, snapshot, pushSnapshot,
-  undo, removePiece, cycleColor, deleteSelected, rotate, zoomAt, fitView,
+  state, updateLight, update, setTool, place, snapshot, pushSnapshot,
+  undo, removePiece, cycleColor, deleteSelected, rotate, bumpLevel, zoomAt, fitView,
 } from './store.js';
 import { TOOLS } from './pieces.js';
-import { topPieceAt, groupSnap, worldFromScreen, clampScale, pieceHalfExtents, isHit } from './geometry.js';
-import * as storage from './storage.js';
+import { topPieceAt, isHit, groupSnap, worldFromScreen, clampScale, pieceHalfExtents } from './geometry.js';
 import { toast } from './ui.js';
 
 const pointers = new Map();
@@ -53,11 +52,8 @@ function beginPinch() {
 /* ---------- tap actions for the Delete / Color tools ---------- */
 function actAt(pt) {
   if (!['Delete', 'Color'].includes(state.tool)) return;
-  let hit = null;
-  for (let i = state.sprites.length - 1; i >= 0; i--) {
-    if (isHit(state.sprites[i], pt)) { hit = state.sprites[i]; break; }
-  }
-  if (!hit) return;
+  const hit = topPieceAt(state.sprites, pt); /* z-ordered like Move: bridges win taps */
+  if (!hit || !isHit(hit, pt)) return; /* isHit honors centerOf + HITBOX_RADIUS */
   if (state.tool === 'Delete') removePiece(hit);
   else cycleColor(hit);
 }
@@ -180,9 +176,9 @@ function onPointerEnd(e) {
     dragSnapped_ = false;
     if (g.moved || g.placed) {
       pushSnapshot(g.snapshot);
-      storage.autosave(state);
+      if (g.placed && !e.shiftKey) setTool('Move'); /* Figma revert — this emits */
+      else update(() => {}); /* shift-kept placement / plain drag — emit once */
     }
-    if (g.placed && !e.shiftKey) setTool('Move'); /* Figma: tool reverts to Move after placing */
     updateLight(() => {});
     return;
   }
@@ -240,6 +236,8 @@ function onKeyDown(e) {
     setTool('Pan'); /* Esc returns to the default tool */
   }
   else if (k === 'delete' || k === 'backspace') deleteSelected();
+  else if (k === 'pageup') bumpLevel(1);
+  else if (k === 'pagedown') bumpLevel(-1);
   else if (k === '+' || k === '=') zoomAt(getDims().w / 2, getDims().h / 2, 1.25);
   else if (k === '-') zoomAt(getDims().w / 2, getDims().h / 2, 0.8);
 }

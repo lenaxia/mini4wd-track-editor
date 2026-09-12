@@ -18,8 +18,8 @@ function makeState() {
     tool: 'Str4',
     angle: 90,
     sprites: [
-      { name: 'Str2', x: 100.5, y: 100, a: 0, c: 0 },
-      { name: 'Cor1', x: 154.25, y: 100, a: 45, c: 3 },
+      { name: 'Str2', x: 100.5, y: 100, a: 0, c: 0, z: 0 },
+      { name: 'Cor1', x: 154.25, y: 100, a: 45, c: 3, z: 75 },
     ],
   };
 }
@@ -36,8 +36,8 @@ test('autosave then restore round-trips through localStorage', async () => {
   assert.equal(state.angle, 90);
   /* coords pass through serialize's toFixed(3) — exact for these values */
   assert.deepEqual(state.sprites, [
-    { name: 'Str2', x: 100.5, y: 100, a: 0, c: 0 },
-    { name: 'Cor1', x: 154.25, y: 100, a: 45, c: 3 },
+    { name: 'Str2', x: 100.5, y: 100, a: 0, c: 0, z: 0 },
+    { name: 'Cor1', x: 154.25, y: 100, a: 45, c: 3, z: 75 },
   ]);
 });
 

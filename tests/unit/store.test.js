@@ -2,15 +2,17 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   state, place, undo, pushHistory, snapshot, pushSnapshot,
-  setTool, setMode, rotate, deleteSelected, removePiece, cycleColor,
+  setTool, setMode, rotate, bumpLevel, deleteSelected, removePiece, cycleColor,
   clearAll, loadSprites, subscribe,
 } from '../../src/store.js';
+import { vertexOf } from '../../src/geometry.js';
 import { parseTrack } from '../../src/track.js';
 
 function reset() {
   state.mode = 3;
   state.tool = 'Pan';
   state.angle = 0;
+  state.zArm = 0;
   state.sprites = [];
   state.selection.clear();
   state.history = [];
@@ -30,7 +32,7 @@ test('place floors coordinates, snaps, and selects the new piece', () => {
 
 test('undo restores the previous snapshot and clears selection', () => {
   pushHistory();
-  state.sprites.push({ name: 'Str1', x: 10, y: 10, a: 0, c: 0 });
+  state.sprites.push({ name: 'Str1', x: 10, y: 10, a: 0, c: 0, z: 0 });
   state.selection.add(state.sprites[0]);
   assert.equal(undo(), true);
   assert.equal(state.sprites.length, 0);
@@ -44,8 +46,8 @@ test('history is capped at 80 snapshots', () => {
 });
 
 test('rotate spins the selection around its centroid', () => {
-  const a = { name: 'Str1', x: 0, y: 0, a: 0, c: 0 };
-  const b = { name: 'Str1', x: 100, y: 0, a: 0, c: 0 };
+  const a = { name: 'Str1', x: 0, y: 0, a: 0, c: 0, z: 0 };
+  const b = { name: 'Str1', x: 100, y: 0, a: 0, c: 0, z: 0 };
   state.sprites.push(a, b);
   state.selection.add(a);
   state.selection.add(b);
@@ -84,8 +86,8 @@ test('rotate with no selection only changes the armed angle', () => {
 });
 
 test('deleteSelected removes selection and snapshots history', () => {
-  const a = { name: 'Str1', x: 0, y: 0, a: 0, c: 0 };
-  const b = { name: 'Str1', x: 100, y: 0, a: 0, c: 0 };
+  const a = { name: 'Str1', x: 0, y: 0, a: 0, c: 0, z: 0 };
+  const b = { name: 'Str1', x: 100, y: 0, a: 0, c: 0, z: 0 };
   state.sprites.push(a, b);
   state.selection.add(a);
   deleteSelected();
@@ -96,7 +98,7 @@ test('deleteSelected removes selection and snapshots history', () => {
 });
 
 test('removePiece and cycleColor mutate through history', () => {
-  const a = { name: 'Cor1', x: 0, y: 0, a: 0, c: 0 };
+  const a = { name: 'Cor1', x: 0, y: 0, a: 0, c: 0, z: 0 };
   state.sprites.push(a);
   cycleColor(a);
   assert.equal(a.c, 1);
@@ -111,7 +113,7 @@ test('clearAll is a no-op on an empty track', () => {
 });
 
 test('loadSprites replaces the track and pushes history', () => {
-  state.sprites.push({ name: 'Str1', x: 1, y: 1, a: 0, c: 0 });
+  state.sprites.push({ name: 'Str1', x: 1, y: 1, a: 0, c: 0, z: 0 });
   const imported = parseTrack('Str2;100.000;100.000;0;0#Str1;154.000;100.000;0;0#');
   loadSprites(imported);
   assert.equal(state.sprites.length, 2);
@@ -140,8 +142,92 @@ test('subscribers are notified on discrete changes', () => {
 });
 
 test('snapshot returns a serialized deep copy', () => {
-  state.sprites.push({ name: 'Str1', x: 5, y: 6, a: 0, c: 0 });
+  state.sprites.push({ name: 'Str1', x: 5, y: 6, a: 0, c: 0, z: 0 });
   const snap = snapshot();
   state.sprites[0].x = 999;
-  assert.equal(snap, '[{"name":"Str1","x":5,"y":6,"a":0,"c":0}]');
+  assert.equal(snap, '[{"name":"Str1","x":5,"y":6,"a":0,"c":0,"z":0}]');
+});
+
+test('place carries the armed elevation; snapping adopts the neighbor level', () => {
+  const slope = place('Bri1', 200, 200, 0, 0);
+  assert.equal(slope.z, 0);
+  /* chain a straight near the slope top: v2 world = (227,200), level 75 */
+  const top = place('Str1', 250, 203, 0, 0); /* v0=(223,203): 5cm from joint */
+  assert.equal(top.z, 75); /* adopted, not the armed 0 */
+  state.zArm = 40;
+  const free = place('Str1', 500, 500, 0); /* no snap: armed z applies */
+  assert.equal(free.z, 40);
+});
+
+test('rotate pivots about a single external joint (connection survives)', () => {
+  const a = place('Str1', 100, 100, 0, 0);
+  const b = place('Str1', 154, 100, 0, 0); /* chained to a */
+  state.selection.clear(); state.selection.add(b);
+  rotate(45);
+  const j = vertexOf(a, 1), v = vertexOf(b, 0);
+  assert.ok(Math.hypot(j.x - v.x, j.y - v.y) < 1e-9); /* joint still exact */
+  assert.equal(b.a, 45);
+  assert.equal(state.history.length, 1);
+});
+
+test('rotate falls back to centroid with no external joint', () => {
+  const p = place('Str1', 100, 100, 0, 0);
+  state.selection.clear(); state.selection.add(p);
+  const before = vertexOf(p, 0);
+  rotate(90);
+  /* single centered piece around its own center: position unchanged */
+  assert.equal(p.x, 100);
+  assert.equal(p.a, 90);
+});
+
+test('bumpLevel steps armed and selection by 10mm with clamping', () => {
+  assert.equal(bumpLevel(3), 'armed');
+  assert.equal(state.zArm, 30);
+  assert.equal(bumpLevel(-1), 'armed');
+  assert.equal(state.zArm, 20);
+  state.zArm = 290; bumpLevel(5);
+  assert.equal(state.zArm, 300); /* clamped */
+  const p = place('Str1', 100, 100, 0, 0); /* explicit z=0 (not the armed 300) */
+  state.selection.clear(); state.selection.add(p);
+  assert.equal(bumpLevel(-2), 'selection');
+  assert.equal(p.z, -20);
+  assert.equal(state.history.length, 1);
+});
+
+test('refreshFlags marks overlap alpha, clearance warnings, bad joints', () => {
+  const S = (name, x, y, z) => ({ name, x, y, a: 0, c: 0, z });
+  state.sprites.push(S('Str1', 100, 100, 0));
+  const low = S('Str1', 110, 100, 40);   /* overlaps ground, dz=40 < 75 */
+  const apart = S('Str1', 400, 100, 75); /* no overlap */
+  const ground2 = S('Str1', 100, 300, 0);
+  const ok = S('Str1', 110, 300, 75);    /* overlaps ground2 only, dz=75 clears */
+  state.sprites.push(low, apart, ground2, ok);
+  setTool('Move'); /* any emit() action runs refreshFlags */
+  assert.equal(low._over, true);
+  assert.equal(low._warn, true);
+  assert.equal(ok._over, true);
+  assert.equal(ok._warn, false);
+  assert.equal(apart._over, false);
+  /* kinked joint: rotate a chained piece about the joint */
+  const a = place('Str1', 100, 500, 0, 0);
+  const b = place('Str1', 154, 500, 0, 0);
+  state.selection.clear(); state.selection.add(b);
+  rotate(45);
+  assert.equal(b._bad, true); /* pivot leaves a tangent kink — flagged */
+});
+
+test('chained adjacency is not plan overlap (no false _over on slope chains)', () => {
+  const S = (name, x, y, z) => ({ name, x, y, a: 0, c: 0, z });
+  const slope = S('Bri1', 100, 100, 0);
+  const chainedTop = S('Str1', 154, 100, 75); /* exact chain: edge-touching only */
+  state.sprites.push(slope, chainedTop);
+  setTool('Move'); /* emit -> refreshFlags */
+  assert.equal(chainedTop._over, false); /* joints/adjacency are not overlap */
+  assert.equal(slope._over, false);
+  /* a real different-level overlap still flags */
+  const above = S('Str1', 190, 90, 150); /* overlaps the raised straight's body */
+  state.sprites.push(above);
+  setTool('Pan');
+  assert.equal(above._over, true);
+  assert.equal(above._warn, false); /* dz=75 clears */
 });

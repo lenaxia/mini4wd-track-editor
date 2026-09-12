@@ -147,11 +147,16 @@ export function drawPieceArt(g, name, cIdx) {
     g.stroke();
     g.lineWidth = 2.4;
     chevron(g, -w / 6, 0, 6, 1); chevron(g, w / 6, 0, 6, -1);
-  } else {
+  } else if (def.kind === 'straight') {
     /* plain straight: direction chevrons */
     g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 2;
     const n = Math.max(1, Math.round(w / 54));
     for (let i = 0; i < n; i++) chevron(g, -w / 4 + (w / 2 / n) * i, 0, h / 8, 1);
+  } else {
+    /* unknown kind: generic fallback — label so it reads as unrendered */
+    g.fillStyle = 'rgba(255,255,255,.6)';
+    g.font = '9px monospace'; g.textAlign = 'center';
+    g.fillText(def.kind, 0, 3);
   }
   g.restore();
 }

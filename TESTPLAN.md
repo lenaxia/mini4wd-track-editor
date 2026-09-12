@@ -15,12 +15,12 @@ dependencies: unit tests use Node's built-in runner; e2e uses Playwright
 
 ## Release blockers covered by automation
 
-1. **Track format byte-compatibility** — `parseTrack → serialize` must
-   reproduce the original string exactly (unit, `track.test.js`). Any change
-   here is a release blocker per README-LLM. Persistence paths (autosave,
-   share, export) serialize via `serializeForSave` — byte-identical for
-   non-negative tracks, minimal-translation for negative-origin ones
-   (the codec drops those; the fork's free canvas produces them).
+1. **Track format v2 fidelity** — `parseTrack → serialize` must reproduce
+   the v2 string exactly, and legacy 5-field input must parse to z=0
+   (unit, `track.test.js`). Persistence paths serialize via
+   `serializeForSave` (minimal translation for negative-origin tracks).
+   Connection invariants (tangent + level at joints) are pinned by
+   `geometry.test.js`; overlay/clearance flags by `store.test.js`.
 2. **Snapping correctness** — vertex snap and group snap (unit,
    `geometry.test.js`): closest-pair-wins, applied once, ties resolved
    deterministically by array order; chained placement produces byte-exact
@@ -66,7 +66,10 @@ test hook (exposed by `src/main.js`) — never pixel-diffed.
 6. Esc: dismisses armed piece tool → Pan.
 7. Rotate: `X` rotates selection (coords + angle).
 8. Undo: `R` steps back; empty-history is a no-op.
-9. Import: menu → paste → Import loads the fixture track.
+9. Import: menu → paste → Import loads the legacy fixture track (z=0).
+9b. Corner chaining auto-orients (armed wrong angle corrected, sub-mm joint).
+9c. Slope chaining adopts +75 mm; PageUp/▲▼ manual levels persist on reload;
+    pivot rotation keeps the joint coincident; drag perf smoke on 500 pieces.
 10. Share: `#t=` hash restores the track on a fresh load (hash-only gotos
     are same-document navigations — the spec hops via `about:blank`).
 11. Autosave: placed track survives a reload through localStorage

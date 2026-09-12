@@ -37,8 +37,8 @@ function sampleArcFits(cx, cy, R, band, a1, sweep, halfW, halfH) {
 export function solveGeo(name) {
   if (geoCache.has(name)) return geoCache.get(name);
   const def = PIECES[name];
-  const v1 = { x: def.v1[0], y: def.v1[1] };
-  const v2 = { x: def.v2[0], y: def.v2[1] };
+  const v1 = { x: def.verts[0][0], y: def.verts[0][1] };
+  const v2 = { x: def.verts[1][0], y: def.verts[1][1] };
   const halfW = def.w / 2 + 1.5, halfH = def.h / 2 + 1.5;
   let geo = null;
 
@@ -83,8 +83,12 @@ export function solveGeo(name) {
 }
 
 /* ============================================================
- * Geometry helpers on pieces ({name,x,y,a,c})
+ * Geometry helpers on pieces ({name,x,y,a,c,z})
  * ============================================================ */
+export function vertsOf(p) {
+  return PIECES[p.name].verts;
+}
+
 export function centerOf(p) {
   const def = PIECES[p.name];
   const c = def.center || [0, 0];
@@ -92,11 +96,66 @@ export function centerOf(p) {
   return { x: p.x + r.x, y: p.y + r.y };
 }
 
-export function vertexOf(p, n) {
-  const def = PIECES[p.name];
-  const v = n === 1 ? def.v1 : def.v2;
+/* World position of connection vertex i (0-based into def.verts). */
+export function vertexOf(p, i) {
+  const v = PIECES[p.name].verts[i];
   const r = rot(v[0], v[1], p.a);
   return { x: p.x + r.x, y: p.y + r.y };
+}
+
+/* Elevation (mm) at connection vertex i: serialized level + per-vertex offset. */
+export function levelAt(p, i) {
+  return (p.z || 0) + (PIECES[p.name].verts[i][2] || 0);
+}
+
+/* ---------- tangents (catalog-local, degrees; docs/design §1) ---------- */
+const tangentCache = new Map();
+
+/* Local tangent of the travel direction at vertex i. Arc kinds derive it
+ * from the solved arc; axis kinds from the verts[0]->verts[last] axis. */
+function localTangent(name) {
+  if (tangentCache.has(name)) return tangentCache.get(name);
+  const def = PIECES[name];
+  let t;
+  if (def.kind === 'corner' || def.kind === 'hairpin') {
+    const geo = solveGeo(name); /* radians */
+    const sgn = geo.sweep >= 0 ? Math.PI / 2 : -Math.PI / 2;
+    const deg = (r) => r * 180 / Math.PI;
+    t = { in0: deg(geo.a1 + sgn), out1: deg(geo.a1 + geo.sweep + sgn) };
+  } else {
+    const a = def.verts[0], b = def.verts[def.verts.length - 1];
+    const d = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+    t = { in0: d, out1: d };
+  }
+  tangentCache.set(name, t);
+  return t;
+}
+
+const norm360 = (deg) => ((deg % 360) + 360) % 360;
+
+/* Outward tangent (degrees, world) at vertex i: direction of travel LEAVING
+ * the piece through that vertex. */
+export function outwardTangent(p, i) {
+  const t = localTangent(p.name);
+  return norm360(p.a + (i === localLast(p) ? t.out1 : t.in0 + 180));
+}
+
+/* Inward tangent (degrees, world) at vertex i: direction of travel ENTERING
+ * the piece through that vertex. */
+export function inwardTangent(p, i) {
+  const t = localTangent(p.name);
+  return norm360(p.a + (i === localLast(p) ? t.out1 + 180 : t.in0));
+}
+
+function localLast(p) {
+  return PIECES[p.name].verts.length - 1;
+}
+
+/* Absolute angle for g so its inward tangent at gi aligns with s's outward
+ * tangent at si (travel flows s -> g through the joint). The tangent helpers
+ * already return world values (piece rotation included). */
+export function orientAngle(s, si, g, gi) {
+  return norm360(outwardTangent(s, si) - (inwardTangent(g, gi) - g.a));
 }
 
 export function isHit(p, pt) {
@@ -115,9 +174,12 @@ export function bboxContains(p, w) {
   return Math.abs(w.x - p.x) <= hx && Math.abs(w.y - p.y) <= hy;
 }
 
+/* Topmost piece at w: highest z first, array order within a level
+ * (matches painter's order — a bridge wins clicks over the road below). */
 export function topPieceAt(sprites, w) {
-  for (let i = sprites.length - 1; i >= 0; i--) {
-    if (isHit(sprites[i], w) || bboxContains(sprites[i], w)) return sprites[i];
+  const byZ = [...sprites].sort((a, b) => (a.z || 0) - (b.z || 0));
+  for (let i = byZ.length - 1; i >= 0; i--) {
+    if (isHit(byZ[i], w) || bboxContains(byZ[i], w)) return byZ[i];
   }
   return null;
 }
@@ -125,35 +187,42 @@ export function topPieceAt(sprites, w) {
 /* ---------- snapping ---------- */
 
 /* Snap a placed-or-about-to-be piece to the closest connection vertex of
- * every other piece (vertex-pair enumeration from the original MIT
- * source; selection is closest-pair-wins, applied once). Mutates g. */
+ * every other piece, then make the joint PROPER (docs/design §1): rotate
+ * so tangents align, translate so vertices coincide exactly, adopt the
+ * neighbor's level at the joint. Pair selection is closest-wins with
+ * deterministic encounter-order ties (hysteresis deferred until splits).
+ * Mutates g. */
 export function snapPiece(g, sprites) {
   let best = null;
   for (const s of sprites) {
     if (s === g) continue;
-    for (const [si, gi] of [[1, 1], [1, 2], [2, 1], [2, 2]]) {
-      const a = vertexOf(s, si), b = vertexOf(g, gi);
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (d <= SNAP_RADIUS && (!best || d < best.d)) best = { d, dx: a.x - b.x, dy: a.y - b.y };
+    for (let si = 0; si < vertsOf(s).length; si++) {
+      for (let gi = 0; gi < vertsOf(g).length; gi++) {
+        const a = vertexOf(s, si), b = vertexOf(g, gi);
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d <= SNAP_RADIUS && (!best || d < best.d)) best = { d, s, si, gi };
+      }
     }
   }
-  if (best) {
-    g.x += best.dx; g.y += best.dy;
-    return true;
-  }
-  return false;
+  if (!best) return false;
+  const { s, si, gi } = best;
+  g.a = orientAngle(s, si, g, gi);
+  const a = vertexOf(s, si), b = vertexOf(g, gi);
+  g.x += a.x - b.x; g.y += a.y - b.y;
+  g.z = levelAt(s, si) - (vertsOf(g)[gi][2] || 0);
+  return true;
 }
 
 /* Snap a dragged group by its best vertex pair against unselected pieces.
- * Mutates the selection's pieces. */
+ * Position-only by design (docs/design §4). Mutates the selection's pieces. */
 export function groupSnap(selection, sprites) {
   let best = null;
   for (const s of selection) {
-    for (const vi of [1, 2]) {
+    for (let vi = 0; vi < vertsOf(s).length; vi++) {
       const va = vertexOf(s, vi);
       for (const t of sprites) {
         if (selection.has(t)) continue;
-        for (const vt of [1, 2]) {
+        for (let vt = 0; vt < vertsOf(t).length; vt++) {
           const vb = vertexOf(t, vt);
           const d = Math.hypot(va.x - vb.x, va.y - vb.y);
           if (d <= SNAP_RADIUS && (!best || d < best.d)) best = { d, dx: vb.x - va.x, dy: vb.y - va.y };
@@ -166,6 +235,26 @@ export function groupSnap(selection, sprites) {
     return true;
   }
   return false;
+}
+
+/* The single external joint of a selection (for pivot rotation): a vertex
+ * of a selected piece coinciding (<= 1e-6) with a vertex of an unselected
+ * piece. Returns the joint world point, or null when 0 or 2+ exist. */
+export function externalJoint(selection, sprites) {
+  const found = [];
+  for (const s of sprites) {
+    if (selection.has(s)) continue;
+    for (let si = 0; si < vertsOf(s).length; si++) {
+      const a = vertexOf(s, si);
+      for (const g of selection) {
+        for (let gi = 0; gi < vertsOf(g).length; gi++) {
+          const b = vertexOf(g, gi);
+          if (Math.hypot(a.x - b.x, a.y - b.y) <= 1e-6) found.push(a);
+        }
+      }
+    }
+  }
+  return found.length === 1 ? found[0] : null;
 }
 
 /* ---------- camera ---------- */
