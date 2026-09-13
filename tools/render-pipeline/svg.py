@@ -144,7 +144,7 @@ def arc_family(defn, rail):
     return parts
 
 
-def emit(defn, rail):
+def emit(defn, rail):  # noqa: name unused by design — files key off sprite/name at call site
     if defn['kind'] in ('corner', 'hairpin'):
         body = arc_family(defn, rail)
     else:
@@ -175,17 +175,24 @@ def main():
     data = json.loads(proc.stdout)
     pieces, vc = data['pieces'], data['variantColors']
 
-    n = 0
+    n, seen = 0, set()
     for name, defn in pieces.items():
         if defn.get('procedural'):
             continue
-        files = [defn['sprite']] if defn.get('sprite') else [f'{name}.{c}.svg' for c in range(defn['colors'])]
-        rails = [vc[0]] * len(files) if defn.get('sprite') else [vc[c % len(vc)] for c in range(defn['colors'])]
+        if defn.get('sprite'):
+            base = defn['sprite'][:-4] if defn['sprite'].endswith('.svg') else defn['sprite']
+            files, rails = [f'{base}.svg'], [vc[0]]
+        else:
+            files = [f'{name}.{c}.svg' for c in range(defn['colors'])]
+            rails = [vc[c % len(vc)] for c in range(defn['colors'])]
         for fname, rail in zip(files, rails):
+            if fname in seen:
+                continue  # shared families: one file, first write wins
+            seen.add(fname)
             with open(os.path.join(out, fname), 'w') as f:
                 f.write(emit(defn, rail))
             n += 1
-    print(f'emitted {n} svg files')
+    print(f'emitted {n} svg files (deduped)')
 
 
 if __name__ == '__main__':

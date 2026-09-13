@@ -12,10 +12,8 @@ import argparse, json, math, os, sys
 PX_PER_CM = 2
 MASK_WALL = (1.0, 1.0, 1.0)
 MASK_BED = (0.0, 0.0, 0.0)
-# illustrated style matched to the original Tamiya sprites (sampled):
-BED = (0.937, 0.918, 0.898)      # ~#efeae5 warm light gray
-WALL = (0.788, 0.820, 0.863)     # ~#c9d1dc variant-0 rail color
-DASH = (1.0, 1.0, 1.0)           # white lane separators
+# NOTE: illustrated-style constants live in svg.py (the SVG emitter) — the
+# mesh pipeline keeps only the mask pass colors below.
 
 def mm2u(v): return v / 1000.0
 

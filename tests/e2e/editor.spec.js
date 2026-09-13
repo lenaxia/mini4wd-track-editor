@@ -544,7 +544,7 @@ test('mobile top bar: the mode control collapses to one cycling button', async (
   await page2.close();
 });
 
-test('real rucdoc sprites load: rendered PNGs serve for real-data pieces', async ({ page }) => {
+test('real rucdoc sprites load: SVGs serve for real-data pieces', async ({ page }) => {
   const got = new Set();
   page.on('response', (r) => { if (r.url().includes('assets/R')) got.add(r.url().split('/').pop().split('?')[0]); });
   await page.goto('/');
