@@ -138,25 +138,16 @@ def rect_family(defn, rail):
         # exactly fills the viewBox (the verts entry y and the negative
         # catalog center y encode the same shift).
         band = LANE_W * lanes                  # regulation lane width
-        # the band rides a centerline through the verts: flat runs at
-        # the verts' y (3 for Chi1, 6 for Chi2 — the road center the
-        # editor connects on), mid-span at -verts_y (the catalog's
-        # center field agrees where present). Hump amplitude = the
-        # swing between them, NOT h - band (that anchored the band to
-        # the canvas edge and skewed it 1.5-2.5 cm off the rip,
-        # misaligning lanes against the straights/weaves).
-        vy = defn['verts'][0][1]
-        amp = 2 * vy                          # 6 (Chi1), 12 (Chi2)
-        if defn['verts'][1][1] != vy or amp <= 0 or band + amp > h:
-            raise ValueError(f'{defn.get("label", "wave")}: verts must share y for the hump')
+        amp = h - band                        # 7.5 (Chi1), 14.5 (Chi2)
+        if amp <= 0:                          # not in the catalog; stay sane
+            amp = h / 7
 
         n = int(round(w))
         xs = [-w / 2 + w * i / n for i in range(n + 1)]   # 1 sample per cm
 
-        def e(x):                              # top edge: band rides the verts centerline
+        def e(x):                              # raw top edge: -h/2 at mid, -h/2+amp at ends
             t = (x + w / 2) / w
-            c = vy * (2 * math.cos(math.pi * t) ** 2 - 1)   # +vy ends, -vy mid
-            return c - band / 2
+            return -h / 2 + amp * math.cos(math.pi * t) ** 2
 
         WALL = 1.2                             # walls/dividers read 1-2 px in the rips
 
