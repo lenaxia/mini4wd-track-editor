@@ -1,5 +1,5 @@
-/* Procedural piece art — vector fallback used while the Tamiya sprite PNGs
- * load (and in palette chips before sprites arrive). Pure canvas ops. */
+/* Procedural piece art — vector fallback while sprite SVGs load, and the
+ * steady-state renderer for procedural: entries (no sprite ever loads). */
 
 import { PIECES, VARIANT_COLORS } from './pieces.js';
 import { solveGeo } from './geometry.js';
