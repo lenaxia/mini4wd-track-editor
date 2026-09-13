@@ -234,12 +234,12 @@ def changer_art(defn, rail):
         line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
         line2([(27, -5.5), (27, 17.25)], OUTLINE, 1.2),
         # the bottom lane bridges OVER the weave to the top slot: two
-        # measured S edges (upper lifts off div2 at x=-44 and merges
+        # measured S edges only — no filled band across the lanes
+        # (the grey read as an under-bridge support; upper lifts off div2, merges
         # into the top wall; lower lifts off the bottom wall at
         # x=-43.5 and merges into the stepped tail at y=-5.75 — the
         # exact level the top boundary settles to), band filled gray,
         # drawn over the lanes it crosses
-        f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>',
         stroke(f'M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)}', OUTLINE, 1.2),
         stroke(f'M -43.5 17.25 {b_cmd(-43.5, 17.25, 42.5, -5.75)}', OUTLINE, 1.2),
         # top wall resumes past the weave; bottom wall breaks for the
@@ -341,6 +341,7 @@ def arc_family(defn, rail):
     P = lambda r, a: (cx + r * math.cos(a), cy + r * math.sin(a))
 
     ro, ri = R + band / 2, R - band / 2
+    wo, wi = R + LANE_W * lanes / 2, R - LANE_W * lanes / 2  # wall lines
     large = 1 if abs(sweep) > math.pi else 0
     sflag = 1 if sweep > 0 else 0
     x1, y1 = P(ro, a1); x2, y2 = P(ro, a1 + sweep)
@@ -348,10 +349,15 @@ def arc_family(defn, rail):
     parts = [
         f'<path d="M {x1:.2f} {y1:.2f} A {ro:.2f} {ro:.2f} 0 {large} {sflag} {x2:.2f} {y2:.2f} '
         f'L {x3:.2f} {y3:.2f} A {ri:.2f} {ri:.2f} 0 {large} {1-sflag} {x4:.2f} {y4:.2f} Z" '
-        f'fill="{BED}" stroke="{OUTLINE}" stroke-width="0.8"/>'
+        f'fill="{BED}"/>'
     ]
-    # rails: thin arcs at the band edges
-    for r, col in ((ro - 0.9, rail), (ri + 0.9, rail)):
+    # walls on the regulation grid (same inset as the straight family,
+    # so corner lanes are 11.5 like chicane/weave pieces, not 12.25)
+    for r in (wo, wi):
+        xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
+        parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
+    # rails: thin arcs just inside the walls
+    for r, col in ((wo - 0.9, rail), (wi + 0.9, rail)):
         xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
         parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{col}" stroke-width="1.6"/>')
     # lane separators: dashed arcs
