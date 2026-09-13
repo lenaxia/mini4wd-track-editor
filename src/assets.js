@@ -1,10 +1,11 @@
-/* Sprite assets — Tamiya piece PNGs from the original editor (assets/Name.color.png). */
+/* Sprite assets — SVG redraws in the original editor's illustrated style;
+ * the original PNG rips stay in assets/ as provenance (unused at runtime). */
 
 import { PIECES } from './pieces.js';
 
 const IMAGES = {};
 
-export function imageFor(name, c) { const n = PIECES[name]?.sprite || name; return IMAGES[`${n}.${c}`] || null; }
+export function imageFor(name, c) { const f = PIECES[name]?.sprite || `${name}.${c}.svg`; return IMAGES[f] || null; }
 
 /* Preload every sprite; onload fires once per image that finishes loading
  * (caller redraws + repaints palette chips, debounced on its side). */
@@ -15,12 +16,12 @@ export function preloadImages(onload) {
      * doomed sprite requests. */
     if (def.procedural) continue;
     for (let c = 0; c < def.colors; c++) {
-      const n = def.sprite || name;
-      if (IMAGES[`${n}.${c}`]) continue; /* shared sprites load once */
+      const f = def.sprite || `${name}.${c}.svg`;
+      if (IMAGES[f]) continue; /* shared sprites load once */
       const img = new Image();
       img.onload = onload;
-      img.src = `assets/${n}.${c}.png?v=3`;
-      IMAGES[`${n}.${c}`] = img;
+      img.src = `assets/${f}?v=9`;
+      IMAGES[f] = img;
     }
   }
 }

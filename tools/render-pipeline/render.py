@@ -12,6 +12,8 @@ import argparse, json, math, os, sys
 PX_PER_CM = 2
 MASK_WALL = (1.0, 1.0, 1.0)
 MASK_BED = (0.0, 0.0, 0.0)
+# NOTE: illustrated-style constants live in svg.py (the SVG emitter) — the
+# mesh pipeline keeps only the mask pass colors below.
 
 def mm2u(v): return v / 1000.0
 

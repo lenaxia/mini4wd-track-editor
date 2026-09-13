@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="-36.0 -36.0 72 72">
+  <clipPath id="vb"><rect x="-36.0" y="-36.0" width="72" height="72"/></clipPath>
+  <g clip-path="url(#vb)">
+  <path d="M -35.99 -36.00 A 90.00 90.00 0 0 1 27.64 -9.63 L -14.80 32.79 A 30.00 30.00 0 0 0 -36.01 24.00 Z" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
+  <path d="M -35.99 -35.10 A 89.10 89.10 0 0 1 27.00 -8.99" fill="none" stroke="#e05263" stroke-width="1.6"/>
+  <path d="M -36.01 23.10 A 30.90 30.90 0 0 1 -14.16 32.15" fill="none" stroke="#e05263" stroke-width="1.6"/>
+  <path d="M -36.00 12.00 A 42.00 42.00 0 0 1 -6.31 24.31" fill="none" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M -36.00 -0.00 A 54.00 54.00 0 0 1 2.18 15.82" fill="none" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M -36.00 -12.00 A 66.00 66.00 0 0 1 10.66 7.34" fill="none" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M -36.00 -24.00 A 78.00 78.00 0 0 1 19.15 -1.15" fill="none" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M -14.52 -12.04 L -11.56 -0.82 L -14.52 7.96" fill="none" stroke="#8a8683" stroke-width="0.9" transform="rotate(22.5 -13.04 -1.43)"/>
+  </g>
+</svg>
