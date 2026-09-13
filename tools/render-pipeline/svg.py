@@ -297,6 +297,31 @@ def changer_art(defn):
     return parts
 
 
+def bri2_art(defn):
+    """Bri2.0 (jump): per owner, the entry straight of the Lan1 weave —
+    the same lane rectangles, wall lines, and end rails — except the
+    bottom lane runs shorter, ending on a vertical face at x=+15 with
+    the corner beyond it cut transparent (measured on the rip)."""
+    def line2(pts, color, width):
+        d = f'M {pts[0][0]:.1f} {pts[0][1]:.1f} ' + ' '.join(f'L {x:.1f} {y:.1f}' for x, y in pts[1:])
+        return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="butt"/>'
+    parts = [
+        # bed with the bottom-right corner cut (beyond the ramp face)
+        '<path d="M -27 -17.25 H 27 V 5.75 H 15 V 17.25 H -27 Z" fill="' + BED + '"/>',
+        line2([(-27, -17.25), (27, -17.25)], OUTLINE, 1.2),
+        line2([(-27, 17.25), (15, 17.25)], OUTLINE, 1.2),
+        line2([(-27, -5.75), (27, -5.75)], OUTLINE, 1.2),
+        # bottom lane shorter: its divider and the right edge stop at
+        # the face, which spans the lane's height
+        line2([(-27, 5.75), (15, 5.75)], OUTLINE, 1.2),
+        line2([(27, -17.25), (27, 5.75)], OUTLINE, 1.2),
+        line2([(15, 5.75), (15, 17.25)], OUTLINE, 1.2),
+        rr(-27, -17.25, 1.2, 34.5, 0, fill=OUTLINE, stroke='none'),
+        rr(25.8, -17.25, 1.2, 23.0, 0, fill=OUTLINE, stroke='none'),
+    ]
+    return parts
+
+
 def lan2_art(defn, rail):
     """Lan2 'Rainbow': an entry straight where the top two lanes step
     down one lane position, then a 180-degree sweep into the exit
@@ -420,6 +445,8 @@ def emit(defn, rail, rip=None):
         body = changer_art(defn)
     elif defn['kind'] == 'hairpin' and (defn['w'], defn['h']) == (180, 144):
         body = lan2_art(defn, rail)
+    elif defn['kind'] == 'jump':
+        body = bri2_art(defn)
     elif rip:
         body = traced_body(rip, defn['w'], defn['h'],
                            (('solid', BED), ('gray', BANK_GRAY), ('mark', DASH), ('outline', OUTLINE)))
