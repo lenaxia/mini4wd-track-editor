@@ -137,7 +137,12 @@ def rect_family(defn, rail):
         # Catalog h = band height + amplitude, so the humped outline
         # exactly fills the viewBox (the verts entry y and the negative
         # catalog center y encode the same shift).
-        band = LANE_W * lanes                  # regulation lane width
+        # the chicane rips measure a 12 cm lane pitch (divider centers
+        # Chi1: -15/-3.5/+8.5/+20; Chi2 walls -24/+35, gaps ~12), so
+        # the band is 12*lanes — the one family off the 11.5 regulation
+        # grid, matching its own rip. Flat-run center sits half under
+        # the verts y (2.5 vs 3, 5.5 vs 6); walls ~2 px.
+        band = 12 * lanes
         # the band rides a centerline through the verts: flat runs at
         # the verts' y (3 for Chi1, 6 for Chi2 — the road center the
         # editor connects on), mid-span at -verts_y (the catalog's
@@ -145,10 +150,13 @@ def rect_family(defn, rail):
         # swing between them, NOT h - band (that anchored the band to
         # the canvas edge and skewed it 1.5-2.5 cm off the rip,
         # misaligning lanes against the straights/weaves).
-        vy = defn['verts'][0][1]
-        amp = 2 * vy                          # 6 (Chi1), 12 (Chi2)
-        if defn['verts'][1][1] != vy or amp <= 0 or band + amp > h:
-            raise ValueError(f'{defn.get("label", "wave")}: verts must share y for the hump')
+        # silhouette-fit calibration: the rip's flat-run center sits
+        # half under the verts y (2.5 vs verts 3, 5.5 vs 6) and its
+        # walls are chunkier (~2 px)
+        vy = defn['verts'][0][1] - 0.5
+        amp = 2 * vy                          # 5 (Chi1), 11 (Chi2)
+        if defn['verts'][1][1] != defn['verts'][0][1] or amp <= 0 or band + amp + 1.6 > h:
+            raise ValueError(f'{defn.get("label", "wave")}: bad hump geometry')
 
         n = int(round(w))
         xs = [-w / 2 + w * i / n for i in range(n + 1)]   # 1 sample per cm
@@ -158,7 +166,7 @@ def rect_family(defn, rail):
             c = vy * (2 * math.cos(math.pi * t) ** 2 - 1)   # +vy ends, -vy mid
             return c - band / 2
 
-        WALL = 1.2                             # walls/dividers read 1-2 px in the rips
+        WALL = 1.6                             # the rip's chicane walls read ~2 px
 
         def pts(fn, xx=None):
             xx = xs if xx is None else xx
