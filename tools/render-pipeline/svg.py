@@ -282,7 +282,11 @@ def changer_art(defn):
         stroke(stepped(5.75), OUTLINE, 1.2),
         line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
         line2([(27, -5.75), (27, 17.25)], OUTLINE, 1.2),
-        f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>',
+        f'<defs><linearGradient id="lan1bridge" gradientUnits="userSpaceOnUse" x1="-44" y1="5.75" x2="42.5" y2="-17.25">'
+        f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient></defs>'
+        # the bridge rises like Bri2's ramp: bed at the bottom-left
+        # departure blending to bank-gray at the top-right arrival
+        f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="url(#lan1bridge)"/>',
         stroke(f'M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)}', OUTLINE, 1.2),
         stroke(f'M -43.5 17.25 {b_cmd(-43.5, 17.25, 42.5, -5.75)}', OUTLINE, 1.2),
         line2([(42.5, -17.25), (80, -17.25)], OUTLINE, 1.2),
