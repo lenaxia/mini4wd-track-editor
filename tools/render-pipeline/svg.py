@@ -183,7 +183,7 @@ def rect_family(defn, rail):
     return parts
 
 
-def changer_art(defn, rail):
+def changer_art(defn):
     """Lan1 lane changer: the same weave Lan2 carries into its turn —
     the top two lanes step down one slot. The top of lane 1, the lane
     1/2 divider, and the bottom of lane 2 are IDENTICAL smooth S
@@ -254,8 +254,6 @@ def changer_art(defn, rail):
     assert ts is not None, 'curves do not cross'
     _, sR = bez_split(sB, ts)      # crossing -> (16, 17.25)
     bL, _ = bez_split(bB, tb)      # (-43.5, 17.25) -> crossing
-    def cseg(q):
-        return f'C {q[1][0]:.2f} {q[1][1]:.2f} {q[2][0]:.2f} {q[2][1]:.2f} {q[3][0]:.2f} {q[3][1]:.2f}'
     def cseg_r(q):
         return f'C {q[2][0]:.2f} {q[2][1]:.2f} {q[1][0]:.2f} {q[1][1]:.2f} {q[0][0]:.2f} {q[0][1]:.2f}'
     # bed: one path tracing the road boundary exactly — top wall,
@@ -270,27 +268,26 @@ def changer_art(defn, rail):
            f'{cseg_r(bL)} '
            'L -81 17.25 Z')
 
+    # z-order (owner-calibrated): bed, then the lane S-curves and the
+    # under-bridge delineators (the band's end sections tuck over the
+    # +5.75/-5.75 lines), then the dark band, and finally everything
+    # that reads on top of it — the bridge's own edges, the walls, and
+    # all remaining delineators. Lan1.0 and Lan1.1 emit identical art
+    # by owner decision: rails render in the wall color, so the
+    # variant color has no surface in this piece.
     parts = [
         f'<path d="{bed}" fill="{BED}"/>',
-        # the three identical S boundaries, all one line color
-        # the bridge: two measured S edges, full dark band between
-        # walls
-        line2([(42.5, -17.25), (80, -17.25)], OUTLINE, 1.2),
-        line2([(-80, 17.25), (-43.5, 17.25)], OUTLINE, 1.2),
-        line2([(15, 17.25), (80, 17.25)], OUTLINE, 1.2),
-        # section delineators (under the bridge): straight|weave, post
-        line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
-        line2([(27, -5.75), (27, 17.25)], OUTLINE, 1.2),
-        # the bridge's dark band on the topmost layer (owner)
-        # bridge fill above the lane lines (its end sections tuck
-        # over them); only its own outline edges, walls, and the
-        # delineators draw on top of the band
         stroke(stepped(-17.25), OUTLINE, 1.2),
         stroke(stepped(-5.75), OUTLINE, 1.2),
         stroke(stepped(5.75), OUTLINE, 1.2),
+        line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
+        line2([(27, -5.75), (27, 17.25)], OUTLINE, 1.2),
         f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>',
         stroke(f'M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)}', OUTLINE, 1.2),
         stroke(f'M -43.5 17.25 {b_cmd(-43.5, 17.25, 42.5, -5.75)}', OUTLINE, 1.2),
+        line2([(42.5, -17.25), (80, -17.25)], OUTLINE, 1.2),
+        line2([(-80, 17.25), (-43.5, 17.25)], OUTLINE, 1.2),
+        line2([(15, 17.25), (80, 17.25)], OUTLINE, 1.2),
         line2([(42.5, -17.25), (42.5, -5.75)], OUTLINE, 1.2),
         line2([(-43.5, 5.75), (-43.5, 17.25)], OUTLINE, 1.2),
         # end rails, wall color
@@ -420,7 +417,7 @@ def emit(defn, rail, rip=None):
     # hand models land (3/4-view illustrations: flyover corridors,
     # spiral rainbows)
     if defn['kind'] == 'changer' and (defn['w'], defn['h']) == (162, 36):
-        body = changer_art(defn, rail)
+        body = changer_art(defn)
     elif defn['kind'] == 'hairpin' and (defn['w'], defn['h']) == (180, 144):
         body = lan2_art(defn, rail)
     elif rip:
