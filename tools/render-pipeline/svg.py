@@ -314,7 +314,13 @@ def bri2_art(defn):
         # strokes double, same color.
         # bed: full width for the top two lanes, to the face for the
         # bottom — the cut corner stays transparent
-        '<path d="M -27 -17.25 H 27 V 5.75 H 15 V 17.25 H -27 Z" fill="' + BED + '"/>',
+        '<defs><linearGradient id="bri2ramp" gradientUnits="userSpaceOnUse" x1="-25" y1="0" x2="-7" y2="0">'
+        '<stop offset="0" stop-color="' + BED + '"/><stop offset="1" stop-color="' + BANK_GRAY + '"/></linearGradient></defs>'
+        # top two lanes: flat bed; the ramp lane carries the rip's
+        # rise gradient (bed -> bank-gray, measured stops 2..20 cm
+        # from the left edge, flat gray to the face)
+        '<path d="M -27 -17.25 H 27 V 5.75 H -27 Z" fill="' + BED + '"/>',
+        '<path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="url(#bri2ramp)"/>',
         '<path d="M -27 -17.25 H 27 V -5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
         '<path d="M -27 -5.75 H 27 V 5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
         '<path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',

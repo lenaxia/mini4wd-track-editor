@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="54" height="36" viewBox="-27.0 -18.0 54 36">
-  <path d="M -27 -17.25 H 27 V 5.75 H 15 V 17.25 H -27 Z" fill="#efeae5"/>
+  <defs><linearGradient id="bri2ramp" gradientUnits="userSpaceOnUse" x1="-25" y1="0" x2="-7" y2="0"><stop offset="0" stop-color="#efeae5"/><stop offset="1" stop-color="#c0bcb8"/></linearGradient></defs><path d="M -27 -17.25 H 27 V 5.75 H -27 Z" fill="#efeae5"/>
+  <path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="url(#bri2ramp)"/>
   <path d="M -27 -17.25 H 27 V -5.75 H -27 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
   <path d="M -27 -5.75 H 27 V 5.75 H -27 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
   <path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
