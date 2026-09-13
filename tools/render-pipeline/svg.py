@@ -312,6 +312,9 @@ def bri2_art(defn):
         # Top and middle lanes run full width; the bottom lane is its
         # own rectangle ending on the face at x=+15 — shared divider
         # strokes double, same color.
+        # bed: full width for the top two lanes, to the face for the
+        # bottom — the cut corner stays transparent
+        '<path d="M -27 -17.25 H 27 V 5.75 H 15 V 17.25 H -27 Z" fill="' + BED + '"/>',
         '<path d="M -27 -17.25 H 27 V -5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
         '<path d="M -27 -5.75 H 27 V 5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
         '<path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
