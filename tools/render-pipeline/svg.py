@@ -309,10 +309,11 @@ def bri2_art(defn):
         # bed with the bottom-right corner cut (beyond the ramp face)
         # closed stroked rectangles: miter joins give crisp corners
         # (separate butt-capped lines left notches where they met).
-        # Top two lanes run full width; the bottom lane is its own
-        # rectangle ending on the face at x=+15 — the shared divider
-        # stroke doubles, same color.
-        '<path d="M -27 -17.25 H 27 V 5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
+        # Top and middle lanes run full width; the bottom lane is its
+        # own rectangle ending on the face at x=+15 — shared divider
+        # strokes double, same color.
+        '<path d="M -27 -17.25 H 27 V -5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
+        '<path d="M -27 -5.75 H 27 V 5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
         '<path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
         rr(-27, -17.25, 1.2, 34.5, 0, fill=OUTLINE, stroke='none'),
         rr(25.8, -17.25, 1.2, 23.0, 0, fill=OUTLINE, stroke='none'),
