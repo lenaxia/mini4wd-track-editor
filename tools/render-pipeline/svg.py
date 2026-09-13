@@ -234,12 +234,21 @@ def changer_art(defn, rail):
         line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
         line2([(27, -5.5), (27, 17.25)], OUTLINE, 1.2),
         # the bottom lane bridges OVER the weave to the top slot: two
-        # measured S edges only — no filled band across the lanes
-        # (the grey read as an under-bridge support; upper lifts off div2, merges
+        # measured S edges with the dark bank-gray band between them
+        # (upper lifts off div2 at x=-44 and merges
         # into the top wall; lower lifts off the bottom wall at
         # x=-43.5 and merges into the stepped tail at y=-5.75 — the
         # exact level the top boundary settles to), band filled gray,
         # drawn over the lanes it crosses
+        # grey fill in the rip's two measured sections — the departure
+        # band (bottom-left) and the arrival wedge (top-right) — with
+        # the crossing between them showing clean lane lines (a single
+        # full-diagonal band puts substantial grey across the crossing
+        # that the original doesn't have)
+        f'<defs><clipPath id="dep"><rect x="-44" y="-18" width="38" height="36"/></clipPath>'
+        f'<clipPath id="arr"><rect x="6" y="-18" width="36.5" height="36"/></clipPath></defs>'
+        f'<path clip-path="url(#dep)" d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>'
+        f'<path clip-path="url(#arr)" d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>',
         stroke(f'M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)}', OUTLINE, 1.2),
         stroke(f'M -43.5 17.25 {b_cmd(-43.5, 17.25, 42.5, -5.75)}', OUTLINE, 1.2),
         # top wall resumes past the weave; bottom wall breaks for the

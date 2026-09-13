@@ -5,6 +5,7 @@
   <path d="M -81 5.8 L -22 5.8 C -9.3 5.8 3.3 17.2 16.0 17.2 L 81 17.2" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -27.5 -17.2 L -27.5 5.8" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
   <path d="M 27.0 -5.5 L 27.0 17.2" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
+  <defs><clipPath id="dep"><rect x="-44" y="-18" width="38" height="36"/></clipPath><clipPath id="arr"><rect x="6" y="-18" width="36.5" height="36"/></clipPath></defs><path clip-path="url(#dep)" d="M -44 5.75 C -11.1 5.8 9.6 -17.2 42.5 -17.2 L 42.5 -5.75 C 9.8 -5.8 -10.8 17.2 -43.5 17.2 Z" fill="#c0bcb8"/><path clip-path="url(#arr)" d="M -44 5.75 C -11.1 5.8 9.6 -17.2 42.5 -17.2 L 42.5 -5.75 C 9.8 -5.8 -10.8 17.2 -43.5 17.2 Z" fill="#c0bcb8"/>
   <path d="M -44 5.75 C -11.1 5.8 9.6 -17.2 42.5 -17.2" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -43.5 17.25 C -10.8 17.2 9.8 -5.8 42.5 -5.8" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M 42.5 -17.2 L 80.0 -17.2" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
