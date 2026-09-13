@@ -273,9 +273,6 @@ def changer_art(defn, rail):
     parts = [
         f'<path d="{bed}" fill="{BED}"/>',
         # the three identical S boundaries, all one line color
-        stroke(stepped(-17.25), OUTLINE, 1.2),
-        stroke(stepped(-5.75), OUTLINE, 1.2),
-        stroke(stepped(5.75), OUTLINE, 1.2),
         # the bridge: two measured S edges, full dark band between
         # walls
         line2([(42.5, -17.25), (80, -17.25)], OUTLINE, 1.2),
@@ -287,8 +284,11 @@ def changer_art(defn, rail):
         line2([(42.5, -17.25), (42.5, -5.75)], OUTLINE, 1.2),
         line2([(-43.5, 5.75), (-43.5, 17.25)], OUTLINE, 1.2),
         # the bridge's dark band on the topmost layer (owner)
-        # bridge fill above the lane lines, with its outline edges
-        # (and everything else drawn on top of the band)
+        stroke(stepped(-17.25), OUTLINE, 1.2),
+        stroke(stepped(-5.75), OUTLINE, 1.2),
+        stroke(stepped(5.75), OUTLINE, 1.2),
+        # bridge fill above the under-bridge delineators; the lane
+        # lines, its outline edges, walls, and delineators draw on top
         f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>',
         stroke(f'M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)}', OUTLINE, 1.2),
         stroke(f'M -43.5 17.25 {b_cmd(-43.5, 17.25, 42.5, -5.75)}', OUTLINE, 1.2),
