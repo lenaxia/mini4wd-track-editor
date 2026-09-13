@@ -298,19 +298,17 @@ def changer_art(defn):
         f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient>'
         f'<linearGradient id="exit" gradientUnits="userSpaceOnUse" x1="42.5" y1="0" x2="81" y2="0">'
         f'<stop offset="0" stop-color="{BANK_GRAY}"/><stop offset="1" stop-color="{BED}"/></linearGradient></defs>'
-        f'<path d="M -81 5.75 H -44 V 17.25 H -81 Z" fill="url(#approach)"/>',
-        f'<path d="M 42.5 -17.25 H 81 V -5.75 H 42.5 Z" fill="url(#exit)"/>',
         f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>',
         stroke(f'M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)}', OUTLINE, 1.2),
         stroke(f'M -43.5 17.25 {b_cmd(-43.5, 17.25, 42.5, -5.75)}', OUTLINE, 1.2),
-        line2([(42.5, -17.25), (80, -17.25)], OUTLINE, 1.2),
-        line2([(-80, 17.25), (-43.5, 17.25)], OUTLINE, 1.2),
-        line2([(15, 17.25), (80, 17.25)], OUTLINE, 1.2),
+        line2([(42.5, -17.25), (81, -17.25)], OUTLINE, 1.2),
+        line2([(-81, 17.25), (-43.5, 17.25)], OUTLINE, 1.2),
+        line2([(15, 17.25), (81, 17.25)], OUTLINE, 1.2),
         line2([(42.5, -17.25), (42.5, -5.75)], OUTLINE, 1.2),
         line2([(-43.5, 5.75), (-43.5, 17.25)], OUTLINE, 1.2),
         # end rails, wall color
-        rr(-81, -18, 1.2, 36, 0, fill=OUTLINE, stroke='none'),
-        rr(79.8, -18, 1.2, 36, 0, fill=OUTLINE, stroke='none'),
+        rr(-81, -17.25, 1.2, 34.5, 0, fill=OUTLINE, stroke='none'),
+        rr(79.8, -17.25, 1.2, 34.5, 0, fill=OUTLINE, stroke='none'),
     ]
     return parts
 
