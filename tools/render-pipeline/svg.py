@@ -205,12 +205,11 @@ def changer_art(defn, rail):
         return f'M -81 {y:.1f} L {X0} {y:.1f} {s_cmd(X0, y, X1, y + 12)} L 81 {y + 12:.1f}'
 
     def b_cmd(x0, y0, x1, y1):
-        """bridge edge: like s_cmd but rounder — controls pulled into
-        the climb so the middle runs steeper and the flat ends
-        shorten"""
-        dx = (x1 - x0) / 3
-        dy = (y1 - y0) * 0.22
-        return f'C {x0+dx:.1f} {y0+dy:.1f} {x1-dx:.1f} {y1-dy:.1f} {x1:.1f} {y1:.1f}'
+        """bridge edge: rounder than s_cmd — the controls stay at the
+        endpoint levels but span 45% of the run each, so the flat ends
+        hold longer and the middle climbs steeply"""
+        dx = (x1 - x0) * 0.45
+        return f'C {x0+dx:.1f} {y0:.1f} {x1-dx:.1f} {y1:.1f} {x1:.1f} {y1:.1f}'
 
     parts = [
         # bed with the measured notch wedges cut transparent: the

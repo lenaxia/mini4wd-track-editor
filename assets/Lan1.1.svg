@@ -3,9 +3,9 @@
   <path d="M -81 -17.4 L -22 -17.4 C -9.3 -17.4 3.3 -5.4 16.0 -5.4 L 81 -5.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -81 -6.5 L -22 -6.5 C -9.3 -6.5 3.3 5.5 16.0 5.5 L 81 5.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -81 5.5 L -22 5.5 C -9.3 5.5 3.3 17.5 16.0 17.5 L 81 17.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M -44 5.5 C -15.2 0.5 13.7 -12.4 42.5 -17.4 L 42.5 -6.5 C 13.8 -1.2 -14.8 12.1 -43.5 17.4 Z" fill="#c0bcb8"/>
-  <path d="M -44 5.5 C -15.2 0.5 13.7 -12.4 42.5 -17.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M -43.5 17.4 C -14.8 12.1 13.8 -1.2 42.5 -6.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -44 5.5 C -5.1 5.5 3.6 -17.4 42.5 -17.4 L 42.5 -6.5 C 3.8 -6.5 -4.8 17.4 -43.5 17.4 Z" fill="#c0bcb8"/>
+  <path d="M -44 5.5 C -5.1 5.5 3.6 -17.4 42.5 -17.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -43.5 17.4 C -4.8 17.4 3.8 -6.5 42.5 -6.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M 42.5 -17.4 L 80.0 -17.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
   <path d="M -80.0 17.4 L -43.5 17.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
   <path d="M 15.0 17.4 L 80.0 17.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
