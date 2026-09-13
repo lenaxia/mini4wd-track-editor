@@ -28,6 +28,9 @@ CHEVRON = '#8a8683'
 # bank palettes sampled from the original rips (their own palettes, not
 # VARIANT_COLORS); keyed per family — Ban2's single tan variant is NOT
 # Ban1's green c0
+LANE_W = 11.5   # regulation Tamiya lane width (115 mm); boundaries
+               # sit at +/-(n*LANE_W)/2 + i*LANE_W, centered in the
+               # footprint so every piece's lanes align at seams
 BANK_GRAY = '#c0bcb8'   # Bri2's ramp-face midtone (same swatch as Ban1 c1)
 BANK_COLORS = {
   'Ban1': ['#2e966f', '#c0bcb8', '#004282', '#9a0400'],
@@ -63,7 +66,7 @@ def rect_family(defn, rail):
     # lane separators: straight kinds (wave/changer override below)
     if kind in ('straight', 'start', 'slope', 'jump', 'bank'):
         for i in range(1, lanes):
-            y = -h / 2 + h * i / lanes
+            y = -LANE_W * lanes / 2 + LANE_W * i
             parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
     if kind == 'straight':
         n = max(1, round(w / 54))
@@ -89,7 +92,7 @@ def rect_family(defn, rail):
         # (re-measured: opaque content ends ~col 37; the ~2 cm dark
         # edge is the wall), corner beyond the ramp left transparent.
         RAMP, ENDW = 37.5, 1.5                  # re-measured: opaque content ends ~col 37; the ~2cm dark edge is the wall
-        y0 = -h / 2 + h * (lanes - 1) / lanes   # face top = last lane boundary
+        y0 = LANE_W / 2                        # face top = last lane boundary
         x1, x2 = -w / 2 + RAMP - ENDW, -w / 2 + RAMP
         parts = [
             # bed: full-width band plus the ramp footprint (cut corner
@@ -113,7 +116,7 @@ def rect_family(defn, rail):
         # lane dividers (solid in the rip); the bottom one doubles as
         # the face top border above the shadow line
         for i in range(1, lanes):
-            dy = -h / 2 + h * i / lanes - (0.3 if i == lanes - 1 else 0)
+            dy = -LANE_W * lanes / 2 + LANE_W * i - (0.3 if i == lanes - 1 else 0)
             parts.append(line(-w / 2, dy, w / 2, dy, DASH, 1.8, dash=None))
         return parts
     elif kind == 'bank':
@@ -122,7 +125,7 @@ def rect_family(defn, rail):
         parts.append(rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, min(1.6, h * 0.12), 1.0, fill=OUTLINE, stroke='none'))
         parts.append(rr(-w / 2 + 0.4, h / 2 - 0.4 - min(1.6, h * 0.12), w - 0.8, min(1.6, h * 0.12), 1.0, fill=OUTLINE, stroke='none'))
         for i in range(1, lanes):
-            y = -h / 2 + h * i / lanes
+            y = -LANE_W * lanes / 2 + LANE_W * i
             parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
         return parts
     elif kind == 'wave':
@@ -134,7 +137,7 @@ def rect_family(defn, rail):
         # Catalog h = band height + amplitude, so the humped outline
         # exactly fills the viewBox (the verts entry y and the negative
         # catalog center y encode the same shift).
-        band = 12 * lanes                     # lane width is 12 cm throughout
+        band = LANE_W * lanes                  # regulation lane width
         amp = h - band                        # 6 (Chi1), 12 (Chi2)
         if amp <= 0:                          # not in the catalog; stay sane
             amp = h / 7
@@ -168,7 +171,7 @@ def rect_family(defn, rail):
         parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + WALL / 2))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
         parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + band - WALL / 2))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
         for i in range(1, lanes):
-            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: e(x) + WALL / 2 + band * i / lanes))}" fill="none" stroke="{DASH}" stroke-width="{WALL}"/>')
+            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: e(x) + WALL / 2 + LANE_W * i))}" fill="none" stroke="{DASH}" stroke-width="{WALL}"/>')
         return parts
     elif kind == 'changer':
         for i in range(lanes + 1):
@@ -202,7 +205,7 @@ def changer_art(defn, rail):
     # the shared S-step (zone from the measured leave/rejoin points)
     X0, X1 = -22, 16
     def stepped(y):
-        return f'M -81 {y:.1f} L {X0} {y:.1f} {s_cmd(X0, y, X1, y + 12)} L 81 {y + 12:.1f}'
+        return f'M -81 {y:.1f} L {X0} {y:.1f} {s_cmd(X0, y, X1, y + LANE_W)} L 81 {y + LANE_W:.1f}'
 
     def b_cmd(x0, y0, x1, y1):
         """bridge edge: rounder than s_cmd — the controls stay at the
@@ -223,31 +226,31 @@ def changer_art(defn, rail):
         # the three identical S boundaries, all one line color:
         # top of lane 1 (the wall) steps to the div1 level, lane 1/2
         # divider to the div2 level, bottom of lane 2 onto the wall
-        stroke(stepped(-17.4), OUTLINE, 1.2),
-        stroke(stepped(-6.0), OUTLINE, 1.2),
-        stroke(stepped(5.4), OUTLINE, 1.2),
+        stroke(stepped(-17.25), OUTLINE, 1.2),
+        stroke(stepped(-5.75), OUTLINE, 1.2),
+        stroke(stepped(5.75), OUTLINE, 1.2),
         # the bottom lane bridges OVER the weave to the top slot: two
         # measured S edges (upper lifts off div2 at x=-44 and merges
         # into the top wall; lower lifts off the bottom wall at
-        # x=-43.5 and merges into the stepped tail at y=-5.4 — the
+        # x=-43.5 and merges into the stepped tail at y=-5.75 — the
         # exact level the top boundary settles to), band filled gray,
         # drawn over the lanes it crosses
-        f'<path d="M -44 5.4 {b_cmd(-44, 5.4, 42.5, -17.4)} L 42.5 -5.4 {b_cmd(42.5, -5.4, -43.5, 17.4)} Z" fill="{BANK_GRAY}"/>',
-        stroke(f'M -44 5.4 {b_cmd(-44, 5.4, 42.5, -17.4)}', OUTLINE, 1.2),
-        stroke(f'M -43.5 17.4 {b_cmd(-43.5, 17.4, 42.5, -5.4)}', OUTLINE, 1.2),
+        f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>',
+        stroke(f'M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)}', OUTLINE, 1.2),
+        stroke(f'M -43.5 17.25 {b_cmd(-43.5, 17.25, 42.5, -5.75)}', OUTLINE, 1.2),
         # top wall resumes past the weave; bottom wall breaks for the
         # merge (single color, runs meet the curves exactly)
-        line2([(42.5, -17.4), (80, -17.4)], OUTLINE, 1.2),
-        line2([(-80, 17.4), (-43.5, 17.4)], OUTLINE, 1.2),
-        line2([(15, 17.4), (80, 17.4)], OUTLINE, 1.2),
+        line2([(42.5, -17.25), (80, -17.25)], OUTLINE, 1.2),
+        line2([(-80, 17.25), (-43.5, 17.25)], OUTLINE, 1.2),
+        line2([(15, 17.25), (80, 17.25)], OUTLINE, 1.2),
         # section delineators, same color. The outer marks and the
         # pre-weave line span their lanes boundary-to-boundary; the
         # post-weave line: top stops just inside the first boundary
         # (-5, per the rip), bottom runs to the bottom wall
-        line2([(-27.5, -17.4), (-27.5, 5.4)], OUTLINE, 1.2),
-        line2([(27, -5), (27, 17.4)], OUTLINE, 1.2),
-        line2([(42.5, -17.4), (42.5, -5.4)], OUTLINE, 1.2),
-        line2([(-43.5, 5.4), (-43.5, 17.4)], OUTLINE, 1.2),
+        line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
+        line2([(27, -5.5), (27, 17.25)], OUTLINE, 1.2),
+        line2([(42.5, -17.25), (42.5, -5.75)], OUTLINE, 1.2),
+        line2([(-43.5, 5.75), (-43.5, 17.25)], OUTLINE, 1.2),
         # variant rails on the ends
         rr(-81, -18, 1.2, 36, 0, fill=rail, stroke='none'),
         rr(79.8, -18, 1.2, 36, 0, fill=rail, stroke='none'),
@@ -293,27 +296,27 @@ def lan2_art(defn, rail):
         f'M 2 -72 L 17 -72 L 10 -68.5 Z" fill="{BED}" fill-rule="evenodd"/>',
         # the three identical S boundaries, each settling into its arc:
         # top of lane 1 -> r=60 (it runs the full sweep to the exit)
-        stroke(stepped(-72) + ' A 60 60 0 0 1 18 60 L -90 60', OUTLINE, 1.2),
+        stroke(stepped(-71.25) + ' A 59.75 59.75 0 0 1 18 59.75 L -90 59.75', OUTLINE, 1.2),
         # lane 1/2 divider -> r=48
-        stroke(stepped(-60) + ' A 48 48 0 0 1 18 48 L -90 48', OUTLINE, 1.1),
+        stroke(stepped(-59.75) + ' A 48.25 48.25 0 0 1 18 48.25 L -90 48.25', OUTLINE, 1.1),
         # bottom of lane 2 settles onto the bottom wall (-36)
-        stroke(stepped(-48), OUTLINE, 1.1),
+        stroke(stepped(-48.25), OUTLINE, 1.1),
         # walls: top wall's left run; outer r=72 (from the notch); the
         # bottom wall continues into the exact r=36 inner semicircle
-        stroke('M -90 -71.4 H -27', OUTLINE, 1.2),
-        stroke('M 18 -71.4 A 71.4 71.4 0 0 1 18 71.4 H -90', OUTLINE, 1.2),
-        stroke('M -90 -36.6 H 18 A 36.6 36.6 0 0 1 18 36.6 H -90', OUTLINE, 1.2),
+        stroke('M -90 -71.25 H -27', OUTLINE, 1.2),
+        stroke('M 18 -71.25 A 71.25 71.25 0 0 1 18 71.25 H -90', OUTLINE, 1.2),
+        stroke('M -90 -36.75 H 18 A 36.75 36.75 0 0 1 18 36.75 H -90', OUTLINE, 1.2),
         # delineator: full-height gray line between the sections
-        line2([(-35.5, -71), (-35.5, -37.5)], OUTLINE, 1.2),
-        line2([(-35.5, 37.5), (-35.5, 71)], OUTLINE, 1.2),
+        line2([(-35.5, -71.25), (-35.5, -36.75)], OUTLINE, 1.2),
+        line2([(-35.5, 36.75), (-35.5, 71.25)], OUTLINE, 1.2),
         # delineators: sections are separate pieces — the weave ends at
         # the turn's tangent (x=18, measured), and the turn itself is
         # 4x45-degree pieces (boundaries at -45/0/+45 degrees)
-        line2([(18, -71), (18, -37)], OUTLINE, 1.2),
-        line2([(18, 37), (18, 71)], OUTLINE, 1.2),
-        line2([(43.9, -25.9), (68.5, -50.5)], OUTLINE, 1.2),
-        line2([(54.6, 0.0), (89.4, 0.0)], OUTLINE, 1.2),
-        line2([(43.9, 25.9), (68.5, 50.5)], OUTLINE, 1.2),
+        line2([(18, -71.25), (18, -36.75)], OUTLINE, 1.2),
+        line2([(18, 36.75), (18, 71.25)], OUTLINE, 1.2),
+        line2([(43.99, -25.99), (68.38, -50.38)], OUTLINE, 1.2),
+        line2([(54.75, 0.0), (89.25, 0.0)], OUTLINE, 1.2),
+        line2([(43.99, 25.99), (68.38, 50.38)], OUTLINE, 1.2),
         # left-edge rails on both straights
         rr(-90, -72, 1.2, 36, 0, fill=rail, stroke='none'),
         rr(-90, 36, 1.2, 36, 0, fill=rail, stroke='none'),
@@ -347,7 +350,7 @@ def arc_family(defn, rail):
         parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{col}" stroke-width="1.6"/>')
     # lane separators: dashed arcs
     for i in range(1, lanes):
-        r = ri + band * i / lanes
+        r = R - LANE_W * lanes / 2 + LANE_W * i
         xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
         parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{DASH}" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>')
     # direction chevron at mid-arc

@@ -2,6 +2,6 @@
   <rect x="-14.00" y="-18.00" width="28.00" height="36.00" rx="2.00" fill="#9a0400" stroke="#5d5a57" stroke-width="0.8"/>
   <rect x="-13.60" y="-17.60" width="27.20" height="1.60" rx="0.80" fill="#5d5a57" stroke="none" stroke-width="0.8"/>
   <rect x="-13.60" y="16.00" width="27.20" height="1.60" rx="0.80" fill="#5d5a57" stroke="none" stroke-width="0.8"/>
-  <line x1="-12.00" y1="-6.00" x2="12.00" y2="-6.00" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <line x1="-12.00" y1="6.00" x2="12.00" y2="6.00" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-12.00" y1="-5.75" x2="12.00" y2="-5.75" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-12.00" y1="5.75" x2="12.00" y2="5.75" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
 </svg>

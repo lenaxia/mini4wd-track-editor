@@ -2,7 +2,7 @@
   <rect x="-27.00" y="-18.00" width="54.00" height="36.00" rx="2.00" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
   <rect x="-26.60" y="-17.60" width="53.20" height="1.80" rx="0.90" fill="#4f8fdd" stroke="none" stroke-width="0.8"/>
   <rect x="-26.60" y="15.80" width="53.20" height="1.80" rx="0.90" fill="#4f8fdd" stroke="none" stroke-width="0.8"/>
-  <line x1="-25.00" y1="-6.00" x2="25.00" y2="-6.00" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <line x1="-25.00" y1="6.00" x2="25.00" y2="6.00" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-25.00" y1="-5.75" x2="25.00" y2="-5.75" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-25.00" y1="5.75" x2="25.00" y2="5.75" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
   <path d="M -11.30 -2.25 L -9.10 0.00 L -11.30 2.25" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="0.9"/>
 </svg>
