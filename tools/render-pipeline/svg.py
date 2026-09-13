@@ -307,15 +307,13 @@ def bri2_art(defn):
         return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="butt"/>'
     parts = [
         # bed with the bottom-right corner cut (beyond the ramp face)
-        '<path d="M -27 -17.25 H 27 V 5.75 H 15 V 17.25 H -27 Z" fill="' + BED + '"/>',
-        line2([(-27, -17.25), (27, -17.25)], OUTLINE, 1.2),
-        line2([(-27, 17.25), (15, 17.25)], OUTLINE, 1.2),
-        line2([(-27, -5.75), (27, -5.75)], OUTLINE, 1.2),
-        # bottom lane shorter: its divider and the right edge stop at
-        # the face, which spans the lane's height
-        line2([(-27, 5.75), (15, 5.75)], OUTLINE, 1.2),
-        line2([(27, -17.25), (27, 5.75)], OUTLINE, 1.2),
-        line2([(15, 5.75), (15, 17.25)], OUTLINE, 1.2),
+        # closed stroked rectangles: miter joins give crisp corners
+        # (separate butt-capped lines left notches where they met).
+        # Top two lanes run full width; the bottom lane is its own
+        # rectangle ending on the face at x=+15 — the shared divider
+        # stroke doubles, same color.
+        '<path d="M -27 -17.25 H 27 V 5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
+        '<path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
         rr(-27, -17.25, 1.2, 34.5, 0, fill=OUTLINE, stroke='none'),
         rr(25.8, -17.25, 1.2, 23.0, 0, fill=OUTLINE, stroke='none'),
     ]
