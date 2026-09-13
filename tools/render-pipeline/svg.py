@@ -100,7 +100,7 @@ def rect_family(defn, rail):
         for i in range(lanes + 1):
             y1 = -h / 2 + (i * h) / lanes
             y2 = -h / 2 + ((lanes - i) * h) / lanes
-            parts.append(line(-w / 2 + 3, y1 - h / 2, w / 2 - 3, y2 - h / 2, DASH, 0.8, dash=None))
+            parts.append(line(-w / 2 + 3, y1, w / 2 - 3, y2, DASH, 0.8, dash=None))
         parts.append(chevron(-w / 6, 0, 6, 2.2))
         parts.append(chevron(w / 6, 0, 6, -2.2))
     return parts
@@ -144,7 +144,7 @@ def arc_family(defn, rail):
     return parts
 
 
-def emit(defn, rail):  # noqa: name unused by design — files key off sprite/name at call site
+def emit(defn, rail):
     if defn['kind'] in ('corner', 'hairpin'):
         body = arc_family(defn, rail)
     else:

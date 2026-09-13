@@ -135,5 +135,6 @@ npm run test:e2e           # e2e (auto-starts/reuses serve.js)
 ## Credits
 
 - rucdoc track system (1L/2L/3L 3D-printed pieces): MIT (c) rucdoc —
-  thangs.com/designer/rucdoc. Sprites are top-down orthographic renders of
-  his published models; catalog data measured from the same.
+  thangs.com/designer/rucdoc. Catalog data measured from his published
+  models; the shipped sprites are vector redraws in the original
+  editor's illustrated style.

@@ -2,10 +2,10 @@
   <rect x="-81.00" y="-18.00" width="162.00" height="36.00" rx="2.00" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
   <rect x="-80.60" y="-17.60" width="161.20" height="1.80" rx="0.90" fill="#e05263" stroke="none" stroke-width="0.8"/>
   <rect x="-80.60" y="15.80" width="161.20" height="1.80" rx="0.90" fill="#e05263" stroke="none" stroke-width="0.8"/>
-  <line x1="-78.00" y1="-36.00" x2="78.00" y2="0.00" stroke="#ffffff" stroke-width="0.8"/>
-  <line x1="-78.00" y1="-24.00" x2="78.00" y2="-12.00" stroke="#ffffff" stroke-width="0.8"/>
-  <line x1="-78.00" y1="-12.00" x2="78.00" y2="-24.00" stroke="#ffffff" stroke-width="0.8"/>
-  <line x1="-78.00" y1="0.00" x2="78.00" y2="-36.00" stroke="#ffffff" stroke-width="0.8"/>
+  <line x1="-78.00" y1="-18.00" x2="78.00" y2="18.00" stroke="#ffffff" stroke-width="0.8"/>
+  <line x1="-78.00" y1="-6.00" x2="78.00" y2="6.00" stroke="#ffffff" stroke-width="0.8"/>
+  <line x1="-78.00" y1="6.00" x2="78.00" y2="-6.00" stroke="#ffffff" stroke-width="0.8"/>
+  <line x1="-78.00" y1="18.00" x2="78.00" y2="-18.00" stroke="#ffffff" stroke-width="0.8"/>
   <path d="M -27.00 -3.00 L -24.80 0.00 L -27.00 3.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
   <path d="M 27.00 -3.00 L 24.80 0.00 L 27.00 3.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
 </svg>
