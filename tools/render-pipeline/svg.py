@@ -155,10 +155,7 @@ def rect_family(defn, rail):
         # walls are chunkier (~2 px)
         vy = defn['verts'][0][1] - 0.5
         amp = 2 * vy                          # 5 (Chi1), 11 (Chi2)
-        # the silhouette is c +/- band/2 (walls inset half-stroke):
-        # both the flat runs (center +vy) and mid-span (-vy) must keep
-        # the band inside the canvas
-        if defn['verts'][1][1] != defn['verts'][0][1] or amp <= 0 or abs(vy) + band / 2 > h / 2:
+        if defn['verts'][1][1] != defn['verts'][0][1] or amp <= 0 or band + amp + 1.6 > h:
             raise ValueError(f'{defn.get("label", "wave")}: bad hump geometry')
 
         n = int(round(w))
