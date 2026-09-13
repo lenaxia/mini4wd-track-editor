@@ -92,7 +92,7 @@ def rect_family(defn, rail):
         # (re-measured: opaque content ends ~col 37; the ~2 cm dark
         # edge is the wall), corner beyond the ramp left transparent.
         RAMP, ENDW = 37.5, 1.5                  # re-measured: opaque content ends ~col 37; the ~2cm dark edge is the wall
-        y0 = LANE_W / 2                        # face top = last lane boundary
+        y0 = -LANE_W * lanes / 2 + LANE_W * (lanes - 1)   # last lane boundary
         x1, x2 = -w / 2 + RAMP - ENDW, -w / 2 + RAMP
         parts = [
             # bed: full-width band plus the ramp footprint (cut corner
@@ -138,7 +138,7 @@ def rect_family(defn, rail):
         # exactly fills the viewBox (the verts entry y and the negative
         # catalog center y encode the same shift).
         band = LANE_W * lanes                  # regulation lane width
-        amp = h - band                        # 6 (Chi1), 12 (Chi2)
+        amp = h - band                        # 7.5 (Chi1), 14.5 (Chi2)
         if amp <= 0:                          # not in the catalog; stay sane
             amp = h / 7
 
@@ -202,7 +202,7 @@ def changer_art(defn, rail):
         d = f'M {pts[0][0]:.1f} {pts[0][1]:.1f} ' + ' '.join(f'L {x:.1f} {y:.1f}' for x, y in pts[1:])
         return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="butt"/>'
 
-    # the shared S-step (zone from the measured leave/rejoin points)
+    # the shared S-step, one regulation lane (LANE_W)
     X0, X1 = -22, 16
     def stepped(y):
         return f'M -81 {y:.1f} L {X0} {y:.1f} {s_cmd(X0, y, X1, y + LANE_W)} L 81 {y + LANE_W:.1f}'
@@ -268,9 +268,9 @@ def lan2_art(defn, rail):
     (one shape offset by one lane, chicane-style), so both lanes hold
     regulation width through the weave; the vacated top slot becomes
     the transparent notch. After the weave each boundary settles into
-    its exact semicircle about (18,0) (r 60/48/36; walls r 72/36 and
-    the centerline-straight tangency give the 180x144 canvas as the
-    path's exact bounding box). A full-height gray delineator at
+    its exact semicircle about (18,0) (r 59.75/48.25/36.75 on the
+    11.5 grid; walls r 71.25/36.75) — the 180x144 canvas bounds the
+    swept path (the -90 edge comes from the entry/exit straights). A full-height gray delineator at
     x=-36 marks the sections in the rip."""
     def S(x0, y0, x1, y1):
         """flat-ended cubic: leaves and arrives horizontally"""
@@ -374,7 +374,7 @@ def emit(defn, rail, rip=None):
     # spiral rainbows)
     if defn['kind'] == 'changer' and (defn['w'], defn['h']) == (162, 36):
         body = changer_art(defn, rail)
-    elif (defn['w'], defn['h']) == (180, 144):
+    elif defn['kind'] == 'hairpin' and (defn['w'], defn['h']) == (180, 144):
         body = lan2_art(defn, rail)
     elif rip:
         body = traced_body(rip, defn['w'], defn['h'],
