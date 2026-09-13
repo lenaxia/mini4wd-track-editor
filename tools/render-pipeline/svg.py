@@ -224,16 +224,16 @@ def changer_art(defn, rail):
         # top of lane 1 (the wall) steps to the div1 level, lane 1/2
         # divider to the div2 level, bottom of lane 2 onto the wall
         stroke(stepped(-17.4), OUTLINE, 1.2),
-        stroke(stepped(-6.5), OUTLINE, 1.2),
-        stroke(stepped(5.5), OUTLINE, 1.2),
+        stroke(stepped(-6.0), OUTLINE, 1.2),
+        stroke(stepped(5.4), OUTLINE, 1.2),
         # the bottom lane bridges OVER the weave to the top slot: two
         # measured S edges (upper lifts off div2 at x=-44 and merges
         # into the top wall; lower lifts off the bottom wall at
         # x=-43.5 and merges into the stepped tail at y=-5.4 — the
         # exact level the top boundary settles to), band filled gray,
         # drawn over the lanes it crosses
-        f'<path d="M -44 5.5 {b_cmd(-44, 5.5, 42.5, -17.4)} L 42.5 -5.4 {b_cmd(42.5, -5.4, -43.5, 17.4)} Z" fill="{BANK_GRAY}"/>',
-        stroke(f'M -44 5.5 {b_cmd(-44, 5.5, 42.5, -17.4)}', OUTLINE, 1.2),
+        f'<path d="M -44 5.4 {b_cmd(-44, 5.4, 42.5, -17.4)} L 42.5 -5.4 {b_cmd(42.5, -5.4, -43.5, 17.4)} Z" fill="{BANK_GRAY}"/>',
+        stroke(f'M -44 5.4 {b_cmd(-44, 5.4, 42.5, -17.4)}', OUTLINE, 1.2),
         stroke(f'M -43.5 17.4 {b_cmd(-43.5, 17.4, 42.5, -5.4)}', OUTLINE, 1.2),
         # top wall resumes past the weave; bottom wall breaks for the
         # merge (single color, runs meet the curves exactly)
@@ -244,10 +244,10 @@ def changer_art(defn, rail):
         # pre-weave line span their lanes boundary-to-boundary; the
         # post-weave line: top stops just inside the first boundary
         # (-5, per the rip), bottom runs to the bottom wall
-        line2([(-27.5, -17.4), (-27.5, 5.5)], OUTLINE, 1.2),
+        line2([(-27.5, -17.4), (-27.5, 5.4)], OUTLINE, 1.2),
         line2([(27, -5), (27, 17.4)], OUTLINE, 1.2),
-        line2([(42.5, -17.4), (42.5, -6.5)], OUTLINE, 1.2),
-        line2([(-43.5, 5.5), (-43.5, 17.4)], OUTLINE, 1.2),
+        line2([(42.5, -17.4), (42.5, -5.4)], OUTLINE, 1.2),
+        line2([(-43.5, 5.4), (-43.5, 17.4)], OUTLINE, 1.2),
         # variant rails on the ends
         rr(-81, -18, 1.2, 36, 0, fill=rail, stroke='none'),
         rr(79.8, -18, 1.2, 36, 0, fill=rail, stroke='none'),
