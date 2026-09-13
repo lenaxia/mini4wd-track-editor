@@ -282,11 +282,17 @@ def changer_art(defn):
         stroke(stepped(5.75), OUTLINE, 1.2),
         line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
         line2([(27, -5.75), (27, 17.25)], OUTLINE, 1.2),
-        f'<defs><linearGradient id="lan1bridge" gradientUnits="userSpaceOnUse" x1="-44" y1="5.75" x2="42.5" y2="-17.25">'
-        f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient></defs>'
-        # the bridge rises like Bri2's ramp: bed at the bottom-left
-        # departure blending to bank-gray at the top-right arrival
-        f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="url(#lan1bridge)"/>',
+        # the bridge band stays solid; its approach (bottom lane
+        # before the lift-off) and exit (top lane after the landing)
+        # carry the ramp gradient like Bri2: rising from bed into
+        # bank-gray at the bridge, settling back to bed at the edge
+        f'<defs><linearGradient id="approach" gradientUnits="userSpaceOnUse" x1="-81" y1="0" x2="-44" y2="0">'
+        f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient>'
+        f'<linearGradient id="exit" gradientUnits="userSpaceOnUse" x1="42.5" y1="0" x2="81" y2="0">'
+        f'<stop offset="0" stop-color="{BANK_GRAY}"/><stop offset="1" stop-color="{BED}"/></linearGradient></defs>'
+        f'<path d="M -81 5.75 H -44 V 17.25 H -81 Z" fill="url(#approach)"/>',
+        f'<path d="M 42.5 -17.25 H 81 V -5.75 H 42.5 Z" fill="url(#exit)"/>',
+        f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>',
         stroke(f'M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)}', OUTLINE, 1.2),
         stroke(f'M -43.5 17.25 {b_cmd(-43.5, 17.25, 42.5, -5.75)}', OUTLINE, 1.2),
         line2([(42.5, -17.25), (80, -17.25)], OUTLINE, 1.2),
