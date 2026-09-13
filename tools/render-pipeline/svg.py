@@ -224,12 +224,14 @@ def changer_art(defn, rail):
         line2([(28, -17.4), (80, -17.4)], OUTLINE, 1.2),
         line2([(-80, 17.4), (-28, 17.4)], OUTLINE, 1.2),
         line2([(15, 17.4), (80, 17.4)], OUTLINE, 1.2),
-        # section delineators, same color, inset within the weaved
-        # lanes (measured: pre x=-27.5 y -17..4, post x=27 y -5..15)
-        line2([(-27.5, -15.5), (-27.5, 3.5)], OUTLINE, 1.2),
-        line2([(27, -5), (27, 15)], OUTLINE, 1.2),
-        line2([(42.5, -15.5), (42.5, -8)], OUTLINE, 1.2),
-        line2([(-43.5, 8), (-43.5, 15.5)], OUTLINE, 1.2),
+        # section delineators, same color, each spanning the full
+        # width of the lanes it marks (boundary line to boundary line):
+        # pre-weave covers the two lanes about to weave; post-weave the
+        # two weaved lanes; the outer marks cover their single lanes
+        line2([(-27.5, -17.4), (-27.5, 5.5)], OUTLINE, 1.2),
+        line2([(27, -6.5), (27, 17.4)], OUTLINE, 1.2),
+        line2([(42.5, -17.4), (42.5, -6.5)], OUTLINE, 1.2),
+        line2([(-43.5, 5.5), (-43.5, 17.4)], OUTLINE, 1.2),
         # variant rails on the ends
         rr(-81, -18, 1.2, 36, 0, fill=rail, stroke='none'),
         rr(79.8, -18, 1.2, 36, 0, fill=rail, stroke='none'),
