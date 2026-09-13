@@ -61,3 +61,24 @@ piece is a rectangle in top-down ortho, so catalog vectors are exact;
 the 3D render keeps mask/measurement duty (contour tracing for future
 corner pieces). sprite: fields now carry full filenames (R2Ramp.svg);
 the mesh renders are retired from assets/.
+
+## Addendum 2 — full-catalog SVG redraw
+
+Owner: redraw the Tamiya rips as SVGs too (low-res originals, simple
+shapes; lane-changer/rainbow "more complex" but art.js already encodes
+their geometry). svg.py now emits the ENTIRE non-procedural catalog —
+67 variant files + the 3 rucdoc shared sprites — in the sampled
+palette, shape logic ported from art.js: rects for straight-family
+kinds with kind markings (start checker, slope chevrons, jump block +
+hatch, bank stripes, wave sines, changer diagonals), annular sectors
+for corner/hairpin with geometry from solveGeo (via the node dump).
+
+All content in the CENTERED frame matching verts (the first cut drew
+rects 0-based into a centered viewBox — half off-canvas; caught by
+rasterizing all 67 in Chromium and measuring lit-pixel coverage).
+Lan2 reads 24% opaque — geometrically correct (both verts at x=-90).
+
+Loader resolves name.c.svg for every piece; the original PNGs stay in
+assets/ untouched as provenance (the artwork-as-is rule bends by owner
+decision — loaded art is now the redraw, attribution unchanged).
+?v=10.

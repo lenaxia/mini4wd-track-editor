@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="10.4" height="13.3" viewBox="0 0 10.4 13.3">
-  <rect x="0" y="0" width="10.4" height="13.3" rx="2.0" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
-  <rect x="0.4" y="0.4" width="9.6" height="1.6" rx="1.2" fill="#7a7674"/>
-  <rect x="0.4" y="11.3" width="9.6" height="1.6" rx="1.2" fill="#7a7674"/>
-  <path d="M 3.0 3.7240000000000006 L 5.2 6.65 L 3.0 9.576" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.9"/>
-  <path d="M 5.2 3.7240000000000006 L 7.4 6.65 L 5.2 9.576" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.9"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="10.4" height="13.3" viewBox="-5.2 -6.65 10.4 13.3">
+  <rect x="-5.20" y="-6.65" width="10.40" height="13.30" rx="2.00" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
+  <rect x="-4.80" y="-6.25" width="9.60" height="1.80" rx="0.90" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
+  <rect x="-4.80" y="4.45" width="9.60" height="1.80" rx="0.90" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
+  <path d="M 3.00 -2.22 L 5.20 0.00 L 3.00 2.22" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
+  <path d="M 5.20 -2.22 L 7.40 0.00 L 5.20 2.22" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
 </svg>

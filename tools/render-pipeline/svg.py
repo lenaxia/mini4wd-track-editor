@@ -1,81 +1,191 @@
 #!/usr/bin/env python3
-"""SVG sprite emitter — illustrated style matched to the original Tamiya
-sprites (sampled: light warm-gray bed #efeae5, dark-gray outline/walls
-#7a7674, white dashed lane separators, chevrons on slopes).
+"""SVG sprite emitter — the full catalog in the original illustrated style.
 
-Shapes come from the CATALOG (measured geometry), not rasterized meshes:
-every downloaded piece is a rectangle in top-down ortho, so catalog-driven
-vectors are exact. Corner/hairpin pieces (arcs) render from verts+R when
-their downloads arrive; until then art.js covers them procedurally on
-canvas — same palette, same rules.
+Palette sampled from the original Tamiya PNGs (light warm-gray bed,
+dark-gray walls/outline, white dashed lane markings; color variants
+recolor the rails — VARIANT_COLORS). Shape logic is a port of art.js
+(which encoded every kind's geometry as canvas fallback): rects for
+straight-family kinds, annular sectors for corner/hairpin (geometry
+from solveGeo via the node dump), with kind-specific markings.
 
-Output: one <Name>.svg per entry, viewBox in cm (1 unit = 1 cm), canvas-
-ready (explicit width/height so drawImage scales correctly).
+Output: <Name>.<color>.svg per (piece, variant) + shared-family files
+for rucdoc sprite: entries. viewBox in cm (1 unit = 1 cm), explicit
+width/height for canvas drawImage.
+
+The original PNGs stay in assets/ untouched (provenance); the loader
+prefers these redraws. Derived from the MIT-licensed original editor's
+artwork (see src/main.js header).
 """
-import json, os, sys
+import json, math, os, subprocess, sys
 
 BED = '#efeae5'
 WALL = '#7a7674'
 DASH = '#ffffff'
 OUTLINE = '#5d5a57'
-RAIL = '#c9d1dc'  # variant-0 rail color (from pieces.js VARIANT_COLORS[0])
+CHEVRON = 'rgba(255,255,255,.55)'
+LANE = 'rgba(0,0,0,.35)'
 
-CHEVRON = 'rgba(255,255,255,.5)'
+
+def rr(x, y, w, h, r, **kw):
+    fill = kw.get('fill', BED)
+    stroke = kw.get('stroke', OUTLINE)
+    sw = kw.get('stroke_width', 0.8)
+    return f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" rx="{min(r, w/2, h/2):.2f}" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>'
 
 
-def straight_svg(defn):
-    w, h = defn['w'], defn['h']
-    lanes = defn.get('lanes', 1)
-    r = min(2.0, w / 2, h / 2)
-    parts = [
-        f'<rect x="0" y="0" width="{w}" height="{h}" rx="{r}" fill="{BED}" stroke="{OUTLINE}" stroke-width="0.8"/>',
-        # walls: dark bands along the long edges (drawn inside the outline)
-        f'<rect x="0.4" y="0.4" width="{w-0.8}" height="1.6" rx="{min(1.2, r)}" fill="{WALL}"/>',
-        f'<rect x="0.4" y="{h-2.0}" width="{w-0.8}" height="1.6" rx="{min(1.2, r)}" fill="{WALL}"/>',
-    ]
-    # lane separators: lanes-1 dashed white lines down the middle
-    for i in range(1, lanes):
-        y = h * i / lanes
-        parts.append(f'<line x1="2" y1="{y:.2f}" x2="{w-2}" y2="{y:.2f}" stroke="{DASH}" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>')
-    if defn.get('kind') == 'slope':
-        # chevrons pointing +x (travel direction, downhill-to-uphill read)
+def line(x1, y1, x2, y2, color=DASH, w=0.7, dash='2.4,1.8'):
+    d = f' stroke-dasharray="{dash}"' if dash else ''
+    return f'<line x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}" stroke="{color}" stroke-width="{w}"{d}/>'
+
+
+def chevron(x, y, h, dx=2.2, color=CHEVRON, w=0.9):
+    return f'<path d="M {x:.2f} {y-h/2:.2f} L {x+dx:.2f} {y:.2f} L {x:.2f} {y+h/2:.2f}" fill="none" stroke="{color}" stroke-width="{w}"/>'
+
+
+def rect_family(defn, rail):
+    """straight/start/slope/jump/bank/wave/changer share the rect footprint."""
+    w, h, lanes = defn['w'], defn['h'], defn.get('lanes', 1)
+    kind = defn['kind']
+    parts = [rr(-w / 2, -h / 2, w, h, min(2.0, h / 4), fill=BED)]
+    # rails (variant color) inside the top/bottom edges
+    rail_h = min(1.8, h * 0.14)
+    parts.append(rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, rail_h, 1.0, fill=rail, stroke='none'))
+    parts.append(rr(-w / 2 + 0.4, h / 2 - 0.4 - rail_h, w - 0.8, rail_h, 1.0, fill=rail, stroke='none'))
+    # lane separators: straight kinds (wave/changer override below)
+    if kind in ('straight', 'start', 'slope', 'jump', 'bank'):
+        for i in range(1, lanes):
+            y = -h / 2 + h * i / lanes
+            parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
+    if kind == 'straight':
+        n = max(1, round(w / 54))
+        for i in range(n):
+            parts.append(chevron(-w / 4 + (w / 2 / n) * i + 2.2, 0, h / 8, 2.2, 'rgba(0,0,0,.18)'))
+    elif kind == 'start':
+        cell = h / 4
+        parts.append('<g>')
+        for r in range(4):
+            for c in range(2):
+                if (r + c) % 2 == 0:
+                    parts.append(f'<rect x="{-w/6 + c*cell:.2f}" y="{-h/2 + r*cell:.2f}" width="{cell:.2f}" height="{cell:.2f}" fill="#ffffff"/>')
+        parts.append('</g>')
+    elif kind == 'slope':
         n = max(2, round(w / 9))
         for i in range(n):
-            x = 3 + (w - 6) * i / n
-            parts.append(f'<path d="M {x:.1f} {h*0.28} L {x+2.2:.1f} {h/2} L {x:.1f} {h*0.72}" fill="none" stroke="{CHEVRON}" stroke-width="0.9"/>')
+            parts.append(chevron((w - 6) * i / n + 3, 0, h / 3))
+    elif kind == 'jump':
+        parts.append(rr(-w / 6, -h / 2 + 3.5 / 10 * 3.5, w / 3, h - 2 * 3.5, 1.0, fill='#e5b84b', stroke='#2b2f36', stroke_width=0.4))
+        for x in range(int(-w / 6), int(w / 6), 5):
+            parts.append(line(x, h / 2 - 4, x + 6, -h / 2 + 4, 'rgba(0,0,0,.45)', 0.4, dash=None))
+    elif kind == 'bank':
+        cs = 5
+        xs = [(-w / 2 + 2) + i * cs for i in range(int((w - 4) // cs) + 1)]
+        for x in xs:
+            col = '#e05263' if (round(x / cs) % 2 == 0) else '#f2f2f2'
+            ww = min(cs, w / 2 - 2 - x)
+            if ww <= 0:
+                continue
+            parts.append(f'<rect x="{x:.2f}" y="{-h/2+3.5:.2f}" width="{ww:.2f}" height="3" fill="{col}"/>')
+            parts.append(f'<rect x="{x:.2f}" y="{h/2-6.5:.2f}" width="{ww:.2f}" height="3" fill="{col}"/>')
+    elif kind == 'wave':
+        amp, n = h / 7, max(2, round(w / 27))
+        for li in range(1, lanes):
+            y0 = h * li / lanes
+            d = []
+            for k in range(0, 101):
+                x = -w / 2 + 4 + (w - 8) * k / 100
+                y = y0 - h / 2 + math.sin((x + w / 2) / w * 2 * math.pi * n) * amp
+                d.append(f'{"M" if k == 0 else "L"} {x:.2f} {y:.2f}')
+            parts.append(f'<path d="{" ".join(d)}" fill="none" stroke="{DASH}" stroke-width="0.8"/>')
+    elif kind == 'changer':
+        for i in range(lanes + 1):
+            y1 = -h / 2 + (i * h) / lanes
+            y2 = -h / 2 + ((lanes - i) * h) / lanes
+            parts.append(line(-w / 2 + 3, y1 - h / 2, w / 2 - 3, y2 - h / 2, DASH, 0.8, dash=None))
+        parts.append(chevron(-w / 6, 0, 6, 2.2))
+        parts.append(chevron(w / 6, 0, 6, -2.2))
     return parts
 
 
-def emit(name, defn):
+def arc_family(defn, rail):
+    """corner/hairpin: annular sector from solveGeo geometry."""
+    geo = defn['_geo']
+    lanes = defn.get('lanes', 3)
+    band = defn['band']
+    cx, cy = geo['cx'], geo['cy']
+    a1, sweep = geo['a1'], geo['sweep']
+    R = geo['R']
+    P = lambda r, a: (cx + r * math.cos(a), cy + r * math.sin(a))
+
+    ro, ri = R + band / 2, R - band / 2
+    large = 1 if abs(sweep) > math.pi else 0
+    sflag = 1 if sweep > 0 else 0
+    x1, y1 = P(ro, a1); x2, y2 = P(ro, a1 + sweep)
+    x3, y3 = P(ri, a1 + sweep); x4, y4 = P(ri, a1)
+    parts = [
+        f'<path d="M {x1:.2f} {y1:.2f} A {ro:.2f} {ro:.2f} 0 {large} {sflag} {x2:.2f} {y2:.2f} '
+        f'L {x3:.2f} {y3:.2f} A {ri:.2f} {ri:.2f} 0 {large} {1-sflag} {x4:.2f} {y4:.2f} Z" '
+        f'fill="{BED}" stroke="{OUTLINE}" stroke-width="0.8"/>'
+    ]
+    # rails: thin arcs at the band edges
+    for r, col in ((ro - 0.9, rail), (ri + 0.9, rail)):
+        xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
+        parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{col}" stroke-width="1.6"/>')
+    # lane separators: dashed arcs
+    for i in range(1, lanes):
+        r = ri + band * i / lanes
+        xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
+        parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{DASH}" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>')
+    # direction chevron at mid-arc
+    am = a1 + sweep / 2
+    rm = R
+    px, py = P(rm, am)
+    tang = am + (math.pi / 2 if sweep > 0 else -math.pi / 2)
+    parts.append(f'<path d="M {px - 1.6*math.cos(tang):.2f} {py - 1.6*math.sin(tang) - band/6:.2f} L {px + 1.6*math.cos(tang):.2f} {py + 1.6*math.sin(tang):.2f} L {px - 1.6*math.cos(tang):.2f} {py - 1.6*math.sin(tang) + band/6:.2f}" fill="none" stroke="{CHEVRON}" stroke-width="0.9" transform="rotate({math.degrees(tang):.1f} {px:.2f} {py:.2f})"/>')
+    return parts
+
+
+def emit(defn, rail):
+    if defn['kind'] in ('corner', 'hairpin'):
+        body = arc_family(defn, rail)
+    else:
+        body = rect_family(defn, rail)
     w, h = defn['w'], defn['h']
-    body = straight_svg(defn)
-    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
-           f'viewBox="0 0 {w} {h}">\n  ' + '\n  '.join(body) + '\n</svg>\n')
-    return svg
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
+            f'viewBox="{-w/2} {-h/2} {w} {h}">\n  ' + '\n  '.join(body) + '\n</svg>\n')
 
 
 def main():
-    src = sys.argv[1] if len(sys.argv) > 1 else '../../src/pieces.js'
-    out = sys.argv[2] if len(sys.argv) > 2 else '../../assets'
+    out = sys.argv[1] if len(sys.argv) > 1 else 'assets'
     os.makedirs(out, exist_ok=True)
-    # pull the rucdoc drawer's real-data pieces from the JS catalog via node
-    import subprocess
-    js = ('import { PIECES, PALETTE } from "./src/pieces.js"; '
-          'const out = {}; '
-          'for (const n of PALETTE.rucdoc) { const d = PIECES[n]; if (!d.procedural) out[n] = d; } '
-          'console.log(JSON.stringify(out));')
     root = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
-    proc = subprocess.run(['node', '--input-type=module', '-e', js],
-                          capture_output=True, text=True, cwd=root)
+    js = (
+        "import { PIECES, PALETTE, VARIANT_COLORS } from './src/pieces.js';\n"
+        "import { solveGeo } from './src/geometry.js';\n"
+        "const out = {};\n"
+        "for (const [n, d] of Object.entries(PIECES)) {\n"
+        "  const e = { ...d, colors: d.colors || 1 };\n"
+        "  if (d.kind === 'corner' || d.kind === 'hairpin') e._geo = solveGeo(n);\n"
+        "  out[n] = e;\n"
+        "}\n"
+        "console.log(JSON.stringify({ pieces: out, palette: PALETTE, variantColors: VARIANT_COLORS }));"
+    )
+    proc = subprocess.run(['node', '--input-type=module', '-e', js], capture_output=True, text=True, cwd=root)
     if proc.returncode != 0:
-        sys.exit('node catalog dump failed: ' + proc.stderr[:300])
+        sys.exit('node catalog dump failed: ' + proc.stderr[:400])
     data = json.loads(proc.stdout)
-    for name, defn in data.items():
-        sprite = defn.get('sprite') or name
-        path = os.path.join(out, f'{sprite}.svg')
-        with open(path, 'w') as f:
-            f.write(emit(name, defn))
-        print(f'{sprite}.svg ({defn["w"]}x{defn["h"]}cm, lanes={defn.get("lanes")})')
+    pieces, vc = data['pieces'], data['variantColors']
+
+    n = 0
+    for name, defn in pieces.items():
+        if defn.get('procedural'):
+            continue
+        files = [defn['sprite']] if defn.get('sprite') else [f'{name}.{c}.svg' for c in range(defn['colors'])]
+        rails = [vc[0]] * len(files) if defn.get('sprite') else [vc[c % len(vc)] for c in range(defn['colors'])]
+        for fname, rail in zip(files, rails):
+            with open(os.path.join(out, fname), 'w') as f:
+                f.write(emit(defn, rail))
+            n += 1
+    print(f'emitted {n} svg files')
 
 
 if __name__ == '__main__':

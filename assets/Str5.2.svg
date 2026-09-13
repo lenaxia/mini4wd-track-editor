@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="60" viewBox="-45.0 -30.0 90 60">
+  <rect x="-45.00" y="-30.00" width="90.00" height="60.00" rx="2.00" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
+  <rect x="-44.60" y="-29.60" width="89.20" height="1.80" rx="0.90" fill="#4f8fdd" stroke="none" stroke-width="0.8"/>
+  <rect x="-44.60" y="27.80" width="89.20" height="1.80" rx="0.90" fill="#4f8fdd" stroke="none" stroke-width="0.8"/>
+  <line x1="-43.00" y1="-18.00" x2="43.00" y2="-18.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-43.00" y1="-6.00" x2="43.00" y2="-6.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-43.00" y1="6.00" x2="43.00" y2="6.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-43.00" y1="18.00" x2="43.00" y2="18.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M -20.30 -3.75 L -18.10 0.00 L -20.30 3.75" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="0.9"/>
+  <path d="M 2.20 -3.75 L 4.40 0.00 L 2.20 3.75" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="0.9"/>
+</svg>

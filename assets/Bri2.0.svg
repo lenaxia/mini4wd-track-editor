@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="54" height="36" viewBox="-27.0 -18.0 54 36">
+  <rect x="-27.00" y="-18.00" width="54.00" height="36.00" rx="2.00" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
+  <rect x="-26.60" y="-17.60" width="53.20" height="1.80" rx="0.90" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
+  <rect x="-26.60" y="15.80" width="53.20" height="1.80" rx="0.90" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
+  <line x1="-25.00" y1="-6.00" x2="25.00" y2="-6.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-25.00" y1="6.00" x2="25.00" y2="6.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <rect x="-9.00" y="-16.77" width="18.00" height="29.00" rx="1.00" fill="#e5b84b" stroke="#2b2f36" stroke-width="0.4"/>
+  <line x1="-9.00" y1="14.00" x2="-3.00" y2="-14.00" stroke="rgba(0,0,0,.45)" stroke-width="0.4"/>
+  <line x1="-4.00" y1="14.00" x2="2.00" y2="-14.00" stroke="rgba(0,0,0,.45)" stroke-width="0.4"/>
+  <line x1="1.00" y1="14.00" x2="7.00" y2="-14.00" stroke="rgba(0,0,0,.45)" stroke-width="0.4"/>
+  <line x1="6.00" y1="14.00" x2="12.00" y2="-14.00" stroke="rgba(0,0,0,.45)" stroke-width="0.4"/>
+</svg>

@@ -4,7 +4,7 @@ import { PIECES } from './pieces.js';
 
 const IMAGES = {};
 
-export function imageFor(name, c) { const f = PIECES[name]?.sprite || `${name}.${c}.png`; return IMAGES[f] || null; }
+export function imageFor(name, c) { const f = PIECES[name]?.sprite || `${name}.${c}.svg`; return IMAGES[f] || null; }
 
 /* Preload every sprite; onload fires once per image that finishes loading
  * (caller redraws + repaints palette chips, debounced on its side). */
@@ -15,7 +15,7 @@ export function preloadImages(onload) {
      * doomed sprite requests. */
     if (def.procedural) continue;
     for (let c = 0; c < def.colors; c++) {
-      const f = def.sprite || `${name}.${c}.png`;
+      const f = def.sprite || `${name}.${c}.svg`;
       if (IMAGES[f]) continue; /* shared sprites load once */
       const img = new Image();
       img.onload = onload;

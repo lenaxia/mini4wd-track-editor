@@ -4,7 +4,7 @@ import { PIECES, PALETTE, TOOLS, VARIANT_COLORS, SNAP_RADIUS } from '../../src/p
 import fs from 'node:fs';
 
 const hasSprite = (name) => {
-  const f = PIECES[name].sprite || `${name}.0.png`;
+  const f = PIECES[name].sprite || `${name}.0.svg`;
   return fs.existsSync(`assets/${f}`);
 };
 
