@@ -286,13 +286,16 @@ def lan2_art(defn, rail):
     # lines leave and rejoin their levels), stepping down one lane (12)
     X0, X1 = -27, 10
     def stepped(y):
-        return f'M -90 {y:.1f} L {X0} {y:.1f} {S(X0, y, X1, y + LANE_W)} L 18 {y + LANE_W:.1f}'
+        # .2f: the tail must land exactly on its level — a 0.05-off
+        # arc endpoint shifts the semicircle's center ~1.5 cm
+        return f'M -90 {y:.2f} L {X0} {y:.2f} {S(X0, y, X1, y + LANE_W)} L 18 {y + LANE_W:.2f}'
 
     parts = [
         # bed: entry rect + exact semicircular band + exit rect, with
         # the weave notch (the vacated top slot) cut transparent
         f'<path d="M -90 -72 H 18 V -36 H -90 Z '
-        f'M 18 -72 A 72 72 0 0 1 18 72 A 36 36 0 0 0 18 -72 Z '
+        f'M 18 -72 A 72 72 0 0 1 18 72 '
+        f'L 18 36 A 36 36 0 0 0 18 -36 Z '
         f'M -90 36 H 18 V 72 H -90 Z '
         f'M -27 -72 L -2 -72 L -9 -67.5 Z '
         f'M 2 -72 L 17 -72 L 10 -68.5 Z" fill="{BED}" fill-rule="evenodd"/>',
