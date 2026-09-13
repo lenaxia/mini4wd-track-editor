@@ -234,12 +234,11 @@ def changer_art(defn, rail):
         line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
         line2([(27, -5.5), (27, 17.25)], OUTLINE, 1.2),
         # the bottom lane bridges OVER the weave to the top slot: two
-        # measured S edges with the dark bank-gray band between them
-        # (upper lifts off div2 at x=-44 and merges
+        # measured S edges (upper lifts off div2 at x=-44 and merges
         # into the top wall; lower lifts off the bottom wall at
         # x=-43.5 and merges into the stepped tail at y=-5.75 — the
-        # exact level the top boundary settles to), band filled gray,
-        # drawn over the lanes it crosses
+        # exact level the top boundary settles to), with the dark
+        # bank-gray band filled between them in the rip's two sections
         # grey fill in the rip's two measured sections — the departure
         # band (bottom-left) and the arrival wedge (top-right) — with
         # the crossing between them showing clean lane lines (a single
