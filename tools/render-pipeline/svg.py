@@ -213,26 +213,23 @@ def changer_art(defn, rail):
         f'M 6 -18 L 28 -18 L 10 -13.5 Z '
         f'M 16 18 L -3 18 L 2 13.5 Z '
         f'M -6 18 L -28 18 L -10 13.5 Z" fill="{BED}" fill-rule="evenodd"/>',
-        # the three identical S boundaries:
-        # top of lane 1 (the wall) steps to the div1 level
+        # the three identical S boundaries, all one line color:
+        # top of lane 1 (the wall) steps to the div1 level, lane 1/2
+        # divider to the div2 level, bottom of lane 2 onto the wall
         stroke(stepped(-17.4), OUTLINE, 1.2),
-        # lane 1/2 divider steps to the div2 level (left run gray)
-        stroke(stepped(-6.5), DASH, 1.3),
-        line2([(-80, -6.5), (X0, -6.5)], BANK_GRAY, 1.6),
-        # bottom of lane 2 settles onto the bottom wall
-        stroke(stepped(5.5), DASH, 1.2),
-        # walls: top wall resumes past the weave; bottom wall breaks
-        # for the merge (dark flanks the notches, mark-tone elsewhere)
-        line2([(28, -17.4), (47, -17.4)], OUTLINE, 1.2), line2([(48, -17.4), (80, -17.4)], DASH, 1.2),
-        line2([(-80, 17.4), (-49, 17.4)], DASH, 1.2), line2([(-48, 17.4), (-28, 17.4)], OUTLINE, 1.2),
-        line2([(15, 17.4), (27, 17.4)], OUTLINE, 1.2), line2([(28, 17.4), (80, 17.4)], DASH, 1.2),
-        # section delineators (measured verticals): straight|weave,
-        # then the post-weave line closing the section — spanning only
-        # the two lanes that weaved (they settle into -6.5..+17.4)
-        line2([(-27.5, -17), (-27.5, 5)], DASH, 1.2),
-        line2([(27, -6.5), (27, 17.4)], DASH, 1.2),
-        line2([(42.5, -17.5), (42.5, -7)], DASH, 1.2),
-        line2([(-43.5, 7), (-43.5, 17.5)], DASH, 1.2),
+        stroke(stepped(-6.5), OUTLINE, 1.2),
+        stroke(stepped(5.5), OUTLINE, 1.2),
+        # top wall resumes past the weave; bottom wall breaks for the
+        # merge (single color, runs meet the curves exactly)
+        line2([(28, -17.4), (80, -17.4)], OUTLINE, 1.2),
+        line2([(-80, 17.4), (-28, 17.4)], OUTLINE, 1.2),
+        line2([(15, 17.4), (80, 17.4)], OUTLINE, 1.2),
+        # section delineators, same color, inset within the weaved
+        # lanes (measured: pre x=-27.5 y -17..4, post x=27 y -5..15)
+        line2([(-27.5, -15.5), (-27.5, 3.5)], OUTLINE, 1.2),
+        line2([(27, -5), (27, 15)], OUTLINE, 1.2),
+        line2([(42.5, -15.5), (42.5, -8)], OUTLINE, 1.2),
+        line2([(-43.5, 8), (-43.5, 15.5)], OUTLINE, 1.2),
         # variant rails on the ends
         rr(-81, -18, 1.2, 36, 0, fill=rail, stroke='none'),
         rr(79.8, -18, 1.2, 36, 0, fill=rail, stroke='none'),
@@ -289,16 +286,16 @@ def lan2_art(defn, rail):
         stroke('M 18 -71.4 A 71.4 71.4 0 0 1 18 71.4 H -90', OUTLINE, 1.2),
         stroke('M -90 -36.6 H 18 A 36.6 36.6 0 0 1 18 36.6 H -90', OUTLINE, 1.2),
         # delineator: full-height gray line between the sections
-        line2([(-35.5, -71), (-35.5, -37.5)], DASH, 1.2),
-        line2([(-35.5, 37.5), (-35.5, 71)], DASH, 1.2),
+        line2([(-35.5, -71), (-35.5, -37.5)], OUTLINE, 1.2),
+        line2([(-35.5, 37.5), (-35.5, 71)], OUTLINE, 1.2),
         # delineators: sections are separate pieces — the weave ends at
         # the turn's tangent (x=18, measured), and the turn itself is
         # 4x45-degree pieces (boundaries at -45/0/+45 degrees)
-        line2([(18, -71), (18, -37)], DASH, 1.2),
-        line2([(18, 37), (18, 71)], DASH, 1.2),
-        line2([(43.9, -25.9), (68.5, -50.5)], DASH, 1.2),
-        line2([(54.6, 0.0), (89.4, 0.0)], DASH, 1.2),
-        line2([(43.9, 25.9), (68.5, 50.5)], DASH, 1.2),
+        line2([(18, -71), (18, -37)], OUTLINE, 1.2),
+        line2([(18, 37), (18, 71)], OUTLINE, 1.2),
+        line2([(43.9, -25.9), (68.5, -50.5)], OUTLINE, 1.2),
+        line2([(54.6, 0.0), (89.4, 0.0)], OUTLINE, 1.2),
+        line2([(43.9, 25.9), (68.5, 50.5)], OUTLINE, 1.2),
         # left-edge rails on both straights
         rr(-90, -72, 1.2, 36, 0, fill=rail, stroke='none'),
         rr(-90, 36, 1.2, 36, 0, fill=rail, stroke='none'),
