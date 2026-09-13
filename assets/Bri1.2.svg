@@ -2,12 +2,12 @@
   <rect x="-27.00" y="-18.00" width="54.00" height="36.00" rx="2.00" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
   <rect x="-26.60" y="-17.60" width="53.20" height="1.80" rx="0.90" fill="#4f8fdd" stroke="none" stroke-width="0.8"/>
   <rect x="-26.60" y="15.80" width="53.20" height="1.80" rx="0.90" fill="#4f8fdd" stroke="none" stroke-width="0.8"/>
-  <line x1="-25.00" y1="-6.00" x2="25.00" y2="-6.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <line x1="-25.00" y1="6.00" x2="25.00" y2="6.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <path d="M 3.00 -6.00 L 5.20 0.00 L 3.00 6.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 11.00 -6.00 L 13.20 0.00 L 11.00 6.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 19.00 -6.00 L 21.20 0.00 L 19.00 6.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 27.00 -6.00 L 29.20 0.00 L 27.00 6.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 35.00 -6.00 L 37.20 0.00 L 35.00 6.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 43.00 -6.00 L 45.20 0.00 L 43.00 6.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
+  <line x1="-25.00" y1="-6.00" x2="25.00" y2="-6.00" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-25.00" y1="6.00" x2="25.00" y2="6.00" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M 3.00 -6.00 L 5.20 0.00 L 3.00 6.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 11.00 -6.00 L 13.20 0.00 L 11.00 6.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 19.00 -6.00 L 21.20 0.00 L 19.00 6.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 27.00 -6.00 L 29.20 0.00 L 27.00 6.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 35.00 -6.00 L 37.20 0.00 L 35.00 6.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 43.00 -6.00 L 45.20 0.00 L 43.00 6.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
 </svg>

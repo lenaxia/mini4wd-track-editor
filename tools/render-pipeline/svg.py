@@ -19,9 +19,12 @@ artwork (see src/main.js header).
 import json, math, os, subprocess, sys
 
 BED = '#efeae5'
-DASH = '#ffffff'
+DASH = '#8a8683'   # dark gray separators — white was invisible on the light bed
 OUTLINE = '#5d5a57'
-CHEVRON = 'rgba(255,255,255,.55)'
+CHEVRON = '#8a8683'
+# bank variants sampled from the original rips (their own palette, not
+# VARIANT_COLORS): c0 green, c1 warm gray, c2 navy, c3 dark red; Ban2 tan
+BANK_COLORS = {0: '#2e966f', 1: '#c0bcb8', 2: '#004282', 3: '#9a0400'}
 
 
 def rr(x, y, w, h, r, **kw):
@@ -71,29 +74,31 @@ def rect_family(defn, rail):
         for i in range(n):
             parts.append(chevron((w - 6) * i / n + 3, 0, h / 3))
     elif kind == 'jump':
-        parts.append(rr(-w / 6, -h / 2 + 3.5 / 10 * 3.5, w / 3, h - 2 * 3.5, 1.0, fill='#e5b84b', stroke='#2b2f36', stroke_width=0.4))
-        for x in range(int(-w / 6), int(w / 6), 5):
-            parts.append(line(x, h / 2 - 4, x + 6, -h / 2 + 4, 'rgba(0,0,0,.45)', 0.4, dash=None))
+        n = max(1, round(w / 54))
+        for i in range(n):
+            parts.append(chevron(-w / 4 + (w / 2 / n) * i + 2.2, 0, h / 8, 2.2, 'rgba(0,0,0,.18)'))
     elif kind == 'bank':
-        cs = 5
-        xs = [(-w / 2 + 2) + i * cs for i in range(int((w - 4) // cs) + 1)]
-        for x in xs:
-            col = '#e05263' if (round(x / cs) % 2 == 0) else '#f2f2f2'
-            ww = min(cs, w / 2 - 2 - x)
-            if ww <= 0:
-                continue
-            parts.append(f'<rect x="{x:.2f}" y="{-h/2+3.5:.2f}" width="{ww:.2f}" height="3" fill="{col}"/>')
-            parts.append(f'<rect x="{x:.2f}" y="{h/2-6.5:.2f}" width="{ww:.2f}" height="3" fill="{col}"/>')
+        # the original bank is a solid variant-colored banked block
+        parts = [rr(-w / 2, -h / 2, w, h, min(2.0, h / 4), fill=rail)]
+        parts.append(rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, min(1.6, h * 0.12), 1.0, fill=OUTLINE, stroke='none'))
+        parts.append(rr(-w / 2 + 0.4, h / 2 - 0.4 - min(1.6, h * 0.12), w - 0.8, min(1.6, h * 0.12), 1.0, fill=OUTLINE, stroke='none'))
+        for i in range(1, lanes):
+            y = -h / 2 + h * i / lanes
+            parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
+        return parts
     elif kind == 'wave':
+        # chicane: the lane SEPARATORS are thick sine bands (alternating
+        # phase per lane) that pinch and swell the lanes edge to edge
         amp, n = h / 7, max(2, round(w / 27))
         for li in range(1, lanes):
-            y0 = h * li / lanes
+            y0 = -h / 2 + h * li / lanes
+            phase = 0.0 if li % 2 == 1 else math.pi
             d = []
             for k in range(0, 101):
-                x = -w / 2 + 4 + (w - 8) * k / 100
-                y = y0 - h / 2 + math.sin((x + w / 2) / w * 2 * math.pi * n) * amp
+                x = -w / 2 + 2 + (w - 4) * k / 100
+                y = y0 + math.sin((x + w / 2) / w * 2 * math.pi * n + phase) * amp
                 d.append(f'{"M" if k == 0 else "L"} {x:.2f} {y:.2f}')
-            parts.append(f'<path d="{" ".join(d)}" fill="none" stroke="{DASH}" stroke-width="0.8"/>')
+            parts.append(f'<path d="{" ".join(d)}" fill="none" stroke="{DASH}" stroke-width="2.2" stroke-linecap="round"/>')
     elif kind == 'changer':
         for i in range(lanes + 1):
             y1 = -h / 2 + (i * h) / lanes
@@ -182,7 +187,10 @@ def main():
             files, rails = [f'{base}.svg'], [vc[0]]
         else:
             files = [f'{name}.{c}.svg' for c in range(defn['colors'])]
-            rails = [vc[c % len(vc)] for c in range(defn['colors'])]
+            if defn['kind'] == 'bank':
+                rails = [BANK_COLORS.get(c, vc[c % len(vc)]) for c in range(defn['colors'])]
+            else:
+                rails = [vc[c % len(vc)] for c in range(defn['colors'])]
         for fname, rail in zip(files, rails):
             if fname in seen:
                 continue  # shared families: one file, first write wins

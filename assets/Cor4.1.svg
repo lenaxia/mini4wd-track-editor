@@ -2,9 +2,9 @@
   <path d="M -45.00 -45.00 A 90.00 90.00 0 0 1 45.00 45.00 L -15.00 45.00 A 30.00 30.00 0 0 0 -45.00 15.00 Z" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
   <path d="M -45.00 -44.10 A 89.10 89.10 0 0 1 44.10 45.00" fill="none" stroke="#e05263" stroke-width="1.6"/>
   <path d="M -45.00 14.10 A 30.90 30.90 0 0 1 -14.10 45.00" fill="none" stroke="#e05263" stroke-width="1.6"/>
-  <path d="M -45.00 3.00 A 42.00 42.00 0 0 1 -3.00 45.00" fill="none" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <path d="M -45.00 -9.00 A 54.00 54.00 0 0 1 9.00 45.00" fill="none" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <path d="M -45.00 -21.00 A 66.00 66.00 0 0 1 21.00 45.00" fill="none" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <path d="M -45.00 -33.00 A 78.00 78.00 0 0 1 33.00 45.00" fill="none" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <path d="M -3.70 -8.56 L -1.44 3.70 L -3.70 11.44" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9" transform="rotate(45.0 -2.57 2.57)"/>
+  <path d="M -45.00 3.00 A 42.00 42.00 0 0 1 -3.00 45.00" fill="none" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M -45.00 -9.00 A 54.00 54.00 0 0 1 9.00 45.00" fill="none" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M -45.00 -21.00 A 66.00 66.00 0 0 1 21.00 45.00" fill="none" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M -45.00 -33.00 A 78.00 78.00 0 0 1 33.00 45.00" fill="none" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M -3.70 -8.56 L -1.44 3.70 L -3.70 11.44" fill="none" stroke="#8a8683" stroke-width="0.9" transform="rotate(45.0 -2.57 2.57)"/>
 </svg>

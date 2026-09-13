@@ -2,21 +2,21 @@
   <rect x="-60.00" y="-30.00" width="120.00" height="60.00" rx="2.00" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
   <rect x="-59.60" y="-29.60" width="119.20" height="1.80" rx="0.90" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
   <rect x="-59.60" y="27.80" width="119.20" height="1.80" rx="0.90" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
-  <line x1="-58.00" y1="-18.00" x2="58.00" y2="-18.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <line x1="-58.00" y1="-6.00" x2="58.00" y2="-6.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <line x1="-58.00" y1="6.00" x2="58.00" y2="6.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <line x1="-58.00" y1="18.00" x2="58.00" y2="18.00" stroke="#ffffff" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <path d="M 3.00 -10.00 L 5.20 0.00 L 3.00 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 11.77 -10.00 L 13.97 0.00 L 11.77 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 20.54 -10.00 L 22.74 0.00 L 20.54 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 29.31 -10.00 L 31.51 0.00 L 29.31 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 38.08 -10.00 L 40.28 0.00 L 38.08 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 46.85 -10.00 L 49.05 0.00 L 46.85 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 55.62 -10.00 L 57.82 0.00 L 55.62 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 64.38 -10.00 L 66.58 0.00 L 64.38 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 73.15 -10.00 L 75.35 0.00 L 73.15 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 81.92 -10.00 L 84.12 0.00 L 81.92 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 90.69 -10.00 L 92.89 0.00 L 90.69 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 99.46 -10.00 L 101.66 0.00 L 99.46 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
-  <path d="M 108.23 -10.00 L 110.43 0.00 L 108.23 10.00" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="0.9"/>
+  <line x1="-58.00" y1="-18.00" x2="58.00" y2="-18.00" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-58.00" y1="-6.00" x2="58.00" y2="-6.00" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-58.00" y1="6.00" x2="58.00" y2="6.00" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <line x1="-58.00" y1="18.00" x2="58.00" y2="18.00" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M 3.00 -10.00 L 5.20 0.00 L 3.00 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 11.77 -10.00 L 13.97 0.00 L 11.77 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 20.54 -10.00 L 22.74 0.00 L 20.54 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 29.31 -10.00 L 31.51 0.00 L 29.31 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 38.08 -10.00 L 40.28 0.00 L 38.08 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 46.85 -10.00 L 49.05 0.00 L 46.85 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 55.62 -10.00 L 57.82 0.00 L 55.62 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 64.38 -10.00 L 66.58 0.00 L 64.38 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 73.15 -10.00 L 75.35 0.00 L 73.15 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 81.92 -10.00 L 84.12 0.00 L 81.92 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 90.69 -10.00 L 92.89 0.00 L 90.69 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 99.46 -10.00 L 101.66 0.00 L 99.46 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
+  <path d="M 108.23 -10.00 L 110.43 0.00 L 108.23 10.00" fill="none" stroke="#8a8683" stroke-width="0.9"/>
 </svg>
