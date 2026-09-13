@@ -219,6 +219,14 @@ def changer_art(defn, rail):
         stroke(stepped(-17.4), OUTLINE, 1.2),
         stroke(stepped(-6.5), OUTLINE, 1.2),
         stroke(stepped(5.5), OUTLINE, 1.2),
+        # the bottom lane bridges OVER the weave to the top slot: two
+        # measured S edges (upper lifts off div2 at x=-44 and merges
+        # into the top wall; lower lifts off the bottom wall at
+        # x=-43.5 and merges into the -6.5 line), band filled gray,
+        # drawn over the lanes it crosses
+        f'<path d="M -44 5.5 {s_cmd(-44, 5.5, 42.5, -17.4)} L 42.5 -6.5 {s_cmd(42.5, -6.5, -43.5, 17.4)} Z" fill="{BANK_GRAY}"/>',
+        stroke(f'M -44 5.5 {s_cmd(-44, 5.5, 42.5, -17.4)}', OUTLINE, 1.2),
+        stroke(f'M -43.5 17.4 {s_cmd(-43.5, 17.4, 42.5, -6.5)}', OUTLINE, 1.2),
         # top wall resumes past the weave; bottom wall breaks for the
         # merge (single color, runs meet the curves exactly)
         line2([(28, -17.4), (80, -17.4)], OUTLINE, 1.2),
