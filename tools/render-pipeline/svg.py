@@ -309,11 +309,15 @@ def lan2_art(defn, rail):
         stroke('M 18 -71.25 A 71.25 71.25 0 0 1 18 71.25 H -90', OUTLINE, 1.2),
         stroke('M -90 -36.75 H 18 A 36.75 36.75 0 0 1 18 36.75 H -90', OUTLINE, 1.2),
         # delineator: full-height gray line between the sections
-        line2([(-35.5, -71.25), (-35.5, -36.75)], OUTLINE, 1.2),
+        line2([(-35.5, -71.25), (-35.5, -48.25)], OUTLINE, 1.2),
         line2([(-35.5, 36.75), (-35.5, 71.25)], OUTLINE, 1.2),
         # delineators: sections are separate pieces — the weave ends at
         # the turn's tangent (x=18, measured), and the turn itself is
         # 4x45-degree pieces (boundaries at -45/0/+45 degrees)
+        # post-weave delineator: the weaved pair settled at
+        # -59.75..-36.75; sits between the weave's end (x=10) and the
+        # turn's tangent line below
+        line2([(14, -59.75), (14, -36.75)], OUTLINE, 1.2),
         line2([(18, -71.25), (18, -36.75)], OUTLINE, 1.2),
         line2([(18, 36.75), (18, 71.25)], OUTLINE, 1.2),
         line2([(43.99, -25.99), (68.38, -50.38)], OUTLINE, 1.2),
