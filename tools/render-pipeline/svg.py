@@ -204,6 +204,14 @@ def changer_art(defn, rail):
     def stepped(y):
         return f'M -81 {y:.1f} L {X0} {y:.1f} {s_cmd(X0, y, X1, y + 12)} L 81 {y + 12:.1f}'
 
+    def b_cmd(x0, y0, x1, y1):
+        """bridge edge: like s_cmd but rounder — controls pulled into
+        the climb so the middle runs steeper and the flat ends
+        shorten"""
+        dx = (x1 - x0) / 3
+        dy = (y1 - y0) * 0.22
+        return f'C {x0+dx:.1f} {y0+dy:.1f} {x1-dx:.1f} {y1-dy:.1f} {x1:.1f} {y1:.1f}'
+
     parts = [
         # bed with the measured notch wedges cut transparent: the
         # vacated top slot, and the bottom-wall break where the lowest
@@ -224,13 +232,13 @@ def changer_art(defn, rail):
         # into the top wall; lower lifts off the bottom wall at
         # x=-43.5 and merges into the -6.5 line), band filled gray,
         # drawn over the lanes it crosses
-        f'<path d="M -44 5.5 {s_cmd(-44, 5.5, 42.5, -17.4)} L 42.5 -6.5 {s_cmd(42.5, -6.5, -43.5, 17.4)} Z" fill="{BANK_GRAY}"/>',
-        stroke(f'M -44 5.5 {s_cmd(-44, 5.5, 42.5, -17.4)}', OUTLINE, 1.2),
-        stroke(f'M -43.5 17.4 {s_cmd(-43.5, 17.4, 42.5, -6.5)}', OUTLINE, 1.2),
+        f'<path d="M -44 5.5 {b_cmd(-44, 5.5, 42.5, -17.4)} L 42.5 -6.5 {b_cmd(42.5, -6.5, -43.5, 17.4)} Z" fill="{BANK_GRAY}"/>',
+        stroke(f'M -44 5.5 {b_cmd(-44, 5.5, 42.5, -17.4)}', OUTLINE, 1.2),
+        stroke(f'M -43.5 17.4 {b_cmd(-43.5, 17.4, 42.5, -6.5)}', OUTLINE, 1.2),
         # top wall resumes past the weave; bottom wall breaks for the
         # merge (single color, runs meet the curves exactly)
-        line2([(28, -17.4), (80, -17.4)], OUTLINE, 1.2),
-        line2([(-80, 17.4), (-28, 17.4)], OUTLINE, 1.2),
+        line2([(42.5, -17.4), (80, -17.4)], OUTLINE, 1.2),
+        line2([(-80, 17.4), (-43.5, 17.4)], OUTLINE, 1.2),
         line2([(15, 17.4), (80, 17.4)], OUTLINE, 1.2),
         # section delineators, same color. The outer marks and the
         # pre-weave line span their lanes boundary-to-boundary; the
