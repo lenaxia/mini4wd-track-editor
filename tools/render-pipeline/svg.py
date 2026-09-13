@@ -226,10 +226,10 @@ def changer_art(defn, rail):
         line2([(15, 17.4), (80, 17.4)], OUTLINE, 1.2),
         # section delineators, same color. The outer marks and the
         # pre-weave line span their lanes boundary-to-boundary; the
-        # post-weave line uses the rip's measured span (y -5..15),
-        # stopping just inside the boundaries
+        # post-weave line: top stops just inside the first boundary
+        # (-5, per the rip), bottom runs to the bottom wall
         line2([(-27.5, -17.4), (-27.5, 5.5)], OUTLINE, 1.2),
-        line2([(27, -5), (27, 15)], OUTLINE, 1.2),
+        line2([(27, -5), (27, 17.4)], OUTLINE, 1.2),
         line2([(42.5, -17.4), (42.5, -6.5)], OUTLINE, 1.2),
         line2([(-43.5, 5.5), (-43.5, 17.4)], OUTLINE, 1.2),
         # variant rails on the ends
