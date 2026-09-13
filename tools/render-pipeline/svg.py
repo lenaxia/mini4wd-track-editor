@@ -180,90 +180,82 @@ def rect_family(defn, rail):
     return parts
 
 
-def changer_art(defn, rail):
-    """Lan1 lane changer, measured from Lan1.0.png (1 px = 1 cm) and
-    cross-checked against a vision reading of the rip: a weave. The
-    bottom-left lane bridges OVER the other two and lands as the
-    top-right lane — an elevated deck (bank-gray, parallel dark edge
-    curves, touchdown faces at x=-43.5/+42.5). The other two lanes
-    S-curve down one lane position underneath it; where they pass the
-    top/bottom road edge the silhouette breaks into the measured notch
-    wedges. A support pillar stands behind the deck at mid-span."""
-    def P(pts, color, width):
-        d = f'M {pts[0][0]:.1f} {pts[0][1]:.1f} ' + ' '.join(f'L {x:.1f} {y:.1f}' for x, y in pts[1:])
-        return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}"/>'
-
-    def seg(pts):
-        """Catmull-Rom through waypoints -> cubic bezier segments."""
-        p = [pts[0], *pts, pts[-1]]
-        out = []
-        for i in range(1, len(p) - 2):
-            p0, p1, p2, p3 = p[i - 1], p[i], p[i + 1], p[i + 2]
-            c1 = (p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6)
-            c2 = (p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6)
-            out.append(f'C {c1[0]:.1f} {c1[1]:.1f} {c2[0]:.1f} {c2[1]:.1f} {p2[0]:.1f} {p2[1]:.1f}')
-        return out
-
-    def S(pts, color, width):
-        """smooth lane curve: one flowing spline through the waypoints"""
-        d = f'M {pts[0][0]:.1f} {pts[0][1]:.1f} ' + ' '.join(seg(pts))
+def changer_art(defn, rail, shaded=True):
+    """Lan1 lane changer: smooth S-curve lanes through the weave the rip
+    shows (measured on Lan1.0.png, 1 px = 1 cm). Three lanes enter left
+    and exit right shifted one lane down; the bottom-left lane bridges
+    OVER the other two (bank-gray deck, dark edges, touchdown faces at
+    x=-43.5/+42.5) landing as the top-right lane. Every boundary is a
+    straight run, one flat-ended S-bend, straight run; bend zones are
+    measured. Underpass lanes are drawn first and vanish under the deck.
+    Lan1.0's rip shades the deck (fills, support pillar); Lan1.1's rip
+    is line art of the same weave (shaded=False)."""
+    def s_cmd(x0, y0, x1, y1):
+        """one flat-ended cubic S: leaves horizontally, arrives
+        horizontally — straightens into its runs on both ends"""
+        dx = (x1 - x0) / 3
+        return f'C {x0+dx:.1f} {y0:.1f} {x1-dx:.1f} {y1:.1f} {x1:.1f} {y1:.1f}'
+    def stroke(d, color, width):
         return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="round"/>'
-    poly = lambda pts: ('M ' + ' L '.join(f'{x:.1f} {y:.1f}' for x, y in pts) + ' Z')
+    def line2(pts, color, width):
+        d = f'M {pts[0][0]:.1f} {pts[0][1]:.1f} ' + ' '.join(f'L {x:.1f} {y:.1f}' for x, y in pts[1:])
+        return stroke(d, color, width)
 
-    # the bridge deck's two edge curves, measured waypoints (densified
-    # on long runs — plain Catmull-Rom overshoots uneven spacing)
-    deck_hi = [(-67, 5.7), (-55, 5.6), (-43.5, 5.3), (-30, 2.6), (-16, 0.5),
-               (-2, -5), (5, -9), (14, -13), (21, -16.5), (32, -17), (42.5, -17)]
-    deck_lo = [(-43.5, 17), (-36, 16), (-27, 15), (-18, 13), (-12, 11),
-               (-4, 7), (2, 3.5), (13, -2), (26, -6), (35, -7.3), (42.5, -7.2)]
-    # underpass boundaries: each S-curves down one lane (12 cm) across
-    # the weave; hidden where the deck fill covers them. lane_hi starts
-    # where the gray div1 segment ends (the rip renders div1-left gray)
-    lane_hi = [(-24, -6.5), (-10, -4), (2, 0.5), (10, 4.5), (16, 5.5),
-               (30, 5.5), (50, 5.5), (65, 5.5), (80, 5.5)]
-    lane_lo = [(-44, 5.8), (-30, 9), (-18, 12), (-10, 13.5), (2, 15.5), (14, 17.4),
-               (30, 17.4), (50, 17.4), (65, 17.4), (80, 17.4)]
-    # the top lane's dive out of the top wall (bounds the left notch)
-    dive = [(-16, -17), (-13, -15), (-9, -11), (-4, -7), (-1, -3), (3, 1)]
+    # boundaries (bend zones measured):
+    #  A  top wall dives to div1-right — steep drop out of the wall
+    #     (rip: (-12,-16) (-7,-15) (-4,-14)), flattens along the deck's
+    #     front face, settles at div1 level
+    #  B  div1 dives to div2-right              [-24, 16]
+    #  E  div2 dives to the bottom wall         [-28, 14]
+    #  C  deck upper edge: div2 to top wall     [-44, 42.5]
+    #  D  deck lower edge: bottom wall to div1  [-43.5, 42.5]
+    A = ('M -16 -17.4 '
+         'C -11 -17.2 -6 -15.2 -2 -13.3 '
+         'C 3 -11.5 14 -6.9 30 -6.5 L 81 -6.5')
+    B = f'M -24 -6.5 {s_cmd(-24, -6.5, 16, 5.5)} L 81 5.5'
+    E = f'M -67 5.5 L -28 5.5 {s_cmd(-28, 5.5, 14, 17.4)} L 81 17.4'
+    C = f'M -67 5.5 L -44 5.5 {s_cmd(-44, 5.5, 42.5, -17.4)}'
+    D = f'M -43.5 17.4 {s_cmd(-43.5, 17.4, 42.5, -6.5)}'
+    # the deck: one bank-gray band, vertical touchdown faces each end
+    deck = f'M -44 5.5 {s_cmd(-44, 5.5, 42.5, -17.4)} L 42.5 -6.5 {s_cmd(42.5, -6.5, -43.5, 17.4)} Z'
+    # the deck's front face: gray between A's dive and C up to the wall
+    # flank. It sits below the right notch slit (bounded by the same
+    # edge), so no cut subpath is needed — a non-overlapping evenodd
+    # subpath would FILL, not cut
+    wedge = 'M -1 -13.2 C 2 -12 5 -11 8 -10.6 C 15 -11.3 28 -14.8 42.5 -17.4'
+
     parts = [
         # bed with the four notch wedges cut transparent (evenodd)
         f'<path d="M -81 -18 H 81 V 18 H -81 Z '
-        f'{poly([(-16, -18), (3, -18), (-2, -13.5)])} '
-        f'{poly([(6, -18), (28, -18), (10, -13.5)])} '
-        f'{poly([(16, 18), (-3, 18), (2, 13.5)])} '
-        f'{poly([(-6, 18), (-28, 18), (-10, 13.5)])}" fill="{BED}" fill-rule="evenodd"/>',
-        # support pillar behind the deck: a thin post, visible sticking
-        # up above the deck's upper edge
-        f'<rect x="0.5" y="-16.0" width="4.0" height="11.5" fill="{BED}" stroke="{DASH}" stroke-width="0.8"/>',
-        # the deck: one bank-gray band between two smooth edge curves,
-        # crisp vertical touchdown faces at each end. deck_hi's first two
-        # waypoints are the at-grade approach — the fill starts at the
-        # face (Z closes the left side)
-        f'<path d="M {deck_hi[2][0]:.1f} {deck_hi[2][1]:.1f} '
-        f'{" ".join(seg(deck_hi[2:]))} '
-        f'L {deck_lo[-1][0]:.1f} {deck_lo[-1][1]:.1f} '
-        f'{" ".join(seg(list(reversed(deck_lo))))} Z" fill="{BANK_GRAY}"/>',
-        S(deck_hi, OUTLINE, 1.2),
-        S(deck_lo, OUTLINE, 1.2),
-        # touchdown faces
-        P([(42.5, -17.5), (42.5, -7)], DASH, 1.5),
-        P([(-43.5, 5.3), (-43.5, 17.5)], DASH, 1.5),
-        # underpass lane boundaries (div1-left reads gray in the rip);
-        # div1's right run continues the deck's lower edge at grade
-        P([(-80, -6.5), (-24, -6.5)], BANK_GRAY, 1.6),
-        S(lane_hi, DASH, 1.5),
-        S(lane_lo, DASH, 1.5),
-        S(dive, DASH, 1.2),
-        P([(44, -6.5), (80, -6.5)], DASH, 1.5),
-        # div2's visible left stub (deck level), and the thin vertical
-        # bounding the left bed strip (persists through the weave)
-        P([(-67, 5.7), (-44, 5.4)], DASH, 1.6),
-        P([(-27.5, -17), (-27.5, 6)], DASH, 1.0),
+        f'M -16 -18 L 3 -18 L -2 -13.5 Z '
+        f'M 6 -18 L 28 -18 L 10 -13.5 Z '
+        f'M 16 18 L -3 18 L 2 13.5 Z '
+        f'M -6 18 L -28 18 L -10 13.5 Z" fill="{BED}" fill-rule="evenodd"/>',
+        # underpass lanes first (they vanish under the deck)
+        stroke(A, DASH, 1.3),
+        stroke(B, DASH, 1.3),
+        stroke(E, DASH, 1.2),
+    ]
+    if shaded:
+        parts += [
+            # div1's left run reads gray in the rip
+            line2([(-80, -6.5), (-24, -6.5)], BANK_GRAY, 1.6),
+            # the deck's front face, then the deck band over everything
+            f'<path d="{wedge}" fill="{BANK_GRAY}" fill-rule="evenodd"/>',
+            # support pillar behind the deck, visible above its edge
+            f'<rect x="0.5" y="-16.0" width="4.0" height="11.5" fill="{BED}" stroke="{DASH}" stroke-width="0.8"/>',
+            f'<path d="{deck}" fill="{BANK_GRAY}"/>',
+            stroke(C, OUTLINE, 1.2),
+            stroke(D, OUTLINE, 1.2),
+        ]
+    else:
+        parts += [stroke(C, DASH, 1.2), stroke(D, DASH, 1.2)]
+    parts += [
         # walls: dark flanks the notches, mark-tone elsewhere
-        P([(-80, -17.4), (-29, -17.4)], DASH, 1.2), P([(-28, -17.4), (-16, -17.4)], OUTLINE, 1.2),
-        P([(28, -17.4), (47, -17.4)], OUTLINE, 1.2), P([(48, -17.4), (80, -17.4)], DASH, 1.2),
-        P([(-80, 17.4), (-49, 17.4)], DASH, 1.2), P([(-48, 17.4), (-28, 17.4)], OUTLINE, 1.2),
-        P([(15, 17.4), (27, 17.4)], OUTLINE, 1.2), P([(28, 17.4), (80, 17.4)], DASH, 1.2),
+        line2([(-80, -17.4), (-29, -17.4)], DASH, 1.2), line2([(-28, -17.4), (-16, -17.4)], OUTLINE, 1.2),
+        line2([(28, -17.4), (47, -17.4)], OUTLINE, 1.2), line2([(48, -17.4), (80, -17.4)], DASH, 1.2),
+        line2([(-80, 17.4), (-49, 17.4)], DASH, 1.2), line2([(-48, 17.4), (-28, 17.4)], OUTLINE, 1.2),
+        line2([(15, 17.4), (27, 17.4)], OUTLINE, 1.2), line2([(28, 17.4), (80, 17.4)], DASH, 1.2),
         # variant rails on the ends
         rr(-81, -18, 1.2, 36, 0, fill=rail, stroke='none'),
         rr(79.8, -18, 1.2, 36, 0, fill=rail, stroke='none'),
@@ -309,13 +301,13 @@ def arc_family(defn, rail):
     return parts
 
 
-def emit(defn, rail, rip=None):
+def emit(defn, rail, rip=None, ci=0):
     # Lan1's changer art is hand-modeled from measurements; Lan4 and the
     # hairpin rips still route through the measured tracer until their
     # hand models land (3/4-view illustrations: flyover corridors,
     # spiral rainbows)
     if defn['kind'] == 'changer' and (defn['w'], defn['h']) == (162, 36):
-        body = changer_art(defn, rail)
+        body = changer_art(defn, rail, shaded=(ci == 0))
     elif rip:
         body = traced_body(rip, defn['w'], defn['h'],
                            (('solid', BED), ('gray', BANK_GRAY), ('mark', DASH), ('outline', OUTLINE)))
@@ -370,7 +362,7 @@ def main():
                 rails = [pal[c % len(pal)] for c in range(defn['colors'])]
             else:
                 rails = [vc[c % len(vc)] for c in range(defn['colors'])]
-        for fname, rail in zip(files, rails):
+        for ci, (fname, rail) in enumerate(zip(files, rails)):
             if fname in seen:
                 continue  # shared families: one file, first write wins
             seen.add(fname)
@@ -380,7 +372,7 @@ def main():
             if rip and not os.path.exists(rip):
                 rip = None  # fall through to modeled art instead of crashing
             with open(os.path.join(out, fname), 'w') as f:
-                f.write(emit(defn, rail, rip))
+                f.write(emit(defn, rail, rip, ci))
             n += 1
     print(f'emitted {n} svg files (deduped)')
 

@@ -1,26 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="162" height="36" viewBox="-81.0 -18.0 162 36">
-  <path d="M -81 -18 H 81 V 18 H -81 Z M -16.0 -18.0 L 3.0 -18.0 L -2.0 -13.5 Z M 6.0 -18.0 L 28.0 -18.0 L 10.0 -13.5 Z M 16.0 18.0 L -3.0 18.0 L 2.0 13.5 Z M -6.0 18.0 L -28.0 18.0 L -10.0 13.5 Z" fill="#efeae5" fill-rule="evenodd"/>
+  <path d="M -81 -18 H 81 V 18 H -81 Z M -16 -18 L 3 -18 L -2 -13.5 Z M 6 -18 L 28 -18 L 10 -13.5 Z M 16 18 L -3 18 L 2 13.5 Z M -6 18 L -28 18 L -10 13.5 Z" fill="#efeae5" fill-rule="evenodd"/>
+  <path d="M -16 -17.4 C -11 -17.2 -6 -15.2 -2 -13.3 C 3 -11.5 14 -6.9 30 -6.5 L 81 -6.5" fill="none" stroke="#8a8683" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M -24 -6.5 C -10.7 -6.5 2.7 5.5 16.0 5.5 L 81 5.5" fill="none" stroke="#8a8683" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M -67 5.5 L -28 5.5 C -14.0 5.5 0.0 17.4 14.0 17.4 L 81 17.4" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -80.0 -6.5 L -24.0 -6.5" fill="none" stroke="#c0bcb8" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M -1 -13.2 C 2 -12 5 -11 8 -10.6 C 15 -11.3 28 -14.8 42.5 -17.4" fill="#c0bcb8" fill-rule="evenodd"/>
   <rect x="0.5" y="-16.0" width="4.0" height="11.5" fill="#efeae5" stroke="#8a8683" stroke-width="0.8"/>
-  <path d="M -43.5 5.3 C -41.2 4.8 -34.6 3.4 -30.0 2.6 C -25.4 1.8 -20.7 1.8 -16.0 0.5 C -11.3 -0.8 -5.5 -3.4 -2.0 -5.0 C 1.5 -6.6 2.3 -7.7 5.0 -9.0 C 7.7 -10.3 11.3 -11.8 14.0 -13.0 C 16.7 -14.2 18.0 -15.8 21.0 -16.5 C 24.0 -17.2 28.4 -16.9 32.0 -17.0 C 35.6 -17.1 40.8 -17.0 42.5 -17.0 L 42.5 -7.2 C 41.2 -7.2 37.8 -7.5 35.0 -7.3 C 32.2 -7.1 29.7 -6.9 26.0 -6.0 C 22.3 -5.1 17.0 -3.6 13.0 -2.0 C 9.0 -0.4 4.8 2.0 2.0 3.5 C -0.8 5.0 -1.7 5.8 -4.0 7.0 C -6.3 8.2 -9.7 10.0 -12.0 11.0 C -14.3 12.0 -15.5 12.3 -18.0 13.0 C -20.5 13.7 -24.0 14.5 -27.0 15.0 C -30.0 15.5 -33.2 15.7 -36.0 16.0 C -38.8 16.3 -42.2 16.8 -43.5 17.0 Z" fill="#c0bcb8"/>
-  <path d="M -67.0 5.7 C -65.0 5.7 -58.9 5.7 -55.0 5.6 C -51.1 5.5 -47.7 5.8 -43.5 5.3 C -39.3 4.8 -34.6 3.4 -30.0 2.6 C -25.4 1.8 -20.7 1.8 -16.0 0.5 C -11.3 -0.8 -5.5 -3.4 -2.0 -5.0 C 1.5 -6.6 2.3 -7.7 5.0 -9.0 C 7.7 -10.3 11.3 -11.8 14.0 -13.0 C 16.7 -14.2 18.0 -15.8 21.0 -16.5 C 24.0 -17.2 28.4 -16.9 32.0 -17.0 C 35.6 -17.1 40.8 -17.0 42.5 -17.0" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M -43.5 17.0 C -42.2 16.8 -38.8 16.3 -36.0 16.0 C -33.2 15.7 -30.0 15.5 -27.0 15.0 C -24.0 14.5 -20.5 13.7 -18.0 13.0 C -15.5 12.3 -14.3 12.0 -12.0 11.0 C -9.7 10.0 -6.3 8.2 -4.0 7.0 C -1.7 5.8 -0.8 5.0 2.0 3.5 C 4.8 2.0 9.0 -0.4 13.0 -2.0 C 17.0 -3.6 22.3 -5.1 26.0 -6.0 C 29.7 -6.9 32.2 -7.1 35.0 -7.3 C 37.8 -7.5 41.2 -7.2 42.5 -7.2" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M 42.5 -17.5 L 42.5 -7.0" fill="none" stroke="#8a8683" stroke-width="1.5"/>
-  <path d="M -43.5 5.3 L -43.5 17.5" fill="none" stroke="#8a8683" stroke-width="1.5"/>
-  <path d="M -80.0 -6.5 L -24.0 -6.5" fill="none" stroke="#c0bcb8" stroke-width="1.6"/>
-  <path d="M -24.0 -6.5 C -21.7 -6.1 -14.3 -5.2 -10.0 -4.0 C -5.7 -2.8 -1.3 -0.9 2.0 0.5 C 5.3 1.9 7.7 3.7 10.0 4.5 C 12.3 5.3 12.7 5.3 16.0 5.5 C 19.3 5.7 24.3 5.5 30.0 5.5 C 35.7 5.5 44.2 5.5 50.0 5.5 C 55.8 5.5 60.0 5.5 65.0 5.5 C 70.0 5.5 77.5 5.5 80.0 5.5" fill="none" stroke="#8a8683" stroke-width="1.5" stroke-linecap="round"/>
-  <path d="M -44.0 5.8 C -41.7 6.3 -34.3 8.0 -30.0 9.0 C -25.7 10.0 -21.3 11.2 -18.0 12.0 C -14.7 12.8 -13.3 12.9 -10.0 13.5 C -6.7 14.1 -2.0 14.8 2.0 15.5 C 6.0 16.1 9.3 17.1 14.0 17.4 C 18.7 17.7 24.0 17.4 30.0 17.4 C 36.0 17.4 44.2 17.4 50.0 17.4 C 55.8 17.4 60.0 17.4 65.0 17.4 C 70.0 17.4 77.5 17.4 80.0 17.4" fill="none" stroke="#8a8683" stroke-width="1.5" stroke-linecap="round"/>
-  <path d="M -16.0 -17.0 C -15.5 -16.7 -14.2 -16.0 -13.0 -15.0 C -11.8 -14.0 -10.5 -12.3 -9.0 -11.0 C -7.5 -9.7 -5.3 -8.3 -4.0 -7.0 C -2.7 -5.7 -2.2 -4.3 -1.0 -3.0 C 0.2 -1.7 2.3 0.3 3.0 1.0" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M 44.0 -6.5 L 80.0 -6.5" fill="none" stroke="#8a8683" stroke-width="1.5"/>
-  <path d="M -67.0 5.7 L -44.0 5.4" fill="none" stroke="#8a8683" stroke-width="1.6"/>
-  <path d="M -27.5 -17.0 L -27.5 6.0" fill="none" stroke="#8a8683" stroke-width="1.0"/>
-  <path d="M -80.0 -17.4 L -29.0 -17.4" fill="none" stroke="#8a8683" stroke-width="1.2"/>
-  <path d="M -28.0 -17.4 L -16.0 -17.4" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M 28.0 -17.4 L 47.0 -17.4" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M 48.0 -17.4 L 80.0 -17.4" fill="none" stroke="#8a8683" stroke-width="1.2"/>
-  <path d="M -80.0 17.4 L -49.0 17.4" fill="none" stroke="#8a8683" stroke-width="1.2"/>
-  <path d="M -48.0 17.4 L -28.0 17.4" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M 15.0 17.4 L 27.0 17.4" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M 28.0 17.4 L 80.0 17.4" fill="none" stroke="#8a8683" stroke-width="1.2"/>
+  <path d="M -44 5.5 C -15.2 5.5 13.7 -17.4 42.5 -17.4 L 42.5 -6.5 C 13.8 -6.5 -14.8 17.4 -43.5 17.4 Z" fill="#c0bcb8"/>
+  <path d="M -67 5.5 L -44 5.5 C -15.2 5.5 13.7 -17.4 42.5 -17.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -43.5 17.4 C -14.8 17.4 13.8 -6.5 42.5 -6.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -80.0 -17.4 L -29.0 -17.4" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -28.0 -17.4 L -16.0 -17.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 28.0 -17.4 L 47.0 -17.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 48.0 -17.4 L 80.0 -17.4" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -80.0 17.4 L -49.0 17.4" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -48.0 17.4 L -28.0 17.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 15.0 17.4 L 27.0 17.4" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 28.0 17.4 L 80.0 17.4" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
   <rect x="-81.00" y="-18.00" width="1.20" height="36.00" rx="0.00" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
   <rect x="79.80" y="-18.00" width="1.20" height="36.00" rx="0.00" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
 </svg>
