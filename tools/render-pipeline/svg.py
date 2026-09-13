@@ -183,18 +183,25 @@ def rect_family(defn, rail):
     return parts
 
 
-def changer_art(defn, rail):
+def changer_art(defn):
     """Lan1 lane changer: the same weave Lan2 carries into its turn —
     the top two lanes step down one slot. The top of lane 1, the lane
     1/2 divider, and the bottom of lane 2 are IDENTICAL smooth S
     curves (one shape offset by one lane, chicane-style), so both
-    lanes hold regulation width through the weave. The vacated top
-    slot is the transparent notch; the bottom wall breaks where the
-    lowest S merges onto it; the top wall resumes past the weave.
-    Section delineators are the vertical gray lines measured in the
-    rip (straight|weave at x=-27.5, weave|next at x=+42.5/-43.5)."""
+    lanes hold regulation width through the weave; the bottom lane
+    bridges OVER them into the vacated top slot. The bed is a single
+    path that traces the road's boundary exactly — wall runs, the
+    weave S-curves, and the bridge's lower edge (split at the point
+    where it crosses the lowest S) — so no fill escapes the lines.
+    Section delineators are the vertical lines measured in the rip."""
     def s_cmd(x0, y0, x1, y1):
         dx = (x1 - x0) / 3
+        return f'C {x0+dx:.1f} {y0:.1f} {x1-dx:.1f} {y1:.1f} {x1:.1f} {y1:.1f}'
+    def b_cmd(x0, y0, x1, y1):
+        """bridge edge: rounder than s_cmd — the controls stay at the
+        endpoint levels but span 38% of the run each, so the flat ends
+        hold longer and the middle climbs steeply"""
+        dx = (x1 - x0) * 0.38
         return f'C {x0+dx:.1f} {y0:.1f} {x1-dx:.1f} {y1:.1f} {x1:.1f} {y1:.1f}'
     def stroke(d, color, width):
         return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="round"/>'
@@ -205,57 +212,87 @@ def changer_art(defn, rail):
     # the shared S-step, one regulation lane (LANE_W)
     X0, X1 = -22, 16
     def stepped(y):
-        return f'M -81 {y:.1f} L {X0} {y:.1f} {s_cmd(X0, y, X1, y + LANE_W)} L 81 {y + LANE_W:.1f}'
+        # .2f: the tail must land exactly on its level
+        return f'M -81 {y:.2f} L {X0} {y:.2f} {s_cmd(X0, y, X1, y + LANE_W)} L 81 {y + LANE_W:.2f}'
 
-    def b_cmd(x0, y0, x1, y1):
-        """bridge edge: rounder than s_cmd — the controls stay at the
-        endpoint levels but span 45% of the run each, so the flat ends
-        hold longer and the middle climbs steeply"""
-        dx = (x1 - x0) * 0.38
-        return f'C {x0+dx:.1f} {y0:.1f} {x1-dx:.1f} {y1:.1f} {x1:.1f} {y1:.1f}'
+    # split point where the bridge's lower edge crosses the lowest S;
+    # de Casteljau halves keep the bed boundary on the exact curves
+    def bez_split(p, t):
+        p0, c1, c2, p3 = p
+        f = lambda a, b: a + (b - a) * t
+        m1 = (f(p0[0], c1[0]), f(p0[1], c1[1]))
+        m2 = (f(c1[0], c2[0]), f(c1[1], c2[1]))
+        m3 = (f(c2[0], p3[0]), f(c2[1], p3[1]))
+        m4 = (f(m1[0], m2[0]), f(m1[1], m2[1]))
+        m5 = (f(m2[0], m3[0]), f(m2[1], m3[1]))
+        m6 = (f(m4[0], m5[0]), f(m4[1], m5[1]))
+        return (p0, m1, m4, m6), (m6, m5, m3, p3)
+    def at(p, t):
+        w = ((1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t ** 2, t ** 3)
+        return (sum(p[i][0] * w[i] for i in range(4)), sum(p[i][1] * w[i] for i in range(4)))
+    sB = ((-22.0, 5.75), (-22 + 38 / 3, 5.75), (16 - 38 / 3, 17.25), (16.0, 17.25))
+    bB = ((-43.5, 17.25), (-43.5 + 0.38 * 86, 17.25), (42.5 - 0.38 * 86, -5.75), (42.5, -5.75))
+    # true intersection: curves cross at DIFFERENT parameters — scan ts,
+    # solve bB's parameter for matching x, watch the y difference
+    # change sign (crossing near (-8.4, 9.1))
+    ts = tb = None
+    prev = None
+    for i in range(2001):
+        ts_ = i / 2000
+        ps = at(sB, ts_)
+        lo, hi = 0.0, 1.0
+        for _ in range(60):
+            mid = (lo + hi) / 2
+            if at(bB, mid)[0] < ps[0]: lo = mid
+            else: hi = mid
+        tb_ = (lo + hi) / 2
+        d = ps[1] - at(bB, tb_)[1]
+        if prev is not None and prev[2] * d <= 0:
+            ts, tb = (prev[0] + ts_) / 2, (prev[1] + tb_) / 2
+            break
+        prev = (ts_, tb_, d)
+    assert ts is not None, 'curves do not cross'
+    _, sR = bez_split(sB, ts)      # crossing -> (16, 17.25)
+    bL, _ = bez_split(bB, tb)      # (-43.5, 17.25) -> crossing
+    def cseg_r(q):
+        return f'C {q[2][0]:.2f} {q[2][1]:.2f} {q[1][0]:.2f} {q[1][1]:.2f} {q[0][0]:.2f} {q[0][1]:.2f}'
+    # bed: one path tracing the road boundary exactly — top wall,
+    # weave S down, settled line, bridge landing face, right edge,
+    # bottom wall, lowest S back up to the crossing, bridge lower
+    # edge back down to the wall, left edge
+    bed = ('M -81 -17.25 '
+           f'L {X0} -17.25 {s_cmd(X0, -17.25, X1, -5.75)} '
+           'L 42.5 -5.75 L 42.5 -17.25 L 81 -17.25 '
+           'L 81 17.25 L 16 17.25 '
+           f'{cseg_r(sR)} '
+           f'{cseg_r(bL)} '
+           'L -81 17.25 Z')
 
+    # z-order (owner-calibrated): bed, then the lane S-curves and the
+    # under-bridge delineators (the band's end sections tuck over the
+    # +5.75/-5.75 lines), then the dark band, and finally everything
+    # that reads on top of it — the bridge's own edges, the walls, and
+    # all remaining delineators. Lan1.0 and Lan1.1 emit identical art
+    # by owner decision: rails render in the wall color, so the
+    # variant color has no surface in this piece.
     parts = [
-        # bed with the measured notch wedges cut transparent: the
-        # vacated top slot, and the bottom-wall break where the lowest
-        # S merges on
-        f'<path d="M -81 -18 H 81 V 18 H -81 Z '
-        f'M -16 -18 L 3 -18 L -2 -13.5 Z '
-        f'M 6 -18 L 28 -18 L 10 -13.5 Z '
-        f'M 16 18 L -3 18 L 2 13.5 Z '
-        f'M -6 18 L -28 18 L -10 13.5 Z" fill="{BED}" fill-rule="evenodd"/>',
-        # the three identical S boundaries, all one line color:
-        # top of lane 1 (the wall) steps to the div1 level, lane 1/2
-        # divider to the div2 level, bottom of lane 2 onto the wall
+        f'<path d="{bed}" fill="{BED}"/>',
         stroke(stepped(-17.25), OUTLINE, 1.2),
         stroke(stepped(-5.75), OUTLINE, 1.2),
         stroke(stepped(5.75), OUTLINE, 1.2),
-        # weave-section delineators (under the bridge — it passes
-        # over the lanes they mark, so they must not print on it)
         line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
-        line2([(27, -5.5), (27, 17.25)], OUTLINE, 1.2),
-        # the bottom lane bridges OVER the weave to the top slot: two
-        # measured S edges (upper lifts off div2 at x=-44 and merges
-        # into the top wall; lower lifts off the bottom wall at
-        # x=-43.5 and merges into the stepped tail at y=-5.75 — the
-        # exact level the top boundary settles to), band filled gray,
-        # drawn over the lanes it crosses
+        line2([(27, -5.75), (27, 17.25)], OUTLINE, 1.2),
         f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>',
         stroke(f'M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)}', OUTLINE, 1.2),
         stroke(f'M -43.5 17.25 {b_cmd(-43.5, 17.25, 42.5, -5.75)}', OUTLINE, 1.2),
-        # top wall resumes past the weave; bottom wall breaks for the
-        # merge (single color, runs meet the curves exactly)
         line2([(42.5, -17.25), (80, -17.25)], OUTLINE, 1.2),
         line2([(-80, 17.25), (-43.5, 17.25)], OUTLINE, 1.2),
         line2([(15, 17.25), (80, 17.25)], OUTLINE, 1.2),
-        # section delineators, same color. The outer marks and the
-        # pre-weave line span their lanes boundary-to-boundary; the
-        # post-weave line: top stops just inside the first boundary
-        # (-5, per the rip), bottom runs to the bottom wall
         line2([(42.5, -17.25), (42.5, -5.75)], OUTLINE, 1.2),
         line2([(-43.5, 5.75), (-43.5, 17.25)], OUTLINE, 1.2),
-        # variant rails on the ends
-        rr(-81, -18, 1.2, 36, 0, fill=rail, stroke='none'),
-        rr(79.8, -18, 1.2, 36, 0, fill=rail, stroke='none'),
+        # end rails, wall color
+        rr(-81, -18, 1.2, 36, 0, fill=OUTLINE, stroke='none'),
+        rr(79.8, -18, 1.2, 36, 0, fill=OUTLINE, stroke='none'),
     ]
     return parts
 
@@ -341,6 +378,7 @@ def arc_family(defn, rail):
     P = lambda r, a: (cx + r * math.cos(a), cy + r * math.sin(a))
 
     ro, ri = R + band / 2, R - band / 2
+    wo, wi = R + LANE_W * lanes / 2, R - LANE_W * lanes / 2  # wall lines
     large = 1 if abs(sweep) > math.pi else 0
     sflag = 1 if sweep > 0 else 0
     x1, y1 = P(ro, a1); x2, y2 = P(ro, a1 + sweep)
@@ -348,10 +386,15 @@ def arc_family(defn, rail):
     parts = [
         f'<path d="M {x1:.2f} {y1:.2f} A {ro:.2f} {ro:.2f} 0 {large} {sflag} {x2:.2f} {y2:.2f} '
         f'L {x3:.2f} {y3:.2f} A {ri:.2f} {ri:.2f} 0 {large} {1-sflag} {x4:.2f} {y4:.2f} Z" '
-        f'fill="{BED}" stroke="{OUTLINE}" stroke-width="0.8"/>'
+        f'fill="{BED}"/>'
     ]
-    # rails: thin arcs at the band edges
-    for r, col in ((ro - 0.9, rail), (ri + 0.9, rail)):
+    # walls on the regulation grid (same inset as the straight family,
+    # so corner lanes are 11.5 like chicane/weave pieces, not 12.25)
+    for r in (wo, wi):
+        xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
+        parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
+    # rails: thin arcs just inside the walls
+    for r, col in ((wo - 0.9, rail), (wi + 0.9, rail)):
         xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
         parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{col}" stroke-width="1.6"/>')
     # lane separators: dashed arcs
@@ -374,7 +417,7 @@ def emit(defn, rail, rip=None):
     # hand models land (3/4-view illustrations: flyover corridors,
     # spiral rainbows)
     if defn['kind'] == 'changer' and (defn['w'], defn['h']) == (162, 36):
-        body = changer_art(defn, rail)
+        body = changer_art(defn)
     elif defn['kind'] == 'hairpin' and (defn['w'], defn['h']) == (180, 144):
         body = lan2_art(defn, rail)
     elif rip:
