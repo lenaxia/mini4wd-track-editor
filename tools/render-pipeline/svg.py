@@ -208,7 +208,7 @@ def changer_art(defn, rail):
         """bridge edge: rounder than s_cmd — the controls stay at the
         endpoint levels but span 45% of the run each, so the flat ends
         hold longer and the middle climbs steeply"""
-        dx = (x1 - x0) * 0.45
+        dx = (x1 - x0) * 0.38
         return f'C {x0+dx:.1f} {y0:.1f} {x1-dx:.1f} {y1:.1f} {x1:.1f} {y1:.1f}'
 
     parts = [
@@ -229,11 +229,12 @@ def changer_art(defn, rail):
         # the bottom lane bridges OVER the weave to the top slot: two
         # measured S edges (upper lifts off div2 at x=-44 and merges
         # into the top wall; lower lifts off the bottom wall at
-        # x=-43.5 and merges into the -6.5 line), band filled gray,
+        # x=-43.5 and merges into the stepped tail at y=-5.4 — the
+        # exact level the top boundary settles to), band filled gray,
         # drawn over the lanes it crosses
-        f'<path d="M -44 5.5 {b_cmd(-44, 5.5, 42.5, -17.4)} L 42.5 -6.5 {b_cmd(42.5, -6.5, -43.5, 17.4)} Z" fill="{BANK_GRAY}"/>',
+        f'<path d="M -44 5.5 {b_cmd(-44, 5.5, 42.5, -17.4)} L 42.5 -5.4 {b_cmd(42.5, -5.4, -43.5, 17.4)} Z" fill="{BANK_GRAY}"/>',
         stroke(f'M -44 5.5 {b_cmd(-44, 5.5, 42.5, -17.4)}', OUTLINE, 1.2),
-        stroke(f'M -43.5 17.4 {b_cmd(-43.5, 17.4, 42.5, -6.5)}', OUTLINE, 1.2),
+        stroke(f'M -43.5 17.4 {b_cmd(-43.5, 17.4, 42.5, -5.4)}', OUTLINE, 1.2),
         # top wall resumes past the weave; bottom wall breaks for the
         # merge (single color, runs meet the curves exactly)
         line2([(42.5, -17.4), (80, -17.4)], OUTLINE, 1.2),
