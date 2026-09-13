@@ -227,9 +227,10 @@ def changer_art(defn, rail):
         line2([(-80, 17.4), (-49, 17.4)], DASH, 1.2), line2([(-48, 17.4), (-28, 17.4)], OUTLINE, 1.2),
         line2([(15, 17.4), (27, 17.4)], OUTLINE, 1.2), line2([(28, 17.4), (80, 17.4)], DASH, 1.2),
         # section delineators (measured verticals): straight|weave,
-        # then the post-weave line closing the section
+        # then the post-weave line closing the section — spanning only
+        # the two lanes that weaved (they settle into -6.5..+17.4)
         line2([(-27.5, -17), (-27.5, 5)], DASH, 1.2),
-        line2([(27, -17.5), (27, 17.5)], DASH, 1.2),
+        line2([(27, -6.5), (27, 17.4)], DASH, 1.2),
         line2([(42.5, -17.5), (42.5, -7)], DASH, 1.2),
         line2([(-43.5, 7), (-43.5, 17.5)], DASH, 1.2),
         # variant rails on the ends
