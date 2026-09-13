@@ -270,7 +270,7 @@ def lan2_art(defn, rail):
     the transparent notch. After the weave each boundary settles into
     its exact semicircle about (18,0) (r 59.75/48.25/36.75 on the
     11.5 grid; walls r 71.25/36.75) — the 180x144 canvas bounds the
-    swept path (the -90 edge comes from the entry/exit straights). A full-height gray delineator at
+    swept path (the -90 edge comes from the entry/exit straights). A gray delineator at
     x=-36 marks the sections in the rip."""
     def S(x0, y0, x1, y1):
         """flat-ended cubic: leaves and arrives horizontally"""
@@ -283,7 +283,8 @@ def lan2_art(defn, rail):
         return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="butt"/>'
 
     # the shared S-step: measured zone x in [-27, 10] (where the rip's
-    # lines leave and rejoin their levels), stepping down one lane (12)
+    # lines leave and rejoin their levels), stepping down one
+    # regulation lane (LANE_W)
     X0, X1 = -27, 10
     def stepped(y):
         # .2f: the tail must land exactly on its level — a 0.05-off
@@ -300,9 +301,9 @@ def lan2_art(defn, rail):
         f'M -27 -72 L -2 -72 L -9 -67.5 Z '
         f'M 2 -72 L 17 -72 L 10 -68.5 Z" fill="{BED}" fill-rule="evenodd"/>',
         # the three identical S boundaries, each settling into its arc:
-        # top of lane 1 -> r=60 (it runs the full sweep to the exit)
+        # top of lane 1 -> r 59.75 (it runs the full sweep to the exit)
         stroke(stepped(-71.25) + ' A 59.75 59.75 0 0 1 18 59.75 L -90 59.75', OUTLINE, 1.2),
-        # lane 1/2 divider -> r=48
+        # lane 1/2 divider -> r 48.25
         stroke(stepped(-59.75) + ' A 48.25 48.25 0 0 1 18 48.25 L -90 48.25', OUTLINE, 1.1),
         # bottom of lane 2 settles onto the bottom wall (-36)
         stroke(stepped(-48.25), OUTLINE, 1.1),
@@ -311,7 +312,7 @@ def lan2_art(defn, rail):
         stroke('M -90 -71.25 H -27', OUTLINE, 1.2),
         stroke('M 18 -71.25 A 71.25 71.25 0 0 1 18 71.25 H -90', OUTLINE, 1.2),
         stroke('M -90 -36.75 H 18 A 36.75 36.75 0 0 1 18 36.75 H -90', OUTLINE, 1.2),
-        # delineator: full-height gray line between the sections
+        # delineator: spans the weaved lanes of both entry straights
         line2([(-35.5, -71.25), (-35.5, -48.25)], OUTLINE, 1.2),
         line2([(-35.5, 36.75), (-35.5, 71.25)], OUTLINE, 1.2),
         # delineators: sections are separate pieces — the weave ends at
