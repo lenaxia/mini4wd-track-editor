@@ -50,10 +50,19 @@ export const PIECES = {
    * R = IR + width/2; ramps carry real rise as zOff in mm). Procedural art
    * fallback renders these until top-down ortho projections land
    * (docs/design/orient-elevation.md SS6). */
-  R1S250: { procedural: true, label: 'R 1L straight 250mm', lanes: 1, l: 0.25, w: 25, h: 13, colors: 1, verts: [[-12.5, 0], [12.5, 0]], kind: 'straight' },
+  R1S250: { label: 'R 1L straight 250mm', lanes: 1, l: 0.25, w: 25, h: 13.3, colors: 1, verts: [[-0, -6], [25, -6]], kind: 'straight' },
+  R1REntry: { label: 'R 1L ramp entry', lanes: 1, l: 0.10, w: 10.4, h: 13.3, colors: 1, verts: [[-10.4, -6], [-0, -6, 16]], kind: 'slope' },
+  R2Ramp5: { sprite: 'R2Ramp', label: 'R 2L ramp 225mm +5', lanes: 2, l: 0.225, w: 22.8, h: 25, colors: 1, verts: [[-22.6, -11.9], [-0.1, -11.9, 5]], kind: 'slope' },
+  R2Ramp10: { sprite: 'R2Ramp', label: 'R 2L ramp 225mm +10', lanes: 2, l: 0.225, w: 22.8, h: 25, colors: 1, verts: [[-22.6, -11.9], [-0.1, -11.9, 10]], kind: 'slope' },
+  R2Ramp15: { sprite: 'R2Ramp', label: 'R 2L ramp 225mm +15', lanes: 2, l: 0.225, w: 22.8, h: 25, colors: 1, verts: [[-22.6, -11.9], [-0.1, -11.9, 15]], kind: 'slope' },
+  R2Ramp20: { sprite: 'R2Ramp', label: 'R 2L ramp 225mm +20', lanes: 2, l: 0.225, w: 22.8, h: 25, colors: 1, verts: [[-22.6, -11.9], [-0.1, -11.9, 20]], kind: 'slope' },
+  R2Ramp25: { sprite: 'R2Ramp', label: 'R 2L ramp 225mm +25', lanes: 2, l: 0.225, w: 22.8, h: 25, colors: 1, verts: [[-22.6, -11.9], [-0.1, -11.9, 25]], kind: 'slope' },
+  R2Ramp30: { sprite: 'R2Ramp', label: 'R 2L ramp 225mm +30', lanes: 2, l: 0.225, w: 22.8, h: 25, colors: 1, verts: [[-22.6, -11.9], [-0.1, -11.9, 30]], kind: 'slope' },
+  R2Ramp35: { sprite: 'R2Ramp', label: 'R 2L ramp 225mm +35', lanes: 2, l: 0.225, w: 22.8, h: 25, colors: 1, verts: [[-22.6, -11.9], [-0.1, -11.9, 35]], kind: 'slope' },
+  R2Ramp40: { sprite: 'R2Ramp', label: 'R 2L ramp 225mm +40', lanes: 2, l: 0.225, w: 22.8, h: 25, colors: 1, verts: [[-22.6, -11.9], [-0.1, -11.9, 40]], kind: 'slope' },
+  R2Ramp45: { sprite: 'R2Ramp', label: 'R 2L ramp 225mm +45', lanes: 2, l: 0.225, w: 22.8, h: 25, colors: 1, verts: [[-22.6, -11.9], [-0.1, -11.9, 45]], kind: 'slope' },
   R1C45I150: { procedural: true, label: 'R 1L corner 45\u00B0 IR150', lanes: 1, l: 0.17, w: 31, h: 22, colors: 1, verts: [[7.6, 3.15], [-7.6, -3.15]], kind: 'corner', R: 21.5, band: 13 },
   R1C90I150: { procedural: true, label: 'R 1L corner 90\u00B0 IR150', lanes: 1, l: 0.34, w: 37, h: 37, colors: 1, verts: [[10.75, 10.75], [-10.75, -10.75]], kind: 'corner', R: 21.5, band: 13 },
-  R1R250: { procedural: true, label: 'R 1L ramp 250mm R50', lanes: 1, l: 0.25, w: 25, h: 13, colors: 1, verts: [[-12.5, 0], [12.5, 0, 50]], kind: 'slope' },
   R2S250: { procedural: true, label: 'R 2L straight 250mm', lanes: 2, l: 0.25, w: 25, h: 25, colors: 1, verts: [[-12.5, 0], [12.5, 0]], kind: 'straight' },
   R2C45I150: { procedural: true, label: 'R 2L corner 45\u00B0 IR150', lanes: 2, l: 0.22, w: 47, h: 36, colors: 1, verts: [[9.72, 4.03], [-9.72, -4.03]], kind: 'corner', R: 27.5, band: 25 },
   R2R250: { procedural: true, label: 'R 2L ramp 250mm R50', lanes: 2, l: 0.25, w: 25, h: 25, colors: 1, verts: [[-12.5, 0], [12.5, 0, 50]], kind: 'slope' },
@@ -67,7 +76,7 @@ export const PIECES = {
 export const PALETTE = {
   3: ['Str1', 'Cor1', 'Lan1', 'Chi1', 'Str2', 'Bri1', 'Ban1', 'Bri2', 'Lan2'],
   5: ['Str3', 'Str4', 'Str5', 'Str6', 'Cor2', 'Cor3', 'Cor4', 'Cor5', 'Lan4', 'Lan3', 'Chi2', 'Bri3', 'Bri4', 'Ban2'],
-  rucdoc: ['R1S250', 'R1C45I150', 'R1C90I150', 'R1R250', 'R2S250', 'R2C45I150', 'R2R250', 'R3S250', 'R3C45I115', 'R3R250'],
+  rucdoc: ['R1S250', 'R1REntry', 'R2Ramp5', 'R2Ramp10', 'R2Ramp15', 'R2Ramp20', 'R2Ramp25', 'R2Ramp30', 'R2Ramp35', 'R2Ramp40', 'R2Ramp45', 'R1C45I150', 'R1C90I150', 'R2S250', 'R2C45I150', 'R3S250', 'R3C45I115', 'R3R250'],
 };
 
 export const VARIANT_COLORS = ['#c9d1dc', '#e05263', '#4f8fdd', '#2ea89b', '#e5b84b',

@@ -153,6 +153,7 @@ def render_pass(scene, path, px_x, px_y):
 
 import time as _t
 def process(name, cfg, out_dir, expect):
+    name = cfg.get('sprite') or name
     _T0 = _t.time()
     import bpy
     # fresh scene
@@ -190,7 +191,8 @@ def process(name, cfg, out_dir, expect):
     # lighting + base materials: assign wall/bed separation is model-specific;
     # default heuristic colors everything as bed, override via cfg['wall_objects']
     sun_data = bpy.data.lights.new('sun', type='SUN'); sun_data.energy = 3
-    sun = bpy.data.objects.new('sun', sun_data); sun.rotation_euler = (0.6, 0.3, 0.2)
+    sun = bpy.data.objects.new('sun', sun_data)
+    sun.rotation_euler = (0, 0, 0) if cfg.get('flat') else (0.6, 0.3, 0.2)
     scene.collection.objects.link(sun)
     bed = flat_mat('bed', (0.55, 0.55, 0.58)); wall = flat_mat('wall', (0.9, 0.35, 0.2))
     for o in objs:
