@@ -3,11 +3,16 @@
   <path d="M -90 -72.0 L -27 -72.0 C -14.7 -72.0 -2.3 -60.0 10.0 -60.0 L 18 -60.0 A 60 60 0 0 1 18 60 L -90 60" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -90 -60.0 L -27 -60.0 C -14.7 -60.0 -2.3 -48.0 10.0 -48.0 L 18 -48.0 A 48 48 0 0 1 18 48 L -90 48" fill="none" stroke="#5d5a57" stroke-width="1.1" stroke-linecap="round"/>
   <path d="M -90 -48.0 L -27 -48.0 C -14.7 -48.0 -2.3 -36.0 10.0 -36.0 L 18 -36.0" fill="none" stroke="#5d5a57" stroke-width="1.1" stroke-linecap="round"/>
-  <path d="M -90 -72 H -27" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M 18 -72 A 72 72 0 0 1 18 72 H -90" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M -90 -36 H 18 A 36 36 0 0 1 18 36 H -90" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -90 -71.4 H -27" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 18 -71.4 A 71.4 71.4 0 0 1 18 71.4 H -90" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -90 -36.6 H 18 A 36.6 36.6 0 0 1 18 36.6 H -90" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -35.5 -71.0 L -35.5 -37.5" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -35.5 37.5 L -35.5 71.0" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 18.0 -71.0 L 18.0 -37.0" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 18.0 37.0 L 18.0 71.0" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 43.9 -25.9 L 68.5 -50.5" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 54.6 0.0 L 89.4 0.0" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 43.9 25.9 L 68.5 50.5" fill="none" stroke="#8a8683" stroke-width="1.2" stroke-linecap="round"/>
   <rect x="-90.00" y="-72.00" width="1.20" height="36.00" rx="0.00" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
   <rect x="-90.00" y="36.00" width="1.20" height="36.00" rx="0.00" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
 </svg>

@@ -308,12 +308,20 @@ def lan2_art(defn, rail):
         stroke(stepped(-48), OUTLINE, 1.1),
         # walls: top wall's left run; outer r=72 (from the notch); the
         # bottom wall continues into the exact r=36 inner semicircle
-        stroke('M -90 -72 H -27', OUTLINE, 1.2),
-        stroke('M 18 -72 A 72 72 0 0 1 18 72 H -90', OUTLINE, 1.2),
-        stroke('M -90 -36 H 18 A 36 36 0 0 1 18 36 H -90', OUTLINE, 1.2),
+        stroke('M -90 -71.4 H -27', OUTLINE, 1.2),
+        stroke('M 18 -71.4 A 71.4 71.4 0 0 1 18 71.4 H -90', OUTLINE, 1.2),
+        stroke('M -90 -36.6 H 18 A 36.6 36.6 0 0 1 18 36.6 H -90', OUTLINE, 1.2),
         # delineator: full-height gray line between the sections
         line2([(-35.5, -71), (-35.5, -37.5)], DASH, 1.2),
         line2([(-35.5, 37.5), (-35.5, 71)], DASH, 1.2),
+        # delineators: sections are separate pieces — the weave ends at
+        # the turn's tangent (x=18, measured), and the turn itself is
+        # 4x45-degree pieces (boundaries at -45/0/+45 degrees)
+        line2([(18, -71), (18, -37)], DASH, 1.2),
+        line2([(18, 37), (18, 71)], DASH, 1.2),
+        line2([(43.9, -25.9), (68.5, -50.5)], DASH, 1.2),
+        line2([(54.6, 0.0), (89.4, 0.0)], DASH, 1.2),
+        line2([(43.9, 25.9), (68.5, 50.5)], DASH, 1.2),
         # left-edge rails on both straights
         rr(-90, -72, 1.2, 36, 0, fill=rail, stroke='none'),
         rr(-90, 36, 1.2, 36, 0, fill=rail, stroke='none'),
