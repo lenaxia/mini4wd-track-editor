@@ -271,7 +271,7 @@ def lan2_art(defn, rail):
     its exact semicircle about (18,0) (r 59.75/48.25/36.75 on the
     11.5 grid; walls r 71.25/36.75) — the 180x144 canvas bounds the
     swept path (the -90 edge comes from the entry/exit straights). A gray delineator at
-    x=-36 marks the sections in the rip."""
+    x=-35.5 marks the sections in the rip."""
     def S(x0, y0, x1, y1):
         """flat-ended cubic: leaves and arrives horizontally"""
         dx = (x1 - x0) / 3
@@ -305,10 +305,10 @@ def lan2_art(defn, rail):
         stroke(stepped(-71.25) + ' A 59.75 59.75 0 0 1 18 59.75 L -90 59.75', OUTLINE, 1.2),
         # lane 1/2 divider -> r 48.25
         stroke(stepped(-59.75) + ' A 48.25 48.25 0 0 1 18 48.25 L -90 48.25', OUTLINE, 1.1),
-        # bottom of lane 2 settles onto the bottom wall (-36)
+        # bottom of lane 2 settles onto the bottom wall (-36.75)
         stroke(stepped(-48.25), OUTLINE, 1.1),
-        # walls: top wall's left run; outer r=72 (from the notch); the
-        # bottom wall continues into the exact r=36 inner semicircle
+        # walls: top wall's left run; outer r 71.25 (from the notch); the
+        # bottom wall continues into the exact r 36.75 inner semicircle
         stroke('M -90 -71.25 H -27', OUTLINE, 1.2),
         stroke('M 18 -71.25 A 71.25 71.25 0 0 1 18 71.25 H -90', OUTLINE, 1.2),
         stroke('M -90 -36.75 H 18 A 36.75 36.75 0 0 1 18 36.75 H -90', OUTLINE, 1.2),
