@@ -286,7 +286,7 @@ def lan2_art(defn, rail):
     # lines leave and rejoin their levels), stepping down one lane (12)
     X0, X1 = -27, 10
     def stepped(y):
-        return f'M -90 {y:.1f} L {X0} {y:.1f} {S(X0, y, X1, y + 12)} L 18 {y + 12:.1f}'
+        return f'M -90 {y:.1f} L {X0} {y:.1f} {S(X0, y, X1, y + LANE_W)} L 18 {y + LANE_W:.1f}'
 
     parts = [
         # bed: entry rect + exact semicircular band + exit rect, with
@@ -314,10 +314,6 @@ def lan2_art(defn, rail):
         # delineators: sections are separate pieces — the weave ends at
         # the turn's tangent (x=18, measured), and the turn itself is
         # 4x45-degree pieces (boundaries at -45/0/+45 degrees)
-        # post-weave delineator: the weaved pair settled at
-        # -59.75..-36.75; sits between the weave's end (x=10) and the
-        # turn's tangent line below
-        line2([(14, -59.75), (14, -36.75)], OUTLINE, 1.2),
         line2([(18, -71.25), (18, -36.75)], OUTLINE, 1.2),
         line2([(18, 36.75), (18, 71.25)], OUTLINE, 1.2),
         line2([(43.99, -25.99), (68.38, -50.38)], OUTLINE, 1.2),
