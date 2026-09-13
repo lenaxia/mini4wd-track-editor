@@ -277,15 +277,23 @@ def changer_art(defn):
     # variant color has no surface in this piece.
     parts = [
         f'<path d="{bed}" fill="{BED}"/>',
+        f'<defs><linearGradient id="approach" gradientUnits="userSpaceOnUse" x1="-81" y1="0" x2="-44" y2="0">'
+        f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient>'
+        f'<linearGradient id="exit" gradientUnits="userSpaceOnUse" x1="42.5" y1="0" x2="81" y2="0">'
+        f'<stop offset="0" stop-color="{BANK_GRAY}"/><stop offset="1" stop-color="{BED}"/></linearGradient></defs>'
+        f'<path d="M -81 5.75 H -44 V 17.25 H -81 Z" fill="url(#approach)"/>',
+        f'<path d="M 42.5 -17.25 H 81 V -5.75 H 42.5 Z" fill="url(#exit)"/>',
+
         stroke(stepped(-17.25), OUTLINE, 1.2),
         stroke(stepped(-5.75), OUTLINE, 1.2),
         stroke(stepped(5.75), OUTLINE, 1.2),
         line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
         line2([(27, -5.75), (27, 17.25)], OUTLINE, 1.2),
-        # the bridge band stays solid; its approach (bottom lane
-        # before the lift-off) and exit (top lane after the landing)
-        # carry the ramp gradient like Bri2: rising from bed into
-        # bank-gray at the bridge, settling back to bed at the edge
+        # bridge fill above the lane lines (its end sections tuck
+        # the approach/exit gradients are lane-surface shading: under
+        # every line, like the bed. The bridge band stays solid and
+        # keeps its calibrated layer (above the lane lines, below its
+        # edges/walls/delineators)
         f'<defs><linearGradient id="approach" gradientUnits="userSpaceOnUse" x1="-81" y1="0" x2="-44" y2="0">'
         f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient>'
         f'<linearGradient id="exit" gradientUnits="userSpaceOnUse" x1="42.5" y1="0" x2="81" y2="0">'

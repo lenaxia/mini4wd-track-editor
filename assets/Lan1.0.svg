@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="162" height="36" viewBox="-81.0 -18.0 162 36">
   <path d="M -81 -17.25 L -22 -17.25 C -9.3 -17.2 3.3 -5.8 16.0 -5.8 L 42.5 -5.75 L 42.5 -17.25 L 81 -17.25 L 81 17.25 L 16 17.25 C 7.86 17.25 -0.27 12.51 -8.41 9.11 C -19.20 13.54 -30.38 17.25 -43.50 17.25 L -81 17.25 Z" fill="#efeae5"/>
+  <defs><linearGradient id="approach" gradientUnits="userSpaceOnUse" x1="-81" y1="0" x2="-44" y2="0"><stop offset="0" stop-color="#efeae5"/><stop offset="1" stop-color="#c0bcb8"/></linearGradient><linearGradient id="exit" gradientUnits="userSpaceOnUse" x1="42.5" y1="0" x2="81" y2="0"><stop offset="0" stop-color="#c0bcb8"/><stop offset="1" stop-color="#efeae5"/></linearGradient></defs><path d="M -81 5.75 H -44 V 17.25 H -81 Z" fill="url(#approach)"/>
+  <path d="M 42.5 -17.25 H 81 V -5.75 H 42.5 Z" fill="url(#exit)"/>
   <path d="M -81 -17.25 L -22 -17.25 C -9.3 -17.2 3.3 -5.8 16.0 -5.8 L 81 -5.75" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -81 -5.75 L -22 -5.75 C -9.3 -5.8 3.3 5.8 16.0 5.8 L 81 5.75" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -81 5.75 L -22 5.75 C -9.3 5.8 3.3 17.2 16.0 17.2 L 81 17.25" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
