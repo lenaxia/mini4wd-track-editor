@@ -229,6 +229,10 @@ def changer_art(defn, rail):
         stroke(stepped(-17.25), OUTLINE, 1.2),
         stroke(stepped(-5.75), OUTLINE, 1.2),
         stroke(stepped(5.75), OUTLINE, 1.2),
+        # weave-section delineators (under the bridge — it passes
+        # over the lanes they mark, so they must not print on it)
+        line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
+        line2([(27, -5.5), (27, 17.25)], OUTLINE, 1.2),
         # the bottom lane bridges OVER the weave to the top slot: two
         # measured S edges (upper lifts off div2 at x=-44 and merges
         # into the top wall; lower lifts off the bottom wall at
@@ -247,8 +251,6 @@ def changer_art(defn, rail):
         # pre-weave line span their lanes boundary-to-boundary; the
         # post-weave line: top stops just inside the first boundary
         # (-5, per the rip), bottom runs to the bottom wall
-        line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
-        line2([(27, -5.5), (27, 17.25)], OUTLINE, 1.2),
         line2([(42.5, -17.25), (42.5, -5.75)], OUTLINE, 1.2),
         line2([(-43.5, 5.75), (-43.5, 17.25)], OUTLINE, 1.2),
         # variant rails on the ends
