@@ -48,3 +48,16 @@ monotonic, constant +2-3mm band offset, calibrated away by using labels).
 147/150/246 + 10 support pieces (structure, out of catalog scope);
 pipeline handles STL (mm) + 3MF (unit-aware) with all frame bugs fixed
 (see 6dd837c).
+
+## Addendum — SVG sprites (same day)
+
+Owner feedback: the Cycles top-downs read poorly — rucdoc cuts material
+holes in the bed underside (read as voids in ortho) and flat-lit walls
+have no contrast; the originals are light-bed/dark-wall illustrations.
+Pivot: catalog-driven SVG sprites (tools/render-pipeline/svg.py) in the
+sampled original palette (#efeae5 bed, #7a7674 walls, #5d5a57 outline,
+white dashed lane separators, chevrons on slopes). Every downloaded
+piece is a rectangle in top-down ortho, so catalog vectors are exact;
+the 3D render keeps mask/measurement duty (contour tracing for future
+corner pieces). sprite: fields now carry full filenames (R2Ramp.svg);
+the mesh renders are retired from assets/.

@@ -551,16 +551,16 @@ test('real rucdoc sprites load: rendered PNGs serve for real-data pieces', async
   await page.waitForTimeout(2500); /* preload completes */
 
   /* the real renders must actually serve (catalog not-procedural + loader path) */
-  const r1 = await page.request.get('assets/R1S250.0.png');
+  const r1 = await page.request.get('assets/R1S250.svg');
   expect(r1.status()).toBe(200);
-  expect(r1.headers()['content-type']).toContain('image/png');
-  const r2 = await page.request.get('assets/R2Ramp.0.png');
+  expect(r1.headers()['content-type']).toContain('svg');
+  const r2 = await page.request.get('assets/R2Ramp.svg');
   expect(r2.status()).toBe(200);
 
   /* boot requested them (preload wiring incl. the sprite: override) */
-  expect(got.has('R1S250.0.png')).toBe(true);
-  expect(got.has('R2Ramp.0.png')).toBe(true);
-  /* exactly one ramp render backs all nine heights — no R2RampN.0.png 404 spam */
+  expect(got.has('R1S250.svg')).toBe(true);
+  expect(got.has('R2Ramp.svg')).toBe(true);
+  /* exactly one ramp render backs all nine heights — no R2RampN 404 spam */
   expect([...got].filter((f) => /^R2Ramp\d/.test(f))).toHaveLength(0);
 
   /* imageFor RESOLVES the shared sprite (the feature, not just the request) */
@@ -570,6 +570,6 @@ test('real rucdoc sprites load: rendered PNGs serve for real-data pieces', async
     return img ? { src: img.src.split('/').pop().split('?')[0], loaded: img.complete && img.naturalWidth > 0 } : null;
   });
   expect(resolves).not.toBeNull();
-  expect(resolves.src).toBe('R2Ramp.0.png');
+  expect(resolves.src).toBe('R2Ramp.svg');
   expect(resolves.loaded).toBe(true);
 });

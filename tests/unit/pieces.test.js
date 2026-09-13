@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { PIECES, PALETTE, TOOLS, VARIANT_COLORS, SNAP_RADIUS } from '../../src/pieces.js';
 import fs from 'node:fs';
 
-const hasSprite = (name) => fs.existsSync(`assets/${name}.0.png`);
+const hasSprite = (name) => {
+  const f = PIECES[name].sprite || `${name}.0.png`;
+  return fs.existsSync(`assets/${f}`);
+};
 
 const TAMIYA = new Set([...PALETTE[3], ...PALETTE[5]]);
 
@@ -27,9 +30,8 @@ test('palette respects lane mode of its pieces', () => {
     assert.ok([1, 2, 3].includes(PIECES[name].lanes), `${name}: lanes not 1/2/3`);
     /* every entry either has a rendered sprite (via itself or sprite:) or
      * renders procedurally — exactly one of the two */
-    const sprite = PIECES[name].sprite || name;
-    assert.ok(PIECES[name].procedural || hasSprite(sprite), `${name}: neither sprite nor procedural`);
-    assert.ok(!PIECES[name].procedural || !hasSprite(sprite), `${name}: sprite present but still flagged procedural`);
+    assert.ok(PIECES[name].procedural || hasSprite(name), `${name}: neither sprite nor procedural`);
+    assert.ok(!PIECES[name].procedural || !hasSprite(name), `${name}: sprite present but still flagged procedural`);
   }
 });
 
