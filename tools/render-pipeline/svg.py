@@ -229,16 +229,28 @@ def changer_art(defn, rail):
         return (p0, m1, m4, m6), (m6, m5, m3, p3)
     def at(p, t):
         w = ((1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t ** 2, t ** 3)
-        return tuple(sum(c * k for c, k in zip(p[j], w)) for j in range(2))
+        return (sum(p[i][0] * w[i] for i in range(4)), sum(p[i][1] * w[i] for i in range(4)))
     sB = ((-22.0, 5.75), (-22 + 38 / 3, 5.75), (16 - 38 / 3, 17.25), (16.0, 17.25))
     bB = ((-43.5, 17.25), (-43.5 + 0.38 * 86, 17.25), (42.5 - 0.38 * 86, -5.75), (42.5, -5.75))
+    # true intersection: curves cross at DIFFERENT parameters — scan ts,
+    # solve bB's parameter for matching x, watch the y difference
+    # change sign (crossing near (-8.4, 9.1))
     ts = tb = None
+    prev = None
     for i in range(2001):
-        t = i / 2000
-        ps, pb = at(sB, t), at(bB, t)
-        if abs(ps[0] - pb[0]) < 0.6 and abs(ps[1] - pb[1]) < 0.6:
-            ts = tb = t
+        ts_ = i / 2000
+        ps = at(sB, ts_)
+        lo, hi = 0.0, 1.0
+        for _ in range(60):
+            mid = (lo + hi) / 2
+            if at(bB, mid)[0] < ps[0]: lo = mid
+            else: hi = mid
+        tb_ = (lo + hi) / 2
+        d = ps[1] - at(bB, tb_)[1]
+        if prev is not None and prev[2] * d <= 0:
+            ts, tb = (prev[0] + ts_) / 2, (prev[1] + tb_) / 2
             break
+        prev = (ts_, tb_, d)
     assert ts is not None, 'curves do not cross'
     _, sR = bez_split(sB, ts)      # crossing -> (16, 17.25)
     bL, _ = bez_split(bB, tb)      # (-43.5, 17.25) -> crossing
