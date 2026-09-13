@@ -55,8 +55,15 @@ test('catalog fields are sane for every piece', () => {
      * rucdoc's tight 1-lane corners sit at ~1.65x — closest-pair
      * determinism still holds, only the both-vertices window widens
      * (hysteresis deferred: docs/design/orient-elevation.md §9). */
+    if (def.kind === 'straight' || def.kind === 'slope') {
+      /* travel axis (x) must center — sprites render origin-centered. The
+       * cross axis may be offset by real asymmetry (rucdoc connector tabs
+       * shift the bbox; R1S250's trackline sits at y = -6). */
+      const midX = (def.verts[0][0] + def.verts[1][0]) / 2;
+      assert.ok(Math.abs(midX) < 1e-9, `${name}: vert x-midpoint ${midX} must be 0`);
+    }
     const floor = TAMIYA.has(name) ? 2 : 1.5;
-    const meas = !PIECES[name].procedural;  /* measured real geometry: separation is what it is */
+    const meas = !TAMIYA.has(name) && !PIECES[name].procedural; /* measured real geometry */
     assert.ok(meas || minSep > floor * SNAP_RADIUS, `${name}: vertex separation ${minSep} < ${floor}x snap radius`);
     if (def.kind === 'corner' || def.kind === 'hairpin') {
       assert.ok(def.R > 0 && def.band > 0, name);

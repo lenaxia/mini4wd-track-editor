@@ -16,6 +16,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 
 const PORT = process.env.PORT || 3100;
+const HOST = process.env.HOST || '127.0.0.1'; // loopback: holds a live session; env-override only for the dev-preview origin
 const UP = 'https://thangs.com';
 const COOKIE_STORE = '/tmp/opencode/session-cookies.json';
 
@@ -140,4 +141,4 @@ http.createServer(async (req, res) => {
     res.writeHead(502, { 'Content-Type': 'text/plain' });
     res.end('proxy error: ' + e.message);
   }
-}).listen(PORT, '0.0.0.0', () => console.log(`thangs proxy + receiver on :${PORT}`));
+}).listen(PORT, HOST, () => console.log(`thangs proxy + receiver on ${HOST}:${PORT}`));

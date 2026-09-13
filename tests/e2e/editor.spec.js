@@ -562,4 +562,14 @@ test('real rucdoc sprites load: rendered PNGs serve for real-data pieces', async
   expect(got.has('R2Ramp.0.png')).toBe(true);
   /* exactly one ramp render backs all nine heights — no R2RampN.0.png 404 spam */
   expect([...got].filter((f) => /^R2Ramp\d/.test(f))).toHaveLength(0);
+
+  /* imageFor RESOLVES the shared sprite (the feature, not just the request) */
+  const resolves = await page.evaluate(async () => {
+    const a = await import('/src/assets.js');
+    const img = a.imageFor('R2Ramp45', 0);
+    return img ? { src: img.src.split('/').pop().split('?')[0], loaded: img.complete && img.naturalWidth > 0 } : null;
+  });
+  expect(resolves).not.toBeNull();
+  expect(resolves.src).toBe('R2Ramp.0.png');
+  expect(resolves.loaded).toBe(true);
 });

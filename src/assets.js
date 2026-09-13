@@ -15,10 +15,12 @@ export function preloadImages(onload) {
      * doomed sprite requests. */
     if (def.procedural) continue;
     for (let c = 0; c < def.colors; c++) {
+      const n = def.sprite || name;
+      if (IMAGES[`${n}.${c}`]) continue; /* shared sprites load once */
       const img = new Image();
       img.onload = onload;
-      img.src = `assets/${PIECES[name].sprite || name}.${c}.png?v=3`;
-      IMAGES[`${name}.${c}`] = img;
+      img.src = `assets/${n}.${c}.png?v=3`;
+      IMAGES[`${n}.${c}`] = img;
     }
   }
 }
