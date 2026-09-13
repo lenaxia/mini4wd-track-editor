@@ -174,7 +174,6 @@ def process(name, cfg, out_dir, expect):
     from mathutils import Vector as _V
     for o in objs: o.location -= _V((cx, cy, 0))
     bpy.context.view_layer.update()  # evaluate the centering before slicing dz
-    bpy.context.view_layer.update()
 
     # scene: cycles CPU, ortho top-down camera
     scene = bpy.context.scene

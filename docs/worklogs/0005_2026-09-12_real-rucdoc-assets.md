@@ -30,14 +30,17 @@ monotonic, constant +2-3mm band offset, calibrated away by using labels).
   backs all nine ramp heights; height lives in data (z badge, shadow,
   clearance all runtime-driven).
 - **Tests**: pieces.test pins "sprite XOR procedural" per rucdoc drawer
-  entry (with an fs check on assets/) and relaxes the separation floor
-  for measured pieces (real geometry is what it is). e2e: real sprites
-  serve 200 + boot-preload wiring + no per-height 404 spam; the corner
-  chaining spec now uses the REAL R1C45I150 verts (±7.6,±3.15) and pins
-  the ~180° weld (the corner's entry tangent).
+  entry (with an fs check on assets/), travel-axis vert centering, and a
+  separation-floor exemption scoped to measured non-Tamiya pieces. e2e:
+  sprites serve 200, boot-preload wiring (incl. the sprite override)
+  with no per-height 404s, and imageFor resolution pinned in-page. The
+  corner-chaining spec already covered R1C45I150 — unchanged here.
 - **Attribution** (rule 3): index.html credits + README name rucdoc MIT;
   sprites are renders of his published models, catalog data measured
-  from the same. ?v=8 / style v5.
+  from the same. ?v=8 (style untouched).
+- R1R250 removed entirely; R2R250 dropped from palette/hotkeys only —
+  the def is retained so pre-existing saves/links keep parsing
+  (procedural: true = no asset requests).
 
 ## Validation
 
