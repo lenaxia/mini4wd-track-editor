@@ -132,3 +132,8 @@ npm run test:e2e           # e2e (auto-starts/reuses serve.js)
 2. CORS proxy for importing existing pimentoso tracks by code
 3. Print/PDF view page, piece-count breakdown panel
 4. PWA manifest + offline (it's already a single-page static app)
+## Credits
+
+- rucdoc track system (1L/2L/3L 3D-printed pieces): MIT (c) rucdoc —
+  thangs.com/designer/rucdoc. Sprites are top-down orthographic renders of
+  his published models; catalog data measured from the same.

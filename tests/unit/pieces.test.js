@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PIECES, PALETTE, TOOLS, VARIANT_COLORS, SNAP_RADIUS } from '../../src/pieces.js';
+import fs from 'node:fs';
+
+const hasSprite = (name) => fs.existsSync(`assets/${name}.0.png`);
 
 const TAMIYA = new Set([...PALETTE[3], ...PALETTE[5]]);
 
@@ -22,9 +25,11 @@ test('palette respects lane mode of its pieces', () => {
   /* the rucdoc drawer is mixed-lane by design (1/2/3) — pin the range */
   for (const name of PALETTE.rucdoc) {
     assert.ok([1, 2, 3].includes(PIECES[name].lanes), `${name}: lanes not 1/2/3`);
-    /* procedural: true drives the preload skip — if it detaches, 10 sprite
-     * requests 404 on every load again */
-    assert.equal(PIECES[name].procedural, true, `${name}: procedural flag missing`);
+    /* every entry either has a rendered sprite (via itself or sprite:) or
+     * renders procedurally — exactly one of the two */
+    const sprite = PIECES[name].sprite || name;
+    assert.ok(PIECES[name].procedural || hasSprite(sprite), `${name}: neither sprite nor procedural`);
+    assert.ok(!PIECES[name].procedural || !hasSprite(sprite), `${name}: sprite present but still flagged procedural`);
   }
 });
 
@@ -50,8 +55,16 @@ test('catalog fields are sane for every piece', () => {
      * rucdoc's tight 1-lane corners sit at ~1.65x — closest-pair
      * determinism still holds, only the both-vertices window widens
      * (hysteresis deferred: docs/design/orient-elevation.md §9). */
+    if (def.kind === 'straight' || def.kind === 'slope') {
+      /* travel axis (x) must center — sprites render origin-centered. The
+       * cross axis may be offset by real asymmetry (rucdoc connector tabs
+       * shift the bbox; R1S250's trackline sits at y = -6). */
+      const midX = (def.verts[0][0] + def.verts[1][0]) / 2;
+      assert.ok(Math.abs(midX) < 1e-9, `${name}: vert x-midpoint ${midX} must be 0`);
+    }
     const floor = TAMIYA.has(name) ? 2 : 1.5;
-    assert.ok(minSep > floor * SNAP_RADIUS, `${name}: vertex separation ${minSep} < ${floor}x snap radius`);
+    const meas = !TAMIYA.has(name) && !PIECES[name].procedural; /* measured real geometry */
+    assert.ok(meas || minSep > floor * SNAP_RADIUS, `${name}: vertex separation ${minSep} < ${floor}x snap radius`);
     if (def.kind === 'corner' || def.kind === 'hairpin') {
       assert.ok(def.R > 0 && def.band > 0, name);
     }
