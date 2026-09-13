@@ -6,13 +6,13 @@
   <path d="M -90 -71.4 H -27" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M 18 -71.4 A 71.4 71.4 0 0 1 18 71.4 H -90" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -90 -36.6 H 18 A 36.6 36.6 0 0 1 18 36.6 H -90" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M -35.5 -71.0 L -35.5 -37.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M -35.5 37.5 L -35.5 71.0" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M 18.0 -71.0 L 18.0 -37.0" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M 18.0 37.0 L 18.0 71.0" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M 43.9 -25.9 L 68.5 -50.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M 54.6 0.0 L 89.4 0.0" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M 43.9 25.9 L 68.5 50.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M -35.5 -71.0 L -35.5 -37.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
+  <path d="M -35.5 37.5 L -35.5 71.0" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
+  <path d="M 18.0 -71.0 L 18.0 -37.0" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
+  <path d="M 18.0 37.0 L 18.0 71.0" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
+  <path d="M 43.9 -25.9 L 68.5 -50.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
+  <path d="M 54.6 0.0 L 89.4 0.0" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
+  <path d="M 43.9 25.9 L 68.5 50.5" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="butt"/>
   <rect x="-90.00" y="-72.00" width="1.20" height="36.00" rx="0.00" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
   <rect x="-90.00" y="36.00" width="1.20" height="36.00" rx="0.00" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
 </svg>

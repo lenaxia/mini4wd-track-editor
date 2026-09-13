@@ -197,7 +197,7 @@ def changer_art(defn, rail):
         return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="round"/>'
     def line2(pts, color, width):
         d = f'M {pts[0][0]:.1f} {pts[0][1]:.1f} ' + ' '.join(f'L {x:.1f} {y:.1f}' for x, y in pts[1:])
-        return stroke(d, color, width)
+        return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="butt"/>'
 
     # the shared S-step (zone from the measured leave/rejoin points)
     X0, X1 = -22, 16
@@ -259,7 +259,7 @@ def lan2_art(defn, rail):
         return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="round"/>'
     def line2(pts, color, width):
         d = f'M {pts[0][0]:.1f} {pts[0][1]:.1f} ' + ' '.join(f'L {x:.1f} {y:.1f}' for x, y in pts[1:])
-        return stroke(d, color, width)
+        return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="butt"/>'
 
     # the shared S-step: measured zone x in [-27, 10] (where the rip's
     # lines leave and rejoin their levels), stepping down one lane (12)
