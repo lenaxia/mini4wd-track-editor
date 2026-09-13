@@ -264,14 +264,19 @@ def changer_art(defn, rail, shaded=True):
 
 
 def lan2_art(defn, rail):
-    """Lan2 'Rainbow': starts like Lan1 — an entry straight where the
-    top two lanes weave down one position and the bottom lane bridges
-    over them — then, instead of straightening, sweeps a 180-degree
-    annulus (walls r 36/72 around (18,0); the canvas is its exact
-    bounding box) into the exit straight. A full-height gray delineator
-    line at x=-36 marks the sections in the rip. Arc decorations
-    (spiral ribbon, hatch fan) are measured but not drawn yet."""
-    def s_cmd(x0, y0, x1, y1):
+    """Lan2 'Rainbow': an entry straight where the top two lanes step
+    down one lane position, then a 180-degree sweep into the exit
+    straight. The three boundaries — the top of lane 1, the lane 1/2
+    divider, and the bottom of lane 2 — are IDENTICAL smooth S curves
+    (one shape offset by one lane, chicane-style), so both lanes hold
+    regulation width through the weave; the vacated top slot becomes
+    the transparent notch. After the weave each boundary settles into
+    its exact semicircle about (18,0) (r 60/48/36; walls r 72/36 and
+    the centerline-straight tangency give the 180x144 canvas as the
+    path's exact bounding box). A full-height gray delineator at
+    x=-36 marks the sections in the rip."""
+    def S(x0, y0, x1, y1):
+        """flat-ended cubic: leaves and arrives horizontally"""
         dx = (x1 - x0) / 3
         return f'C {x0+dx:.1f} {y0:.1f} {x1-dx:.1f} {y1:.1f} {x1:.1f} {y1:.1f}'
     def stroke(d, color, width):
@@ -280,53 +285,35 @@ def lan2_art(defn, rail):
         d = f'M {pts[0][0]:.1f} {pts[0][1]:.1f} ' + ' '.join(f'L {x:.1f} {y:.1f}' for x, y in pts[1:])
         return stroke(d, color, width)
 
-    # entry-band levels: walls -71.4/-36.6, dividers -60/-48.
-    # Weave zones measured from where the rip's lines leave/rejoin
-    # their levels: A dives out of the top wall at x=-27 and flattens
-    # by x=8; B leaves div1 at -28 reaching div2 level by x=14; E
-    # leaves div2 at -24 reaching the bottom wall by x=6. The deck
-    # runs (-40,-46)->(-20,-39) in the band and continues as the gray
-    # diagonal measured at x -51..-12, y -47..-25 below it.
-    A = ('M -27 -71.4 '
-         'C -22 -71.2 -17 -69.4 -13 -66.8 '
-         'C -8 -63.5 -2 -60.9 8 -60.3')
-    B = f'M -28 -60 {s_cmd(-28, -60, 14, -48)}'
-    E = f'M -24 -48 {s_cmd(-24, -48, 6, -36.6)}'
-    # the bridge deck: edge curves through the measured waypoints
-    C = 'M -40 -46.5 C -32 -43.8 -26 -41.4 -20 -39 C -16 -35.5 -13 -30.5 -11 -26'
-    D = 'M -44 -41.5 C -37 -39.2 -31 -37.2 -26 -35.2 C -22 -32.2 -19 -28 -17 -24'
-    deck = (f'M -40 -46.5 C -32 -43.8 -26 -41.4 -20 -39 C -16 -35.5 -13 -30.5 -11 -26 '
-            f'L -17 -24 C -19 -28 -22 -32.2 -26 -35.2 C -31 -37.2 -37 -39.2 -44 -41.5 Z')
-    # the deck's front face between A's dive and C
-    wedge = f'M -22 -68 {s_cmd(-22, -68, 8, -60.9)}'
+    # the shared S-step: measured zone x in [-27, 10] (where the rip's
+    # lines leave and rejoin their levels), stepping down one lane (12)
+    X0, X1 = -27, 10
+    def stepped(y):
+        return f'M -90 {y:.1f} L {X0} {y:.1f} {S(X0, y, X1, y + 12)} L 18 {y + 12:.1f}'
 
     parts = [
-        # bed: entry straight + annulus + exit straight, with the weave
-        # notches cut from the entry band
-        f'<path d="M -90 -72 H 18 A 72 72 0 0 1 18 72 H -90 V 36 H 18 A 36 36 0 0 0 18 -36 H -90 Z '
-        f'M -25 -72 L -2 -72 L -9 -67.5 Z '
-        f'M 2 -72 L 17 -72 L 10 -68.5 Z '
-        f'M -40 -36.6 L -16 -36.6 L -24 -41 Z" fill="{BED}" fill-rule="evenodd"/>',
-        # underpass boundaries first
-        stroke(A, DASH, 1.3),
-        line2([(-89, -60), (-28, -60)], BANK_GRAY, 1.6),
-        stroke(B, DASH, 1.3),
-        stroke(E, DASH, 1.2),
-        # deck front face + deck band over the crossing
-        f'<path d="{wedge}" fill="{BANK_GRAY}"/>',
-        f'<path d="{deck}" fill="{BANK_GRAY}"/>',
-        stroke(C, OUTLINE, 1.2),
-        stroke(D, OUTLINE, 1.2),
+        # bed: entry rect + exact semicircular band + exit rect, with
+        # the weave notch (the vacated top slot) cut transparent
+        f'<path d="M -90 -72 H 18 V -36 H -90 Z '
+        f'M 18 -72 A 72 72 0 0 1 18 72 A 36 36 0 0 0 18 -72 Z '
+        f'M -90 36 H 18 V 72 H -90 Z '
+        f'M -27 -72 L -2 -72 L -9 -67.5 Z '
+        f'M 2 -72 L 17 -72 L 10 -68.5 Z" fill="{BED}" fill-rule="evenodd"/>',
+        # the three identical S boundaries, each settling into its arc:
+        # top of lane 1 -> r=60 (it runs the full sweep to the exit)
+        stroke(stepped(-72) + ' A 60 60 0 0 1 18 60 L -90 60', OUTLINE, 1.2),
+        # lane 1/2 divider -> r=48
+        stroke(stepped(-60) + ' A 48 48 0 0 1 18 48 L -90 48', OUTLINE, 1.1),
+        # bottom of lane 2 settles onto the bottom wall (-36)
+        stroke(stepped(-48), OUTLINE, 1.1),
+        # walls: top wall's left run; outer r=72 (from the notch); the
+        # bottom wall continues into the exact r=36 inner semicircle
+        stroke('M -90 -72 H -27', OUTLINE, 1.2),
+        stroke('M 18 -72 A 72 72 0 0 1 18 72 H -90', OUTLINE, 1.2),
+        stroke('M -90 -36 H 18 A 36 36 0 0 1 18 36 H -90', OUTLINE, 1.2),
         # delineator: full-height gray line between the sections
-        line2([(-36, -71), (-36, -37.5)], DASH, 1.0),
-        # annulus + exit straight: walls and dividers
-        stroke('M -90 -71.4 H -27 M 17 -71.4 H 18 A 72 72 0 0 1 18 71.4 H -90', OUTLINE, 1.2),
-        stroke('M -90 -36.6 H 18 A 36 36 0 0 0 18 -36.6', OUTLINE, 1.2),
-        stroke('M 18 -60.3 A 60 60 0 0 1 18 60 H -90', DASH, 1.3),
-        stroke('M 18 -48 A 48 48 0 0 1 18 48 H -90', DASH, 1.3),
-        stroke('M -90 71.4 H 18', OUTLINE, 1.2),
-        stroke('M -90 36.6 H 18', OUTLINE, 1.2),
-        line2([(-36, 37.5), (-36, 71)], DASH, 1.0),
+        line2([(-35.5, -71), (-35.5, -37.5)], DASH, 1.2),
+        line2([(-35.5, 37.5), (-35.5, 71)], DASH, 1.2),
         # left-edge rails on both straights
         rr(-90, -72, 1.2, 36, 0, fill=rail, stroke='none'),
         rr(-90, 36, 1.2, 36, 0, fill=rail, stroke='none'),
