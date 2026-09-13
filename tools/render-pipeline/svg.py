@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """SVG sprite emitter — the full catalog in the original illustrated style.
 
-Palette sampled from the original Tamiya PNGs (light warm-gray bed,
-dark-gray walls/outline, white dashed lane markings; color variants
-recolor the rails — VARIANT_COLORS). Shape logic is a port of art.js
+Palette sampled from the original Tamiya PNGs: light warm-gray bed,
+dark outline, dark-gray lane dashes/chevrons (white was invisible on
+the light bed); variants recolor the rails (VARIANT_COLORS), banks use
+their own per-family palettes sampled from their rips. Shape logic is a port of art.js
 (which encoded every kind's geometry as canvas fallback): rects for
 straight-family kinds, annular sectors for corner/hairpin (geometry
 from solveGeo via the node dump), with kind-specific markings.
@@ -18,6 +19,8 @@ artwork (see src/main.js header).
 """
 import json, math, os, subprocess, sys
 
+from trace import traced_body
+
 BED = '#efeae5'
 DASH = '#8a8683'   # dark gray separators — white was invisible on the light bed
 OUTLINE = '#5d5a57'
@@ -25,6 +28,7 @@ CHEVRON = '#8a8683'
 # bank palettes sampled from the original rips (their own palettes, not
 # VARIANT_COLORS); keyed per family — Ban2's single tan variant is NOT
 # Ban1's green c0
+BANK_GRAY = '#c0bcb8'   # Bri2's ramp-face midtone (same swatch as Ban1 c1)
 BANK_COLORS = {
   'Ban1': ['#2e966f', '#c0bcb8', '#004282', '#9a0400'],
   'Ban2': ['#dabc90'],
@@ -76,11 +80,41 @@ def rect_family(defn, rail):
     elif kind == 'slope':
         n = max(2, round(w / 9))
         for i in range(n):
-            parts.append(chevron((w - 6) * i / n + 3, 0, h / 3))
+            parts.append(chevron(-w / 2 + 3 + (w - 6) * i / n, 0, h / 3))
     elif kind == 'jump':
-        n = max(1, round(w / 54))
-        for i in range(n):
-            parts.append(chevron(-w / 4 + (w / 2 / n) * i + 2.2, 0, h / 8, 2.2, 'rgba(0,0,0,.18)'))
+        # Bri2.0 measured (1 px = 1 cm): a clean 3-lane runway — solid
+        # dividers, no chevrons, open ends — whose bottom-lane strip is
+        # the jump's front elevation: bed→bank-gray left-to-right
+        # gradient, a 4 cm dark end wall 42 cm from the left edge, and
+        # the corner beyond the ramp left transparent like the rip.
+        RAMP, ENDW = 42.0, 4.0                  # rip: ramp length / end wall width
+        y0 = -h / 2 + h * (lanes - 1) / lanes   # face top = last lane boundary
+        x1, x2 = -w / 2 + RAMP - ENDW, -w / 2 + RAMP
+        parts = [
+            # bed: full-width band plus the ramp footprint (cut corner
+            # stays transparent), all strokes drawn as open lines below
+            f'<path d="M {-w/2:.2f} {-h/2:.2f} H {w/2:.2f} V {y0:.2f} H {x2:.2f} V {h/2:.2f} H {-w/2:.2f} Z" fill="{BED}"/>',
+            f'<defs><linearGradient id="jumpface" gradientUnits="userSpaceOnUse" x1="{-w/2+2:.2f}" y1="0" x2="{-w/2+20:.2f}" y2="0">'
+            f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient></defs>',
+            f'<rect x="{-w/2:.2f}" y="{y0+1:.2f}" width="{x1+w/2:.2f}" height="{h/2-y0-1:.2f}" fill="url(#jumpface)"/>',
+            f'<rect x="{x1:.2f}" y="{y0:.2f}" width="{ENDW:.2f}" height="{h/2-y0:.2f}" fill="{OUTLINE}"/>',
+            # walls (open lines: the rip caps divider/wall ends only)
+            line(-w / 2, -h / 2 + 0.6, w / 2, -h / 2 + 0.6, OUTLINE, 1.2, dash=None),
+            line(w / 2 - 0.6, -h / 2, w / 2 - 0.6, y0, OUTLINE, 1.2, dash=None),
+            line(-w / 2, h / 2 - 0.6, x2, h / 2 - 0.6, OUTLINE, 1.2, dash=None),
+            line(-w / 2 + 0.5, y0, -w / 2 + 0.5, h / 2, rail, 1.0, dash=None),
+            # face top: dark shadow under the elevated part of the ramp
+            # (the light tail at the left is divider2's own AA), dark
+            # step past it
+            line(-w / 2 + 12, y0 + 0.55, x2, y0 + 0.55, DASH, 1.1, dash=None),
+            line(x2, y0 + 0.55, w / 2, y0 + 0.55, OUTLINE, 1.1, dash=None),
+        ]
+        # lane dividers (solid in the rip); the bottom one doubles as
+        # the face top border above the shadow line
+        for i in range(1, lanes):
+            dy = -h / 2 + h * i / lanes - (0.3 if i == lanes - 1 else 0)
+            parts.append(line(-w / 2, dy, w / 2, dy, DASH, 1.8, dash=None))
+        return parts
     elif kind == 'bank':
         # the original bank is a solid variant-colored banked block
         parts = [rr(-w / 2, -h / 2, w, h, min(2.0, h / 4), fill=rail)]
@@ -91,18 +125,50 @@ def rect_family(defn, rail):
             parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
         return parts
     elif kind == 'wave':
-        # chicane: the lane SEPARATORS are thick sine bands (alternating
-        # phase per lane) that pinch and swell the lanes edge to edge
-        amp, n = h / 7, max(2, round(w / 27))
-        for li in range(1, lanes):
-            y0 = -h / 2 + h * li / lanes
-            phase = 0.0 if li % 2 == 1 else math.pi
-            d = []
-            for k in range(0, 101):
-                x = -w / 2 + 2 + (w - 4) * k / 100
-                y = y0 + math.sin((x + w / 2) / w * 2 * math.pi * n + phase) * amp
-                d.append(f'{"M" if k == 0 else "L"} {x:.2f} {y:.2f}')
-            parts.append(f'<path d="{" ".join(d)}" fill="none" stroke="{DASH}" stroke-width="2.2" stroke-linecap="round"/>')
+        # Chicane, measured on the Chi1.0/Chi2.0 rips (1 px = 1 cm): a
+        # constant-height lane band whose whole cross-section — walls,
+        # rails, dividers — rides one raised-cosine hump that lifts the
+        # road at mid-span. Lanes stay parallel the whole way: solid
+        # full-width dividers, no pinch, no phase alternation, no dashes.
+        # Catalog h = band height + amplitude, so the humped outline
+        # exactly fills the viewBox (the verts entry y and the negative
+        # catalog center y encode the same shift).
+        band = 12 * lanes                     # lane width is 12 cm throughout
+        amp = h - band                        # 6 (Chi1), 12 (Chi2)
+        if amp <= 0:                          # not in the catalog; stay sane
+            amp = h / 7
+
+        n = int(round(w))
+        xs = [-w / 2 + w * i / n for i in range(n + 1)]   # 1 sample per cm
+
+        def e(x):                              # raw top edge: -h/2 at mid, -h/2+amp at ends
+            t = (x + w / 2) / w
+            return -h / 2 + amp * math.cos(math.pi * t) ** 2
+
+        WALL = 1.2                             # walls/dividers read 1-2 px in the rips
+
+        def pts(fn, xx=None):
+            xx = xs if xx is None else xx
+            return [f'{"M" if i == 0 else "L"} {xx[i]:.2f} {fn(xx[i]):.2f}' for i in range(len(xx))]
+
+        # bed: closed humped band, unstroked (strokes are drawn separately
+        # so the piece ends can stay open — the rips cap them with the
+        # rail color, not the outline)
+        edge = pts(lambda x: e(x) + WALL / 2) + [f'L {x:.2f} {e(x) + band - WALL / 2:.2f}' for x in reversed(xs)]
+        parts = [f'<path d="{" ".join(edge)} Z" fill="{BED}"/>']
+        # variant rails: a closed loop hugging the walls and wrapping
+        # around both ends (1 cm strip in the rips); inset 0.5 so the
+        # stroke never crosses the viewBox edge
+        xr = [-w / 2 + 0.5] + xs[1:-1] + [w / 2 - 0.5]
+        rail_loop = pts(lambda x: e(x) + 1.9, xr) + [f'L {x:.2f} {e(x) + band - 1.9:.2f}' for x in reversed(xr)]
+        parts.append(f'<path d="{" ".join(rail_loop)} Z" fill="none" stroke="{rail}" stroke-width="1.0" stroke-linejoin="round"/>')
+        # walls: open polylines — their butt ends form the wall cross
+        # sections visible on the end caps
+        parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + WALL / 2))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
+        parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + band - WALL / 2))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
+        for i in range(1, lanes):
+            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: e(x) + WALL / 2 + band * i / lanes))}" fill="none" stroke="{DASH}" stroke-width="{WALL}"/>')
+        return parts
     elif kind == 'changer':
         for i in range(lanes + 1):
             y1 = -h / 2 + (i * h) / lanes
@@ -151,12 +217,22 @@ def arc_family(defn, rail):
     return parts
 
 
-def emit(defn, rail):
-    if defn['kind'] in ('corner', 'hairpin'):
+def emit(defn, rail, rip=None):
+    # changer/hairpin rips are 3/4-view illustrations (flyover corridors,
+    # spiral rainbows) whose geometry is measured rather than modeled:
+    # trace the rip itself (tools/render-pipeline/trace.py)
+    if rip:
+        body = traced_body(rip, defn['w'], defn['h'],
+                           (('solid', BED), ('gray', BANK_GRAY), ('mark', DASH), ('outline', OUTLINE)))
+    elif defn['kind'] in ('corner', 'hairpin'):
         body = arc_family(defn, rail)
     else:
         body = rect_family(defn, rail)
     w, h = defn['w'], defn['h']
+    if not rip and defn['kind'] in ('corner', 'hairpin'):
+        # wide-band arcs (Cor5: band 60 on a 210 footprint) overhang the
+        # catalog w/h at the arc ends — pad the viewBox so no rail clips
+        w, h = w + 8, h + 8
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
             f'viewBox="{-w/2} {-h/2} {w} {h}">\n  ' + '\n  '.join(body) + '\n</svg>\n')
 
@@ -200,8 +276,11 @@ def main():
             if fname in seen:
                 continue  # shared families: one file, first write wins
             seen.add(fname)
+            # measured kinds trace the matching rip (Lan1.0.svg <- Lan1.0.png)
+            rip = os.path.join(root, 'assets', fname[:-4] + '.png') \
+                if defn['kind'] in ('changer', 'hairpin') else None
             with open(os.path.join(out, fname), 'w') as f:
-                f.write(emit(defn, rail))
+                f.write(emit(defn, rail, rip))
             n += 1
     print(f'emitted {n} svg files (deduped)')
 

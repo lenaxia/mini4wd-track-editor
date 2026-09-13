@@ -46,7 +46,8 @@ ${slice.map((f) => `<a class="card" href="assets/${f}.svg" target="_blank">
 };
 
 http.createServer((req, res) => {
-  const rel = decodeURIComponent(req.url.split('?')[0]);
+  let rel;
+  try { rel = decodeURIComponent(req.url.split('?')[0]); } catch { res.writeHead(400); return res.end('bad url'); }
   if (rel === '/' || rel === '') {
     const m = req.url.match(/[?&]p=(\d+)/);
     const pageNum = m ? Math.max(0, parseInt(m[1], 10)) : 0;
