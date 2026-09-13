@@ -19,7 +19,7 @@ artwork (see src/main.js header).
 """
 import json, math, os, subprocess, sys
 
-from trace import traced_body
+from riptrace import traced_body
 
 BED = '#efeae5'
 DASH = '#8a8683'   # dark gray separators — white was invisible on the light bed
@@ -87,7 +87,7 @@ def rect_family(defn, rail):
         # the jump's front elevation: bed→bank-gray left-to-right
         # gradient, a 4 cm dark end wall 42 cm from the left edge, and
         # the corner beyond the ramp left transparent like the rip.
-        RAMP, ENDW = 42.0, 4.0                  # rip: ramp length / end wall width
+        RAMP, ENDW = 37.5, 1.5                  # re-measured: opaque content ends ~col 37; the ~2cm dark edge is the wall
         y0 = -h / 2 + h * (lanes - 1) / lanes   # face top = last lane boundary
         x1, x2 = -w / 2 + RAMP - ENDW, -w / 2 + RAMP
         parts = [
@@ -179,6 +179,62 @@ def rect_family(defn, rail):
     return parts
 
 
+def changer_art(defn, rail):
+    """Lan1 lane changer, measured from Lan1.0.png (1 px = 1 cm): two
+    180°-symmetric lane-change ramps. Each ramp is a bank-gray wedge
+    whose inner edge carries an S-bulge at the lane crossing and pinches
+    out past it; a vertical end wall drops to the first divider; the
+    top/bottom walls break into notches where the crossings pass the
+    edge (dark segments flank them, mark-tone elsewhere); dividers exist
+    only outside the crossing, part gray, part mark-tone."""
+    def P(pts, color, width):
+        d = f'M {pts[0][0]:.1f} {pts[0][1]:.1f} ' + ' '.join(f'L {x:.1f} {y:.1f}' for x, y in pts[1:])
+        return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}"/>'
+    wedge = [(21, -16.5), (39.5, -16.5), (39.5, -9), (35, -8), (26, -6), (21, -5),
+             (18, -4), (15, -3), (13, -2), (11, -1), (9, 0), (7, 1), (5, 2), (4, 3),
+             (2, 2), (1, 0), (0, -2), (-2, -5), (0, -7), (3, -8), (5, -9), (7, -10),
+             (9, -11), (11, -12), (14, -13), (17, -15)]
+    # the bottom wedge is NOT the rotation: one lane tall (divider2 down
+    # to the bottom wall), vertical left edge, right edge descending
+    wedge2 = [(-34, 5.5), (-39, 8), (-39, 15), (-36, 16), (-27, 15.5), (-22, 14),
+              (-18, 13), (-15, 12), (-12, 11), (-10, 10), (-8, 9), (-6, 8), (-4, 7), (-2, 6)]
+    poly = lambda pts: ('M ' + ' L '.join(f'{x:.1f} {y:.1f}' for x, y in pts) + ' Z')
+    parts = [
+        # bed with the four notch wedges cut transparent (evenodd)
+        f'<path d="M -81 -18 H 81 V 18 H -81 Z '
+        f'{poly([(-16, -18), (3, -18), (-2, -13.5)])} '
+        f'{poly([(6, -18), (28, -18), (10, -13.5)])} '
+        f'{poly([(16, 18), (-3, 18), (2, 13.5)])} '
+        f'{poly([(-6, 18), (-28, 18), (-10, 13.5)])}" fill="{BED}" fill-rule="evenodd"/>',
+        # ramp wedges
+        f'<path d="{poly(wedge)}" fill="{BANK_GRAY}"/>',
+        f'<path d="{poly(wedge2)}" fill="{BANK_GRAY}"/>',
+        # walls: dark flanks the notches, mark-tone elsewhere
+        P([(-80, -17.4), (-29, -17.4)], DASH, 1.2), P([(-28, -17.4), (-16, -17.4)], OUTLINE, 1.2),
+        P([(28, -17.4), (47, -17.4)], OUTLINE, 1.2), P([(48, -17.4), (80, -17.4)], DASH, 1.2),
+        P([(-80, 17.4), (-49, 17.4)], DASH, 1.2), P([(-48, 17.4), (-28, 17.4)], OUTLINE, 1.2),
+        P([(15, 17.4), (27, 17.4)], OUTLINE, 1.2), P([(28, 17.4), (80, 17.4)], DASH, 1.2),
+        # ramp end walls (drop to the first divider)
+        P([(42.5, -17.5), (42.5, -7)], DASH, 1.5),
+        P([(-43.5, 7), (-43.5, 17.5)], DASH, 1.5),
+        # crossing curves out of the notches, meeting the wedge bulge
+        P([(-13, -17), (-9, -16), (-6, -15), (-3, -14), (-2, -12), (-2, -7)], DASH, 1.0),
+        P([(13, 17), (9, 16), (6, 15), (3, 14), (2, 12), (2, 7)], DASH, 1.0),
+        # dividers exist only outside the crossing (gray left / mark right);
+        # div2's left segment is the bottom wedge's top edge extended,
+        # sloping gently in the rip
+        P([(-79, -7), (-22, -7)], BANK_GRAY, 1.6), P([(72, -7), (79, -7)], BANK_GRAY, 1.6),
+        P([(38, -7), (50, -7)], DASH, 1.4),
+        P([(-67, 6), (-39, 5.5)], DASH, 1.6), P([(16, 5), (23, 5)], DASH, 1.6),
+        # light verticals bounding the plain bed strips
+        P([(-27.5, -17), (-27.5, -4)], DASH, 0.7), P([(26.5, -5), (26.5, 16)], DASH, 0.7),
+        # variant rails on the ends
+        rr(-81, -18, 1.2, 36, 0, fill=rail, stroke='none'),
+        rr(79.8, -18, 1.2, 36, 0, fill=rail, stroke='none'),
+    ]
+    return parts
+
+
 def arc_family(defn, rail):
     """corner/hairpin: annular sector from solveGeo geometry."""
     geo = defn['_geo']
@@ -218,10 +274,13 @@ def arc_family(defn, rail):
 
 
 def emit(defn, rail, rip=None):
-    # changer/hairpin rips are 3/4-view illustrations (flyover corridors,
-    # spiral rainbows) whose geometry is measured rather than modeled:
-    # trace the rip itself (tools/render-pipeline/trace.py)
-    if rip:
+    # Lan1's changer art is hand-modeled from measurements; Lan4 and the
+    # hairpin rips still route through the measured tracer until their
+    # hand models land (3/4-view illustrations: flyover corridors,
+    # spiral rainbows)
+    if defn['kind'] == 'changer' and (defn['w'], defn['h']) == (162, 36):
+        body = changer_art(defn, rail)
+    elif rip:
         body = traced_body(rip, defn['w'], defn['h'],
                            (('solid', BED), ('gray', BANK_GRAY), ('mark', DASH), ('outline', OUTLINE)))
     elif defn['kind'] in ('corner', 'hairpin'):
@@ -231,8 +290,11 @@ def emit(defn, rail, rip=None):
     w, h = defn['w'], defn['h']
     if not rip and defn['kind'] in ('corner', 'hairpin'):
         # wide-band arcs (Cor5: band 60 on a 210 footprint) overhang the
-        # catalog w/h at the arc ends — pad the viewBox so no rail clips
-        w, h = w + 8, h + 8
+        # catalog dims at the arc ends — clip to the drawn footprint so
+        # nothing escapes (catalog-size viewBox is load-bearing: the app
+        # draws sprites at def.w x def.h)
+        body = [f'<clipPath id="vb"><rect x="{-w/2}" y="{-h/2}" width="{w}" height="{h}"/></clipPath>',
+                '<g clip-path="url(#vb)">'] + body + ['</g>']
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
             f'viewBox="{-w/2} {-h/2} {w} {h}">\n  ' + '\n  '.join(body) + '\n</svg>\n')
 
@@ -279,6 +341,8 @@ def main():
             # measured kinds trace the matching rip (Lan1.0.svg <- Lan1.0.png)
             rip = os.path.join(root, 'assets', fname[:-4] + '.png') \
                 if defn['kind'] in ('changer', 'hairpin') else None
+            if rip and not os.path.exists(rip):
+                rip = None  # fall through to modeled art instead of crashing
             with open(os.path.join(out, fname), 'w') as f:
                 f.write(emit(defn, rail, rip))
             n += 1
