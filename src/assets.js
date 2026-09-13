@@ -1,4 +1,5 @@
-/* Sprite assets — Tamiya piece PNGs from the original editor (assets/Name.color.png). */
+/* Sprite assets — SVG redraws in the original editor's illustrated style;
+ * the original PNG rips stay in assets/ as provenance (unused at runtime). */
 
 import { PIECES } from './pieces.js';
 
