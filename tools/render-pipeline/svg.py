@@ -139,10 +139,10 @@ def rect_family(defn, rail):
         # catalog center y encode the same shift).
         # the chicane rips measure a 12 cm lane pitch (divider centers
         # Chi1: -15/-3.5/+8.5/+20; Chi2 walls -24/+35, gaps ~12), so
-        # the band is 12*lanes-0.5 — the one family off the 11.5
-        # regulation grid, matching its own rip. Flat-run center sits half under
+        # the band is 12*lanes — the one family off the 11.5 regulation
+        # grid, matching its own rip. Flat-run center sits half under
         # the verts y (2.5 vs 3, 5.5 vs 6); walls ~2 px.
-        band = 12 * lanes - 0.5              # rip gaps 12/12/11.5 — the last lane runs a hair tight
+        band = 12 * lanes
         # the band rides a centerline through the verts: flat runs at
         # the verts' y (3 for Chi1, 6 for Chi2 — the road center the
         # editor connects on), mid-span at -verts_y (the catalog's
