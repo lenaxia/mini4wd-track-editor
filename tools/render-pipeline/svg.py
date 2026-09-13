@@ -19,11 +19,9 @@ artwork (see src/main.js header).
 import json, math, os, subprocess, sys
 
 BED = '#efeae5'
-WALL = '#7a7674'
 DASH = '#ffffff'
 OUTLINE = '#5d5a57'
 CHEVRON = 'rgba(255,255,255,.55)'
-LANE = 'rgba(0,0,0,.35)'
 
 
 def rr(x, y, w, h, r, **kw):

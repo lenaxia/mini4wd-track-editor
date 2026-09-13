@@ -48,8 +48,8 @@ export const PIECES = {
    * rucdoc). Derived analytically (115mm lanes +
    * 50mm walls => 1L 13cm / 2L 25cm / 3L 37cm wide; corners: centerline
    * R = IR + width/2; ramps carry real rise as zOff in mm). Procedural art
-   * fallback renders these until top-down ortho projections land
-   * (docs/design/orient-elevation.md SS6). */
+   * art covers the entries without sprite: files; svg.py supplies
+   * the rest (docs/design/orient-elevation.md SS6). */
   R1S250: { sprite: 'R1S250.svg', label: 'R 1L straight 250mm', lanes: 1, l: 0.25, w: 25, h: 13.3, colors: 1, verts: [[-12.5, -6], [12.5, -6]], kind: 'straight' },
   R1REntry: { sprite: 'R1REntry.svg', label: 'R 1L ramp entry', lanes: 1, l: 0.10, w: 10.4, h: 13.3, colors: 1, verts: [[-5.2, -6], [5.2, -6, 16]], kind: 'slope' },
   R2Ramp5: { sprite: 'R2Ramp.svg', label: 'R 2L ramp 225mm +5', lanes: 2, l: 0.225, w: 22.8, h: 25, colors: 1, verts: [[-11.35, -11.9], [11.35, -11.9, 5]], kind: 'slope' },

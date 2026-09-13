@@ -486,15 +486,25 @@ test('Rudoc mode: place and chain the 1L corner at its real 45 deg geometry', as
   await page.keyboard.press('Escape');
   await page.keyboard.press('2'); /* corners family in the rucdoc drawer */
   expect((await st(page)).tool).toBe('R1C45I150');
-  /* corner v1 local (7.6,3.15): aim the origin so v1 lands on first's v2 */
-  const pt = await toScreen(page, first.x + 4.9, first.y - 3.15);
-  await page.mouse.click(pt.x, pt.y);
+  await page.keyboard.press('z'); /* arm 315 — orientation has real work */
+  /* corner v1 local (7.6,3.15); armed 315 rotates it to (7.6,-3.15);
+   * first's v2 = origin + (12.5,-6). Drag the placement from 4cm short
+   * to the joint — the per-frame snap locks the weld. (Probe-verified:
+   * held AND released positions weld to a=179.985, vertex exact.) */
+  const { view } = await st(page);
+  const bb = await canvasBox(page);
+  const w2s = (wx, wy) => ({ x: bb.x + view.x + wx * view.scale, y: bb.y + view.y + wy * view.scale });
+  const start = w2s(first.x + 12.5 - 7.6 - 4, first.y - 6 + 3.15);
+  const end = w2s(first.x + 12.5 - 7.6, first.y - 6 + 3.15);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 6 });
+  await page.mouse.up();
   const s = await st(page);
   expect(s.sprites[1].name).toBe('R1C45I150');
-  /* welded: the corner's NEAREST vertex sits on the joint (chirality of
-   * the derived entry tangent decides which one — check both) */
+  expect(Math.abs(s.sprites[1].a - 180)).toBeLessThan(0.5); /* welded orientation */
   const c = s.sprites[1];
-  const j = { x: first.x + 12.5, y: first.y };
+  const j = { x: first.x + 12.5, y: first.y - 6 };
   const d = Math.min(
     Math.hypot(c.x + 7.6 - j.x, c.y + 3.15 - j.y),
     Math.hypot(c.x - 7.6 - j.x, c.y - 3.15 - j.y));
