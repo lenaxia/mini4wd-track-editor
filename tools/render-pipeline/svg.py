@@ -22,9 +22,13 @@ BED = '#efeae5'
 DASH = '#8a8683'   # dark gray separators — white was invisible on the light bed
 OUTLINE = '#5d5a57'
 CHEVRON = '#8a8683'
-# bank variants sampled from the original rips (their own palette, not
-# VARIANT_COLORS): c0 green, c1 warm gray, c2 navy, c3 dark red; Ban2 tan
-BANK_COLORS = {0: '#2e966f', 1: '#c0bcb8', 2: '#004282', 3: '#9a0400'}
+# bank palettes sampled from the original rips (their own palettes, not
+# VARIANT_COLORS); keyed per family — Ban2's single tan variant is NOT
+# Ban1's green c0
+BANK_COLORS = {
+  'Ban1': ['#2e966f', '#c0bcb8', '#004282', '#9a0400'],
+  'Ban2': ['#dabc90'],
+}
 
 
 def rr(x, y, w, h, r, **kw):
@@ -188,7 +192,8 @@ def main():
         else:
             files = [f'{name}.{c}.svg' for c in range(defn['colors'])]
             if defn['kind'] == 'bank':
-                rails = [BANK_COLORS.get(c, vc[c % len(vc)]) for c in range(defn['colors'])]
+                pal = BANK_COLORS.get(name, vc)
+                rails = [pal[c % len(pal)] for c in range(defn['colors'])]
             else:
                 rails = [vc[c % len(vc)] for c in range(defn['colors'])]
         for fname, rail in zip(files, rails):
