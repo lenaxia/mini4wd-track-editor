@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="-14.0 -18.0 28 36">
-  <rect x="-14.00" y="-18.00" width="28.00" height="36.00" rx="2.00" fill="#2e966f" stroke="#5d5a57" stroke-width="0.8"/>
-  <rect x="-13.60" y="-17.60" width="27.20" height="1.60" rx="0.80" fill="#5d5a57" stroke="none" stroke-width="0.8"/>
-  <rect x="-13.60" y="16.00" width="27.20" height="1.60" rx="0.80" fill="#5d5a57" stroke="none" stroke-width="0.8"/>
-  <line x1="-12.00" y1="-5.75" x2="12.00" y2="-5.75" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <line x1="-12.00" y1="5.75" x2="12.00" y2="5.75" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
+  <path d="M -14.00 -17.25 H 14.00 V 17.25 H -14.00 Z" fill="#efeae5"/>
+  <path d="M -14.00 -17.25 H 14.00 V -5.75 H -14.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -14.00 -5.75 H 14.00 V 5.75 H -14.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -14.00 5.75 H 14.00 V 17.25 H -14.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
 </svg>

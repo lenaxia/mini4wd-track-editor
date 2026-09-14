@@ -1,10 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="30" height="60" viewBox="-15.0 -30.0 30 60">
-  <rect x="-15.00" y="-30.00" width="30.00" height="60.00" rx="2.00" fill="#efeae5" stroke="#5d5a57" stroke-width="0.8"/>
-  <rect x="-14.60" y="-29.60" width="29.20" height="1.80" rx="0.90" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
-  <rect x="-14.60" y="27.80" width="29.20" height="1.80" rx="0.90" fill="#c9d1dc" stroke="none" stroke-width="0.8"/>
-  <line x1="-13.00" y1="-17.25" x2="13.00" y2="-17.25" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <line x1="-13.00" y1="-5.75" x2="13.00" y2="-5.75" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <line x1="-13.00" y1="5.75" x2="13.00" y2="5.75" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <line x1="-13.00" y1="17.25" x2="13.00" y2="17.25" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <path d="M -5.30 -3.75 L -3.10 0.00 L -5.30 3.75" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="0.9"/>
+  <path d="M -15.00 -28.75 H 15.00 V 28.75 H -15.00 Z" fill="#efeae5"/>
+  <path d="M -15.00 -28.75 H 15.00 V -17.25 H -15.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -15.00 -17.25 H 15.00 V -5.75 H -15.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -15.00 -5.75 H 15.00 V 5.75 H -15.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -15.00 5.75 H 15.00 V 17.25 H -15.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -15.00 17.25 H 15.00 V 28.75 H -15.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
 </svg>
