@@ -345,7 +345,7 @@ const lengthOf = (pieces) => pieces.reduce((m, p) => m + PIECES[p.name].l, 0);
 
 export function closeLoop(sprites, a, b, opts = {}) {
   const allowed = opts.set || SOLVER_SET;
-  const searchOpts = { maxDepth: opts.maxDepth ?? 40, maxExpansions: opts.maxExpansions ?? 20000 };
+  const searchOpts = { maxDepth: opts.maxDepth ?? 40, maxExpansions: opts.maxExpansions ?? 25000 };
 
   const openA = openVerts(sprites, a), openB = openVerts(sprites, b);
   if (!openA.length || !openB.length) return { ok: false, reason: 'no-open' };
@@ -373,8 +373,11 @@ export function closeLoop(sprites, a, b, opts = {}) {
     if (z0 !== zGoal && !canZ) continue; /* flat set cannot change level */
     allLevelMiss = false;
     if (ctx.exact && c.d / 100 >= ctx.exact.g) continue; /* cannot beat it */
-    /* detour budget: 8x the crow flight + 10 m slack (overridable) */
-    const per = { ...searchOpts, maxCost: opts.maxCost ?? 10 + (8 * c.d) / 100, budget };
+    /* detour budget: crow flight + slack + the net turn the ends demand
+     * (perpendicular ends need an out-and-back loop even when they touch —
+     * ~2 corners + repositioning per 45 deg, overridable) */
+    const turn = Math.ceil(angDist(outwardTangent(a, c.va), inwardTangent(b, c.vb)) / 45);
+    const per = { ...searchOpts, maxCost: opts.maxCost ?? 18 + (8 * c.d) / 100 + 2.5 * turn, budget };
     astar(vertexOf(a, c.va), outwardTangent(a, c.va), z0,
       vertexOf(b, c.vb), inwardTangent(b, c.vb), zGoal, c.vb,
       obstacles, trans, per, ctx);
