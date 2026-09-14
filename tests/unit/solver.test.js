@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { closeLoop, piecesCollide, SOLVER_SET } from '../../src/solver.js';
+import { closeLoop, closeLoopStepping, piecesCollide, SOLVER_SET } from '../../src/solver.js';
 import { PIECES } from '../../src/pieces.js';
 import {
   orientAngle, vertexOf, vertsOf, levelAt, rot, outwardTangent, inwardTangent,
@@ -260,4 +260,87 @@ test('oval missing one straight: 54 cm gap refilled exactly (chain drift)', () =
   const lv = vertexOf(res.pieces[0], 1), bv = vertexOf(B, 0);
   assert.ok(Math.hypot(lv.x - bv.x, lv.y - bv.y) <= 1e-6);
   assert.equal(noCollisions(sprites.concat(res.pieces)), null);
+});
+
+test('no-path classifies a blocked closure and names the blocker', () => {
+  const { sprites, A, B } = straightGapFixture();
+  const wall = mk('Lan1', 208, 100, 90); /* sits on the second straight's slot */
+  sprites.push(wall);
+  const res = closeLoop(sprites, A, B, { maxCost: 4 }); /* no detour budget: pure block */
+  assert.equal(res.ok, false);
+  assert.equal(res.reason, 'no-path');
+  assert.equal(res.why, 'blocked');
+  assert.equal(res.blocker, wall); /* the actual piece in the way */
+});
+
+test('no-path classifies off-grid ends (nothing near the goal to block)', () => {
+  const sprites = [mk('Str1', 100, 100), mk('Str1', 262, 140)]; /* 40 cm sideways */
+  const res = closeLoop(sprites, sprites[0], sprites[1], { maxCost: 4 });
+  assert.equal(res.ok, false);
+  assert.equal(res.why, 'off-grid');
+  assert.ok(res.miss.d > 30);
+});
+
+test('no-path classifies perpendicular ends as facing', () => {
+  const A = mk('Str1', 100, 100);
+  const B = mk('Str1', 127, 127, 90); /* entry heading 90 deg from A's exit */
+  const res = closeLoop([A, B], A, B, { maxCost: 1 }); /* forbid the loop-out */
+  assert.equal(res.ok, false);
+  assert.equal(res.why, 'facing');
+  assert.ok(res.miss.dh > 45);
+});
+
+test('no-path reports truncated searches honestly', () => {
+  const A = mk('Str1', 100, 100);
+  const B = mk('Str1', 262, 100);
+  const res = closeLoop([A, B], A, B, { maxExpansions: 3 });
+  assert.equal(res.ok, false);
+  assert.equal(res.why, 'limit');
+});
+
+test('level failures carry the two levels', () => {
+  const sprites = [mk('Str1', 100, 100), mk('Str1', 262, 100, 0, 75)];
+  const res = closeLoop(sprites, sprites[0], sprites[1]);
+  assert.equal(res.reason, 'level');
+  assert.deepEqual(res.levels, [0, 75]);
+});
+
+test('stepping removes the blocker and closes', () => {
+  const { sprites, A, B } = straightGapFixture();
+  const wall = mk('Lan1', 208, 100, 90);
+  sprites.push(wall);
+  const res = closeLoopStepping(sprites, A, B, { maxCost: 4 });
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.removed, [wall]);
+  assert.equal(res.closed.pieces.length, 2); /* the 2-straight fill */
+  assert.ok(Math.abs(res.closed.cost - 3.24) < 1e-9);
+  const kept = sprites.filter((p) => p !== wall).concat(res.closed.pieces);
+  assert.equal(noCollisions(kept), null);
+});
+
+test('stepping backs the end chain past an offending corner', () => {
+  /* P0 - A(45 deg corner into the corridor) ... gap ... B. The corner's own
+   * approach cannot close; stepping removes it and the straight gap behind
+   * closes with a single lane changer. */
+  const sprites = [mk('Str1', 46, 100)];
+  const P0 = sprites[0];
+  const A = weldOn(sprites, 'Cor1', P0, 1, 0);
+  const B = mk('Str1', 262, 100);
+  sprites.push(B);
+  assert.equal(closeLoop(sprites, A, B, { maxCost: 6 }).ok, false); /* needs stepping */
+  const res = closeLoopStepping(sprites, A, B, { maxCost: 6 });
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.removed, [A]);
+  assert.equal(res.closed.pieces.length, 1);
+  assert.equal(res.closed.pieces[0].name, 'Lan1');
+  const kept = sprites.filter((p) => p !== A).concat(res.closed.pieces);
+  assert.equal(noCollisions(kept), null);
+});
+
+test('stepping gives up cleanly when nothing helps', () => {
+  const A = mk('Str1', 100, 100);
+  const B = mk('Str1', 127, 127, 90); /* perpendicular, isolated ends */
+  const res = closeLoopStepping([A, B], A, B, { maxCost: 2, maxSteps: 2 });
+  assert.equal(res.ok, false);
+  assert.equal(res.reason, 'no-path');
 });

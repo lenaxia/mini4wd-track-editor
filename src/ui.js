@@ -3,13 +3,13 @@
  * of render/input — keeps the module graph acyclic). */
 
 import {
-  state, subscribe, setTool, setMode, undo, clearAll, loadSprites, rotate, bumpLevel, zoomAt, fitView, addPieces,
+  state, subscribe, setTool, setMode, undo, clearAll, loadSprites, rotate, bumpLevel, zoomAt, fitView, addPieces, applySolution,
 } from './store.js';
 import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { drawPieceArt } from './art.js';
-import { closeLoop } from './solver.js';
+import { closeLoop, closeLoopStepping } from './solver.js';
 
 const $ = (id) => document.getElementById(id);
 let ioMode = 'import'; /* or 'share' */
@@ -121,10 +121,14 @@ export function closeLoopAction() {
   if (sel.length !== 2) { toast('Select exactly two pieces (Move tool), then Close loop'); return; }
   const res = closeLoop(state.sprites, sel[0], sel[1]);
   if (!res.ok) {
-    if (res.reason === 'no-open') toast('One end has no free connection point');
-    else if (res.reason === 'level') toast('Ends are at different levels — link them with a slope first');
-    else if (Number.isFinite(res.miss?.d)) toast(`Could not close — ends are off-grid: nearest fit is ${res.miss.d.toFixed(1)} cm / ${res.miss.dh.toFixed(1)}\u00B0 away. Drag one end nearer or link manually.`);
-    else toast('Could not close the loop from these ends');
+    if (res.reason === 'no-open') { toast('One end has no free connection point'); return; }
+    if (res.reason === 'level') {
+      const [z0, z1] = res.levels || [];
+      toast(`Ends are at different levels${Number.isFinite(z0) ? ` (${z0} vs ${z1} mm)` : ''} — link them with a slope first`);
+      return;
+    }
+    if (res.reason === 'no-path') { offerStepBack(sel, res); return; }
+    toast('Could not close the loop from these ends');
     return;
   }
   addPieces(res.pieces);
@@ -132,6 +136,25 @@ export function closeLoopAction() {
   toast(res.flex
     ? `Loop closed \u00B7 ${res.pieces.length} pcs \u00B7 ${res.length.toFixed(2)} m \u00B7 ${res.gap.toFixed(1)} cm bend (ends off-grid)`
     : `Loop closed \u00B7 ${res.pieces.length} pcs \u00B7 ${res.length.toFixed(2)} m`);
+}
+
+/* A failed closure explains itself, then offers to remove pieces (the named
+ * blocker first, then stepping the end chains back) until it closes. One
+ * undo restores everything. */
+function offerStepBack(sel, res) {
+  const why = {
+    blocked: 'the closing pieces fit but track is in the way',
+    facing: `the ends face ${res.miss.dh.toFixed(0)}\u00B0 apart`,
+    'off-grid': `the ends are ${res.miss.d.toFixed(1)} cm out of line for any piece run`,
+    limit: 'the search gave up',
+  }[res.why] || 'no run fits';
+  const go = confirm(`Could not close — ${why}.\n\nRemove pieces step-by-step until it closes?`);
+  if (!go) return;
+  const step = closeLoopStepping(state.sprites, sel[0], sel[1]);
+  if (!step.ok) { toast('No closable point, even stepping back'); return; }
+  applySolution(step.removed, step.closed.pieces);
+  closeDialog($('menuDialog'));
+  toast(`Stepped back ${step.removed.length} pc${step.removed.length === 1 ? '' : 's'} \u00B7 closed with ${step.closed.pieces.length} pcs \u00B7 ${step.closed.length.toFixed(2)} m`);
 }
 
 /* ---------- init ---------- */

@@ -250,12 +250,13 @@ function openVerts(sprites, p) {
   return out;
 }
 
+/* Returns the piece that blocks this placement, or null when clear. */
 function collideAny(data, obstacles, ancestor) {
-  for (const ob of obstacles) if (collideData(data, ob)) return true;
+  for (const ob of obstacles) if (collideData(data, ob)) return ob.p;
   for (let node = ancestor; node; node = node.parent) {
-    if (node.data && collideData(data, node.data)) return true; /* root has none */
+    if (node.data && collideData(data, node.data)) return node.piece; /* root has none */
   }
-  return false;
+  return null;
 }
 
 /* One A* run from (start,h0,z0) to (goal,hGoal,zGoal). Updates ctx
@@ -300,16 +301,26 @@ function astar(start, h0, z0, goal, hGoal, zGoal, vb, obstacles, trans, opts, ct
       const piece = { name: t.name, x: node.x - off.x, y: node.y - off.y, a, c: 0, z: node.z - t.zi };
       const disp = rot(t.dx, t.dy, a);
       const nx = node.x + disp.x, ny = node.y + disp.y;
+      const nh = norm360(a + t.lout);
+      const nz = node.z - t.zi + t.zj;
       const g2 = node.g + t.l;
       const f2 = g2 + Math.hypot(goal.x - nx, goal.y - ny) / 100;
       if (f2 > opts.maxCost) continue; /* beyond the detour budget */
       const data = collisionData(piece);
-      if (collideAny(data, obstacles, node)) continue;
-      const child = { x: nx, y: ny, h: norm360(a + t.lout), z: node.z - t.zi + t.zj,
+      const hit = collideAny(data, obstacles, node);
+      if (hit) {
+        /* a would-be closing placement that existing track rejects: the
+         * geometry works, something is in the way — remember the culprit */
+        if (nz === zGoal && Math.hypot(goal.x - nx, goal.y - ny) <= SNAP_RADIUS
+            && angDist(nh, hGoal) <= FLEX_TURN_EPS) ctx.blocker = ctx.blocker || hit;
+        continue;
+      }
+      const child = { x: nx, y: ny, h: nh, z: nz,
         g: g2, n: node.n + 1, ser: ser++, f: f2, parent: node, piece, data };
       push(child);
     }
   }
+  ctx.truncated = ctx.truncated || open.size > 0; /* frontier left unexplored */
 }
 
 function chainOf(node) {
@@ -366,11 +377,12 @@ export function closeLoop(sprites, a, b, opts = {}) {
 
   /* shared expansion budget: total worst case stays bounded */
   const budget = { left: searchOpts.maxExpansions * Math.max(1, combos.length) };
-  const ctx = { exact: null, flex: null, flexCost: 0, missD: Infinity, missDh: 0 };
+  const ctx = { exact: null, flex: null, flexCost: 0, missD: Infinity, missDh: 0, blocker: null, truncated: false };
   let allLevelMiss = combos.length > 0;
+  let levels = null;
   for (const c of combos) {
     const z0 = levelAt(a, c.va), zGoal = levelAt(b, c.vb);
-    if (z0 !== zGoal && !canZ) continue; /* flat set cannot change level */
+    if (z0 !== zGoal && !canZ) { levels = [z0, zGoal]; continue; } /* flat set */
     allLevelMiss = false;
     if (ctx.exact && c.d / 100 >= ctx.exact.g) continue; /* cannot beat it */
     /* detour budget: crow flight + slack + the net turn the ends demand
@@ -395,6 +407,79 @@ export function closeLoop(sprites, a, b, opts = {}) {
     weldToEnd(pieces[pieces.length - 1], b, ctx.flexVb);
     return { ok: true, pieces, cost: ctx.flex.g, length: lengthOf(pieces), flex: true, gap };
   }
-  if (allLevelMiss) return { ok: false, reason: 'level' };
-  return { ok: false, reason: 'no-path', miss: { d: ctx.missD, dh: ctx.missDh } };
+  if (allLevelMiss) return { ok: false, reason: 'level', levels };
+  /* classify the miss so the toast can tell the owner what to do */
+  const miss = { d: ctx.missD, dh: ctx.missDh };
+  const why = ctx.blocker ? 'blocked'
+    : ctx.truncated ? 'limit' /* half-explored: any miss guess would be a lie */
+    : miss.dh > 5 ? 'facing'
+    : 'off-grid';
+  return { ok: false, reason: 'no-path', why, miss, blocker: ctx.blocker };
+}
+
+/* ---------- step-back: remove pieces until a closure exists ---------- */
+
+function neighborAt(sprites, p, vi) {
+  const v = vertexOf(p, vi);
+  let best = null, bd = OPEN_EPS;
+  for (const q of sprites) {
+    if (q === p) continue;
+    for (let j = 0; j < vertsOf(q).length; j++) {
+      const w = vertexOf(q, j);
+      const d = Math.hypot(v.x - w.x, v.y - w.y);
+      if (d <= bd) { bd = d; best = q; }
+    }
+  }
+  return best;
+}
+
+/* The piece behind end piece p in its chain: its single open vertex faces
+ * the gap, step through the other one. Guarded against walking through the
+ * near-touching gap joint into the other selected end. */
+function chainBack(sprites, p, other) {
+  const open = [];
+  for (let i = 0; i < vertsOf(p).length; i++) if (!neighborAt(sprites, p, i)) open.push(i);
+  if (open.length !== 1) return null; /* isolated or not an end */
+  const back = vertsOf(p).length - 1 - open[0];
+  const pred = neighborAt(sprites, p, back);
+  return pred && pred !== other ? pred : null;
+}
+
+/* Close the loop, removing as few pieces as possible until it works:
+ * first named blockers one at a time, then stepping each selected end back
+ * through its chain (removing a corner also flips the end heading — the
+ * cure for "facing" gaps). Returns the removals plus the closing run. */
+export function closeLoopStepping(sprites, a, b, opts = {}) {
+  const maxSteps = opts.maxSteps ?? 4;
+
+  /* 1. remove the named blocker(s), retrying after each */
+  {
+    const removed = [];
+    let scene = sprites;
+    for (let i = 0; i <= maxSteps; i++) {
+      const r = closeLoop(scene, a, b, opts);
+      if (r.ok) return { ok: true, removed, closed: r };
+      if (r.reason !== 'no-path' || !r.blocker || r.blocker === a || r.blocker === b) break;
+      removed.push(r.blocker);
+      scene = scene.filter((p) => p !== r.blocker);
+    }
+  }
+
+  /* 2. step each end chain back (independent of any blocker removals) */
+  for (const end of [a, b]) {
+    const other = end === a ? b : a;
+    const removed = [];
+    let scene = sprites;
+    let cur = end;
+    for (let k = 0; k < maxSteps; k++) {
+      const pred = chainBack(scene, cur, other);
+      if (!pred) break;
+      removed.push(cur);
+      scene = scene.filter((p) => p !== cur);
+      cur = pred;
+      const r = closeLoop(scene, cur, other, opts);
+      if (r.ok) return { ok: true, removed, closed: r };
+    }
+  }
+  return { ok: false, reason: 'no-path' };
 }

@@ -219,6 +219,18 @@ export function addPieces(list) {
   emit();
 }
 
+/* Step-back solution (solver closeLoopStepping): remove + insert in ONE
+ * history step so a single undo restores the whole track. */
+export function applySolution(removed, added) {
+  pushHistory();
+  const rm = new Set(removed || []);
+  state.sprites = state.sprites.filter((p) => !rm.has(p));
+  for (const p of added || []) state.sprites.push(p);
+  state.selection.clear();
+  for (const p of added || []) state.selection.add(p);
+  emit();
+}
+
 /* ---------- camera ---------- */
 
 export function setView(v) { state.view = v; notify(); }

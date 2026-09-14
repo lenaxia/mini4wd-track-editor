@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   state, place, undo, pushHistory, snapshot, pushSnapshot,
   setTool, setMode, rotate, bumpLevel, deleteSelected, removePiece, cycleColor,
-  clearAll, loadSprites, subscribe, addPieces,
+  clearAll, loadSprites, subscribe, addPieces, applySolution,
 } from '../../src/store.js';
 import { vertexOf } from '../../src/geometry.js';
 import { parseTrack } from '../../src/track.js';
@@ -260,4 +260,21 @@ test('addPieces bulk-inserts solver output, selects it, and is undoable', () => 
   assert.equal(state.sprites.length, 1);
   assert.equal(state.selection.size, 0);
   assert.deepEqual(addPieces([]), undefined); /* no-op guard */
+});
+
+test('applySolution removes and inserts in one undoable step', () => {
+  const a = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 };
+  const b = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 0 };
+  const doomed = { name: 'Str1', x: 208, y: 100, a: 0, c: 0, z: 0 };
+  const run = [{ name: 'Lan1', x: 262, y: 100, a: 0, c: 0, z: 0 }];
+  state.sprites.push(a, b, doomed);
+  applySolution([doomed], run);
+  assert.equal(state.sprites.length, 3); /* a, b, run */
+  assert.ok(state.sprites.includes(run[0]));
+  assert.ok(!state.sprites.includes(doomed));
+  assert.equal(state.selection.size, 1);
+  assert.equal(undo(), true);
+  assert.equal(state.sprites.length, 3); /* fully restored (JSON clones) */
+  assert.equal(state.sprites[2].x, 208); /* doomed is back */
+  assert.ok(!state.sprites.some((p) => p.name === 'Lan1'));
 });
