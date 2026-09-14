@@ -129,67 +129,52 @@ def rect_family(defn, rail):
             parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
         return parts
     elif kind == 'wave':
-        # Chicane, measured on the Chi1.0/Chi2.0 rips (1 px = 1 cm): a
-        # constant-height lane band whose whole cross-section — walls,
-        # rails, dividers — rides one raised-cosine hump that lifts the
-        # road at mid-span. Lanes stay parallel the whole way: solid
-        # full-width dividers, no pinch, no phase alternation, no dashes.
-        # Catalog h = band height + amplitude, so the humped outline
-        # exactly fills the viewBox (the verts entry y and the negative
-        # catalog center y encode the same shift).
-        # chi matches the straights (owner: straights are the
-        # reference): road 36 tall = the canvas' own 12-pitch, walls
-        # stroked AT the band edges like the straight family's rect
-        # stroke, dividers on the straights' centered +/-5.75 grid
-        band = 12 * lanes
-        # the band rides a centerline through the verts: flat runs at
-        # the verts' y (3 for Chi1, 6 for Chi2 — the road center the
-        # editor connects on), mid-span at -verts_y (the catalog's
-        # center field agrees where present). Hump amplitude = the
-        # swing between them, NOT h - band (that anchored the band to
-        # the canvas edge and skewed it 1.5-2.5 cm off the rip,
-        # misaligning lanes against the straights/weaves).
+        """Chicane, from scratch per INVARIANTS.
+
+        Geometry: a regulation lane band (LANE_W * lanes) whose
+        centerline runs through the verts (flat at +vy, mid-span at
+        -vy) on a raised-cosine hump — the curvature the owner
+        confirmed. Everything insets so the swept outline always fits
+        the canvas: wall stroke centers at band/2 - 0.4, i.e. the
+        outermost ink is vy_max + band/2 <= h/2 - 0.
+
+        Styling: the straight family's tokens exactly — 0.8 OUTLINE
+        walls, 0.7 DASH dashed dividers (2.4,1.8) on the centered
+        grid, variant rail loop, open ends.
+        """
+        band = LANE_W * lanes
         vy = defn['verts'][0][1]
-        amp = 2 * vy                          # 6 (Chi1), 12 (Chi2)
-        if defn['verts'][1][1] != vy or amp <= 0 or band + amp > h:
-            raise ValueError(f'{defn.get("label", "wave")}: verts must share y for the hump')
+        amp = 2 * vy
+        if defn['verts'][1][1] != vy or amp <= 0 or vy + band / 2 + 0.4 > h / 2:
+            raise ValueError(f'{defn.get("label", "wave")}: hump does not fit')
 
         n = int(round(w))
-        xs = [-w / 2 + w * i / n for i in range(n + 1)]   # 1 sample per cm
+        xs = [-w / 2 + w * i / n for i in range(n + 1)]
 
-        def e(x):                              # top edge: band rides the verts centerline
+        def c(x):                               # centerline: +vy ends, -vy mid
             t = (x + w / 2) / w
-            c = vy * (2 * math.cos(math.pi * t) ** 2 - 1)   # +vy ends, -vy mid
-            return c - band / 2
-
-        WALL = 0.8                              # straight-family styling (reference):
-                                               # 0.8 walls, 0.7 dashed dividers
+            return vy * (2 * math.cos(math.pi * t) ** 2 - 1)
 
         def pts(fn, xx=None):
             xx = xs if xx is None else xx
             return [f'{"M" if i == 0 else "L"} {xx[i]:.2f} {fn(xx[i]):.2f}' for i in range(len(xx))]
 
-        # bed: closed humped band, unstroked (strokes are drawn separately
-        # so the piece ends can stay open — the rips cap them with the
-        # rail color, not the outline)
-        edge = pts(lambda x: e(x)) + [f'L {x:.2f} {e(x) + band:.2f}' for x in reversed(xs)]
-        parts = [f'<path d="{" ".join(edge)} Z" fill="{BED}"/>']
-        # variant rails: a closed loop hugging the walls and wrapping
-        # around both ends (1 cm strip in the rips); inset 0.5 so the
-        # stroke never crosses the viewBox edge
+        INSET = 0.4                             # wall/rail stroke half-widths
+        top = lambda x: c(x) - band / 2 + INSET
+        bot = lambda x: c(x) + band / 2 - INSET
+        # bed: humped band between the wall line centers
+        bed_d = ' '.join(pts(top)) + ' ' + ' '.join(f'L {x:.2f} {bot(x):.2f}' for x in reversed(xs))
+        parts = [f'<path d="{bed_d} Z" fill="{BED}"/>']
+        # rails: variant loop wrapping both ends
         xr = [-w / 2 + 0.5] + xs[1:-1] + [w / 2 - 0.5]
-        rail_loop = pts(lambda x: e(x) + 1.9, xr) + [f'L {x:.2f} {e(x) + band - 1.9:.2f}' for x in reversed(xr)]
-        parts.append(f'<path d="{" ".join(rail_loop)} Z" fill="none" stroke="{rail}" stroke-width="1.0" stroke-linejoin="round"/>')
-        # walls: open polylines — their butt ends form the wall cross
-        # sections visible on the end caps
-        parts.append(f'<path d="{" ".join(pts(lambda x: e(x)))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
-        parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + band))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
-        # dividers on the CENTERED grid (c - LANE_W*lanes/2 + LANE_W*i)
-        # so chi's lanes match the straights'/weaves' exactly at the
-        # joint — anchoring at the top wall (e + WALL/2) shifts the
-        # grid half a stroke and makes the last lane run 10.9
+        rail_d = ' '.join(pts(lambda x: top(x) + 1.5, xr)) + ' ' + ' '.join(f'L {x:.2f} {bot(x) - 1.5:.2f}' for x in reversed(xr))
+        parts.append(f'<path d="{rail_d} Z" fill="none" stroke="{rail}" stroke-width="1.0" stroke-linejoin="round"/>')
+        # walls: straight-family weight, inset so nothing clips
+        parts.append(f'<path d="{" ".join(pts(top))}" fill="none" stroke="{OUTLINE}" stroke-width="0.8"/>')
+        parts.append(f'<path d="{" ".join(pts(bot))}" fill="none" stroke="{OUTLINE}" stroke-width="0.8"/>')
+        # dividers: straight-family dashes on the centered grid
         for i in range(1, lanes):
-            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: e(x) + band / 2 - LANE_W * lanes / 2 + LANE_W * i))}" fill="none" stroke="{DASH}" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>')
+            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: c(x) - LANE_W * lanes / 2 + LANE_W * i))}" fill="none" stroke="{DASH}" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>')
         return parts
     elif kind == 'changer':
         for i in range(lanes + 1):
