@@ -35,6 +35,20 @@ export function solverSetFor(a, b) {
   return FAMILY_SETS[la] || null;
 }
 
+/* Complete-tool endpoint contract (owner rules): straights (incl. the start
+ * gate), corners, waves and lane changers — level-neutral or flat kinds.
+ * Bridges/jumps/banks/hairpins are not supported ends yet. Each end piece
+ * must have exactly one free vertex (unambiguous direction into the gap). */
+const END_KINDS = new Set(['straight', 'start', 'corner', 'wave', 'changer']);
+
+/* null when p is a valid completion end; otherwise why not. */
+export function endPieceIssue(sprites, p) {
+  if (!END_KINDS.has(PIECES[p.name].kind)) return 'kind';
+  const open = openVerts(sprites, p);
+  if (open.length === 1) return null;
+  return open.length === 0 ? 'no-open' : 'multi-open';
+}
+
 const OPEN_EPS = 2;       // cm — a vertex with another this close is connected
 const INSET = 1;          // cm adjacency margin (mirrors store.bboxOverlap)
 /* Joint exemption width: the app's own chained welds drift ~0.01 cm per

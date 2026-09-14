@@ -30,38 +30,35 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('close loop refills a deleted middle piece between two selected ends', async ({ page }) => {
-  /* three chained straights: A - S - B (click ~4cm short of each next joint) */
+  /* five chained straights: P0 - P1 - [gap] - P3 - P4 after deleting P2 */
   await page.locator('.chip').first().click(); /* Str1 */
   const bb = await canvasBox(page);
-  await page.mouse.click(bb.x + bb.width * 0.4, bb.y + bb.height * 0.5);
-  let A = (await st(page)).sprites[0];
-  let click;
-  for (let i = 1; i < 3; i++) {
+  await page.mouse.click(bb.x + bb.width * 0.35, bb.y + bb.height * 0.5);
+  const P0 = (await st(page)).sprites[0];
+  for (let i = 1; i < 5; i++) {
     await page.locator('.chip').first().click();
-    click = await toScreen(page, A.x + 50 + 54 * (i - 1), A.y);
-    await page.mouse.click(click.x, click.y);
+    const c = await toScreen(page, P0.x + 50 + 54 * (i - 1), P0.y);
+    await page.mouse.click(c.x, c.y);
   }
   let s = await st(page);
-  expect(s.sprites).toHaveLength(3);
-  const [,, B] = s.sprites;
-  expect(B.x).toBe(A.x + 108); /* chained exactly: 2 x 54 cm */
-  const S = s.sprites[1];
+  expect(s.sprites).toHaveLength(5);
+  const A = s.sprites[1], B = s.sprites[3]; /* P1, P3: one open end each */
+  expect(B.x).toBe(P0.x + 162);
 
   /* delete the middle piece with the Delete tool */
   await page.keyboard.press('w');
-  const mid = await toScreen(page, S.x, S.y);
+  const mid = await toScreen(page, s.sprites[2].x, s.sprites[2].y);
   await page.mouse.click(mid.x, mid.y);
   s = await st(page);
-  expect(s.sprites).toHaveLength(2);
+  expect(s.sprites).toHaveLength(4);
 
   /* press L with nothing selected: advisory toast, no change */
   await page.keyboard.press('l');
   await expect(page.locator('#toast')).toContainText('Select exactly two');
-  expect((await st(page)).sprites).toHaveLength(2);
+  expect((await st(page)).sprites).toHaveLength(4);
 
-  /* select both ends with the Move tool (ctrl+click toggles; the modifier
-   * must be held — click()'s modifiers option doesn't reach pointer events).
-   * Tap empty space first: placement left the last piece selected. */
+  /* select both ends with the Move tool (held ctrl toggles; empty-tap first
+   * because placement left the last piece selected) */
   await page.keyboard.press('q');
   const pa = await toScreen(page, A.x, A.y);
   const pb = await toScreen(page, B.x, B.y);
@@ -75,17 +72,18 @@ test('close loop refills a deleted middle piece between two selected ends', asyn
   /* close the loop: the pulled 54 cm gap refills with exactly one Str1 */
   await page.keyboard.press('l');
   s = await st(page);
-  expect(s.sprites).toHaveLength(3);
+  expect(s.sprites).toHaveLength(5);
   await expect(page.locator('#toast')).toContainText('Loop closed');
-  const refill = s.sprites[2];
+  const refill = s.sprites[4];
   expect(refill.name).toBe('Str1');
   expect(refill.x).toBe(A.x + 54); /* exact refill of the deleted piece */
   expect(refill.y).toBe(A.y);
   expect(s.sel).toBe(1); /* the new run is selected */
+  expect(s.tool).toBe('Move'); /* L keeps the current tool */
 
   /* undo removes the whole run in one step */
   await page.keyboard.press('r');
-  expect((await st(page)).sprites).toHaveLength(2);
+  expect((await st(page)).sprites).toHaveLength(4);
 });
 
 test('close loop button lives in the menu and routes to the same action', async ({ page }) => {
@@ -99,27 +97,25 @@ test('failed close offers step-back as a tappable toast, not a native dialog', a
   let nativeDialog = false;
   page.on('dialog', (d) => { nativeDialog = true; d.dismiss(); });
 
-  /* A - [gap] - B - B2 (B's far end chained: only B.v0 is open) */
+  /* P0 - P1 - [gap] - P3 - P4, gap walled on P3's only open vertex */
   await page.locator('.chip').first().click(); /* Str1 */
   const bb = await canvasBox(page);
-  await page.mouse.click(bb.x + bb.width * 0.4, bb.y + bb.height * 0.5);
-  const A = (await st(page)).sprites[0];
-  for (let i = 1; i < 4; i++) {
+  await page.mouse.click(bb.x + bb.width * 0.35, bb.y + bb.height * 0.5);
+  const P0 = (await st(page)).sprites[0];
+  for (let i = 1; i < 5; i++) {
     await page.locator('.chip').first().click();
-    const c = await toScreen(page, A.x + 50 + 54 * (i - 1), A.y);
+    const c = await toScreen(page, P0.x + 50 + 54 * (i - 1), P0.y);
     await page.mouse.click(c.x, c.y);
   }
-  const s4 = await st(page);
-  const B = s4.sprites[2], B2 = s4.sprites[3];
-  expect(B2.x).toBe(A.x + 162); /* chain continues past the gap */
+  const s5 = await st(page);
+  const A = s5.sprites[1], B = s5.sprites[3];
 
-  /* delete the second piece: one-straight gap between A and B */
+  /* delete the middle piece */
   await page.keyboard.press('w');
-  const mid = await toScreen(page, s4.sprites[1].x, s4.sprites[1].y);
+  const mid = await toScreen(page, s5.sprites[2].x, s5.sprites[2].y);
   await page.mouse.click(mid.x, mid.y);
-  expect((await st(page)).sprites).toHaveLength(3);
 
-  /* deselect, then wall B's only open vertex (27 left of B's center) */
+  /* deselect, then wall B's open vertex with a vertical lane changer */
   await page.keyboard.press('q');
   await page.mouse.click(bb.x + bb.width * 0.8, bb.y + bb.height * 0.2);
   await page.locator('.chip').nth(2).click(); /* Lan1 */
@@ -127,7 +123,7 @@ test('failed close offers step-back as a tappable toast, not a native dialog', a
   await page.keyboard.press('x'); /* armed angle 90 */
   const w = await toScreen(page, B.x - 27, B.y);
   await page.mouse.click(w.x, w.y);
-  expect((await st(page)).sprites).toHaveLength(4);
+  expect((await st(page)).sprites).toHaveLength(5); /* P0,P1,P3,P4 + wall */
 
   /* select the two ends and attempt the close: it must fail with a toast */
   await page.keyboard.press('q');
@@ -149,10 +145,10 @@ test('failed close offers step-back as a tappable toast, not a native dialog', a
   await expect(toast).toContainText('Stepped back 1 pc');
   expect(nativeDialog).toBe(false); /* no confirm() anywhere */
   const s = await st(page);
-  expect(s.sprites).toHaveLength(4); /* wall removed, 1 straight inserted */
-  const refill = s.sprites[3];
+  expect(s.sprites).toHaveLength(5); /* wall removed, 1 straight inserted */
+  const refill = s.sprites[4];
   expect(refill.name).toBe('Str1');
-  expect(refill.x).toBe(A.x + 54); /* exact refill of the deleted piece */
+  expect(refill.x).toBe(A.x + 54);
 });
 
 test('mixed-lane selections are rejected with guidance', async ({ page }) => {
@@ -172,4 +168,46 @@ test('mixed-lane selections are rejected with guidance', async ({ page }) => {
   await page.keyboard.up('Control');
   await page.keyboard.press('l');
   await expect(page.locator('#toast')).toContainText('same lane count');
+});
+
+test('Complete tool: intro dialog once, two taps close the gap', async ({ page }) => {
+  /* P0 - P1 - [gap] - P3 - P4 */
+  await page.locator('.chip').first().click();
+  const bb = await canvasBox(page);
+  await page.mouse.click(bb.x + bb.width * 0.35, bb.y + bb.height * 0.5);
+  const P0 = (await st(page)).sprites[0];
+  for (let i = 1; i < 5; i++) {
+    await page.locator('.chip').first().click();
+    const c = await toScreen(page, P0.x + 50 + 54 * (i - 1), P0.y);
+    await page.mouse.click(c.x, c.y);
+  }
+  const s5 = await st(page);
+  const A = s5.sprites[1], B = s5.sprites[3];
+  await page.keyboard.press('w');
+  const mid = await toScreen(page, s5.sprites[2].x, s5.sprites[2].y);
+  await page.mouse.click(mid.x, mid.y);
+  await page.keyboard.press('q');
+  await page.mouse.click(bb.x + bb.width * 0.8, bb.y + bb.height * 0.2); /* deselect */
+
+  /* arm the tool: intro dialog appears, dismiss with OK */
+  await page.locator('#btnComplete').click();
+  expect((await st(page)).tool).toBe('Complete');
+  await expect(page.locator('#completeDialog')).toBeVisible();
+  await expect(page.locator('#completeDialog')).toContainText('remove pieces one at a time');
+  await page.locator('#completeOk').click();
+  await expect(page.locator('#completeDialog')).not.toBeVisible();
+
+  /* tap the two ends: first is highlighted, second completes */
+  const pa = await toScreen(page, A.x, A.y);
+  await page.mouse.click(pa.x, pa.y);
+  expect((await st(page)).sel).toBe(1);
+  const pb = await toScreen(page, B.x, B.y);
+  await page.mouse.click(pb.x, pb.y);
+
+  const s = await st(page);
+  expect(s.sprites).toHaveLength(5); /* 4 + 1 refill */
+  await expect(page.locator('#toast')).toContainText('Loop closed');
+  expect(s.sprites[4].x).toBe(A.x + 54);
+  expect(s.tool).toBe('Move'); /* Figma-style revert on success */
+  expect(s.sel).toBe(1); /* the new run is selected */
 });

@@ -185,7 +185,7 @@ function drawVertices(p, snapped) {
 }
 
 function drawHitboxesIfTool() {
-  if (!['Move', 'Delete', 'Color'].includes(state.tool)) return;
+  if (!['Move', 'Delete', 'Color', 'Complete'].includes(state.tool)) return;
   ctx.save();
   ctx.setLineDash([5 / state.view.scale]);
   ctx.lineWidth = 1.4 / state.view.scale;

@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Mini4WD Track Editor — mobile fork (PoC)</title>
   <meta name="description" content="Touch-first fork of the Mini4WD Online Track Editor. Same track format, works on phones.">
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
   <header id="topbar">
@@ -41,7 +41,8 @@
       <button class="tool" data-tool="Pan"    type="button" title="Pan / view (Space)">✋</button>
       <button class="tool" data-tool="Move"   type="button" title="Select / move (Q)">✥</button>
       <button class="tool" data-tool="Delete" type="button" title="Delete (W)">🗑</button>
-      <button class="tool" data-tool="Color"  type="button" title="Change color (E)">◐</button>
+      <button class="tool" data-tool="Color"  type="button" title="Change color (E)"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="6.5" r="4" fill="#e05263"/><circle cx="6.5" cy="16" r="4" fill="#2ea89b"/><circle cx="17.5" cy="16" r="4" fill="#4f8fdd"/></svg></button>
+      <button class="tool" id="btnComplete" data-tool="Complete" type="button" title="Complete track — tap two ends (L)">🏁</button>
       <span class="sep"></span>
       <button class="tool" id="btnUndo"  type="button" title="Undo (R)">↩</button>
       <button class="tool" id="btnLvlUp"   type="button" title="Raise level +10mm (PageUp)">▲</button>
@@ -98,7 +99,7 @@
       <li><b>✋</b> pan tool: drag to look around without placing. <b>⤢</b> zooms to fit the whole track. <b>Two fingers</b> → pan &amp; pinch-zoom.</li>
       <li><b>⟲ / ⟳</b> rotate by 45° — while placing they turn the ghost; under ✥ they rotate the selection.</li>
       <li><b>✥</b> drag on empty space to rubber-band select · <b>ctrl/cmd+click</b> a piece to add/remove it · drag a selected piece to move the whole group (it snaps) · <b>⟲/⟳</b> rotate the selection.</li>
-      <li><b>⌫</b> tap a piece to delete it. <b>◐</b> tap to cycle its color.</li>
+      <li><b>🗑</b> tap a piece to delete it. The <b>three-dot</b> tool taps to cycle its color.</li>
       <li><b>Close the loop</b> (☰ or <kbd>L</kbd>): select exactly two pieces of the <b>same lane count</b> with <b>✥</b> and the gap between their free ends is filled with the shortest run of that family's straights and 45° corners that misses every placed piece. Ends 75 mm apart in level bridge straight over; smaller gaps and same-level overlaps are avoided. If it can't close, the tool says why and offers to remove pieces until it can — one undo puts everything back.</li>
       <li>Scale: 1 px = 1 cm, one grid square = 1 m (same as original).</li>
     </ul>
@@ -111,8 +112,19 @@
     </ul>
   </dialog>
 
+  <dialog id="completeDialog">
+    <div class="dialog-head">
+      <h2>Complete track</h2>
+      <button id="completeClose" class="icon-btn" type="button" aria-label="Close">✕</button>
+    </div>
+    <p class="io-hint">Tap two end pieces to complete the track — the gap is filled with the shortest run of straights and 45&deg; corners that clears every piece. If no workable solution is found, the tool can automatically remove pieces one at a time until the track can be completed. Both ends must be of the same lane count and elevation, with exactly one free end each. Straights, corners, waves and lane changers are supported as ends.</p>
+    <div class="dialog-actions">
+      <button id="completeOk" type="button" class="primary">OK</button>
+    </div>
+  </dialog>
+
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=31"></script>
+  <script type="module" src="src/main.js?v=32"></script>
 </body>
 </html>

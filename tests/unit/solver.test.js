@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { closeLoop, closeLoopStepping, piecesCollide, solverSetFor } from '../../src/solver.js';
+import { closeLoop, closeLoopStepping, piecesCollide, solverSetFor, endPieceIssue } from '../../src/solver.js';
 import { PIECES } from '../../src/pieces.js';
 import {
   orientAngle, vertexOf, vertsOf, levelAt, rot, outwardTangent, inwardTangent,
@@ -391,4 +391,33 @@ test('closes a rucdoc 2-lane gap with rucdoc pieces', () => {
   const all = sprites.concat(res.pieces);
   assert.deepEqual(badJoints(all), []);
   assert.equal(noCollisions(all), null);
+});
+
+/* ---------- end-piece eligibility (Complete tool contract) ---------- */
+
+test('endPieceIssue: supported kinds, exactly one open end required', () => {
+  const chain = [mk('Str1', 100, 100)];
+  weldOn(chain, 'Str1', chain[0], 1, 0); /* chain: A - B */
+  const A = chain[0], B = chain[1];
+  assert.equal(endPieceIssue(chain, A), null); /* one open end (v0) */
+  assert.equal(endPieceIssue(chain, B), null);
+  const lone = [mk('Str1', 400, 400)];
+  assert.equal(endPieceIssue(lone, lone[0]), 'multi-open'); /* both ends free */
+  const ring = [mk('Cor1', 0, 0)];
+  let cur = ring[0];
+  for (let k = 1; k < 8; k++) cur = weldOn(ring, 'Cor1', cur, 1, 0);
+  assert.equal(endPieceIssue(ring, ring[0]), 'no-open'); /* fully connected */
+});
+
+test('endPieceIssue: bridges, jumps, banks, hairpins rejected as ends', () => {
+  for (const name of ['Str1', 'Cor1', 'Chi1', 'Lan1', 'Str2']) {
+    const chain = [mk('Str1', 100, 100)];
+    weldOn(chain, name, chain[0], 1, 0); /* welded on: exactly one open end */
+    assert.equal(endPieceIssue(chain, chain[1]), null, `${name} should be a valid end`);
+  }
+  for (const name of ['Bri1', 'Bri2', 'Ban1', 'Lan2', 'Bri3', 'Ban2', 'Lan3']) {
+    const chain = [mk('Str1', 100, 100)];
+    weldOn(chain, name, chain[0], 1, 0);
+    assert.equal(endPieceIssue(chain, chain[1]), 'kind', `${name} should be rejected`);
+  }
 });

@@ -80,5 +80,5 @@ test('color count never exceeds the variant palette', () => {
 });
 
 test('TOOLS contains exactly the non-piece tools', () => {
-  assert.deepEqual(TOOLS, ['Pan', 'Move', 'Delete', 'Color']);
+  assert.deepEqual(TOOLS, ['Pan', 'Move', 'Delete', 'Color', 'Complete']);
 });

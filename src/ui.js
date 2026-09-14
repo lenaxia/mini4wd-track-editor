@@ -9,7 +9,7 @@ import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { drawPieceArt } from './art.js';
-import { closeLoop, closeLoopStepping, solverSetFor } from './solver.js';
+import { closeLoop, closeLoopStepping, solverSetFor, endPieceIssue } from './solver.js';
 
 const $ = (id) => document.getElementById(id);
 let ioMode = 'import'; /* or 'share' */
@@ -130,31 +130,49 @@ function importText(text) {
 
 /* ---------- close the loop (solver) ---------- */
 
+/* Complete-track explainer: shown once per session, the first time the tool
+ * is armed. Returns true when it just opened (the triggering tap is spent). */
+let completeIntroShown = false;
+export function completeToolIntro() {
+  if (completeIntroShown) return false;
+  completeIntroShown = true;
+  openDialog($('completeDialog'));
+  return true;
+}
+
 /* Fill the gap between exactly two selected pieces with the shortest run of
- * 3-lane straights/corners/lane-changers that clears every placed piece
- * (75 mm level differences bridge over). Shared by the menu button and L. */
+ * family straights / 45-deg corners that clears every placed piece
+ * (75 mm level differences bridge over). Shared by the menu button, L and
+ * the Complete tool. Returns true when the loop was closed. */
 export function closeLoopAction() {
   const sel = [...state.selection];
-  if (sel.length !== 2) { toast('Select exactly two pieces (Move tool), then Close loop'); return; }
+  if (sel.length !== 2) { toast('Select exactly two pieces (Move tool), then Close loop'); return false; }
   const set = solverSetFor(sel[0], sel[1]);
-  if (!set) { toast('Pick two ends of the same lane count — e.g. both 3-lane'); return; }
+  if (!set) { toast('Pick two ends of the same lane count — e.g. both 3-lane'); return false; }
+  for (const p of sel) {
+    const issue = endPieceIssue(state.sprites, p);
+    if (issue === 'kind') { toast(`${PIECES[p.name].label} isn\u2019t supported as an end yet — use a straight, corner, wave or lane changer`); return false; }
+    if (issue === 'multi-open') { toast('Pick end pieces with exactly one free end (this one has both ends free)'); return false; }
+    if (issue === 'no-open') { toast('That piece has no free end'); return false; }
+  }
   const res = closeLoop(state.sprites, sel[0], sel[1], { set });
   if (!res.ok) {
-    if (res.reason === 'no-open') { toast('One end has no free connection point'); return; }
+    if (res.reason === 'no-open') { toast('One end has no free connection point'); return false; }
     if (res.reason === 'level') {
       const [z0, z1] = res.levels || [];
       toast(`Ends are at different levels${Number.isFinite(z0) ? ` (${z0} vs ${z1} mm)` : ''} — link them with a slope first`);
-      return;
+      return false;
     }
-    if (res.reason === 'no-path') { offerStepBack(sel, res, set); return; }
+    if (res.reason === 'no-path') { offerStepBack(sel, res, set); return false; }
     toast('Could not close the loop from these ends');
-    return;
+    return false;
   }
   addPieces(res.pieces);
   closeDialog($('menuDialog'));
   toast(res.flex
     ? `Loop closed \u00B7 ${res.pieces.length} pcs \u00B7 ${res.length.toFixed(2)} m \u00B7 ${res.gap.toFixed(1)} cm bend (ends off-grid)`
     : `Loop closed \u00B7 ${res.pieces.length} pcs \u00B7 ${res.length.toFixed(2)} m`);
+  return true;
 }
 
 /* A failed closure explains itself in a toast, with a tappable offer to
@@ -256,6 +274,9 @@ export function init(dimsGetter) {
   document.querySelectorAll('[data-tool]').forEach((b) => {
     b.addEventListener('click', () => setTool(b.dataset.tool));
   });
+  $('btnComplete').addEventListener('click', () => completeToolIntro()); /* once per session, on first arm */
+  $('completeOk').addEventListener('click', () => closeDialog($('completeDialog')));
+  $('completeClose').addEventListener('click', () => closeDialog($('completeDialog')));
   $('btnRotL').addEventListener('click', () => { if (!rotate(-45)) toast(`${state.angle}\u00B0`); });
   $('btnRotR').addEventListener('click', () => { if (!rotate(45)) toast(`${state.angle}\u00B0`); });
   $('btnUndo').addEventListener('click', () => { if (!undo()) toast('Nothing to undo'); });

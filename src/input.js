@@ -8,7 +8,7 @@ import {
 } from './store.js';
 import { TOOLS } from './pieces.js';
 import { topPieceAt, isHit, snapPiece, groupSnap, worldFromScreen, clampScale, pieceHalfExtents } from './geometry.js';
-import { toast, closeLoopAction } from './ui.js';
+import { toast, closeLoopAction, completeToolIntro } from './ui.js';
 
 const pointers = new Map();
 let pinch = null;   // {d, cx, cy, scale, vx, vy}
@@ -49,8 +49,29 @@ function beginPinch() {
   tapInfo = null;
 }
 
-/* ---------- tap actions for the Delete / Color tools ---------- */
+/* ---------- Complete tool: tap two end pieces, the run closes ---------- */
+let completePick = null;
+
+function completeTap(pt) {
+  if (completeToolIntro()) return; /* first arm shows the explainer instead */
+  const hit = topPieceAt(state.sprites, pt);
+  if (!hit || !isHit(hit, pt)) { completePick = null; state.selection.clear(); updateLight(() => {}); return; }
+  if (hit === completePick) { completePick = null; state.selection.clear(); updateLight(() => {}); return; }
+  if (!completePick) {
+    completePick = hit;
+    state.selection.clear();
+    state.selection.add(hit); /* highlighted like a Move-tool selection */
+    updateLight(() => {});
+    return;
+  }
+  completePick = null;
+  state.selection.add(hit); /* two ends picked: run it */
+  if (closeLoopAction()) setTool('Move'); /* Figma-style revert on success */
+}
+
+/* ---------- tap actions for the Delete / Color / Complete tools ---------- */
 function actAt(pt) {
+  if (state.tool === 'Complete') { completeTap(pt); return; }
   if (!['Delete', 'Color'].includes(state.tool)) return;
   const hit = topPieceAt(state.sprites, pt); /* z-ordered like Move: bridges win taps */
   if (!hit || !isHit(hit, pt)) return; /* isHit honors centerOf + HITBOX_RADIUS */
@@ -246,6 +267,7 @@ function onKeyDown(e) {
   else if (k === 'r') { if (!undo()) toast('Nothing to undo'); }
   else if (k === 'f') fitView(getDims().w, getDims().h);
   else if (k === 'escape') {
+    completePick = null;
     if (groupDrag && groupDrag.placed) {
       /* cancel an in-progress placement: remove the piece */
       const g = groupDrag; groupDrag = null;
