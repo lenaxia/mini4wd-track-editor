@@ -20,7 +20,7 @@ export function preloadImages(onload) {
       if (IMAGES[f]) continue; /* shared sprites load once */
       const img = new Image();
       img.onload = onload;
-      img.src = `assets/${f}?v=17`;
+      img.src = `assets/${f}?v=18`;
       IMAGES[f] = img;
     }
   }

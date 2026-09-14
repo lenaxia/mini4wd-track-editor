@@ -55,116 +55,24 @@ def chevron(x, y, h, dx=2.2, color=CHEVRON, w=0.9):
 
 
 def rect_family(defn, rail):
-    """straight/start/slope/jump/bank/wave/changer share the rect footprint."""
+    """straight/start/slope — Bri2.0's vocabulary: per-lane closed
+    stroked rectangles (1.2, miter joins) on the regulation grid over
+    one bed fill. No rails, dashes, or chevrons; the start checker
+    stays as a marking on top. (jump/wave route to their own art;
+    bank keeps its solid block.)"""
     w, h, lanes = defn['w'], defn['h'], defn.get('lanes', 1)
-    kind = defn['kind']
-    parts = [rr(-w / 2, -h / 2, w, h, min(2.0, h / 4), fill=BED)]
-    # rails (variant color) inside the top/bottom edges
-    rail_h = min(1.8, h * 0.14)
-    parts.append(rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, rail_h, 1.0, fill=rail, stroke='none'))
-    parts.append(rr(-w / 2 + 0.4, h / 2 - 0.4 - rail_h, w - 0.8, rail_h, 1.0, fill=rail, stroke='none'))
-    # lane separators: straight kinds (wave/changer override below)
-    if kind in ('straight', 'start', 'slope', 'jump', 'bank'):
-        for i in range(1, lanes):
-            y = -LANE_W * lanes / 2 + LANE_W * i
-            parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
-    if kind == 'straight':
-        n = max(1, round(w / 54))
-        for i in range(n):
-            parts.append(chevron(-w / 4 + (w / 2 / n) * i + 2.2, 0, h / 8, 2.2, 'rgba(0,0,0,.18)'))
-    elif kind == 'start':
-        cell = h / 4
-        parts.append('<g>')
+    half = LANE_W * lanes / 2
+    parts = [f'<path d="M {-w/2:.2f} {-half:.2f} H {w/2:.2f} V {half:.2f} H {-w/2:.2f} Z" fill="{BED}"/>']
+    for i in range(lanes):
+        y0 = -half + LANE_W * i
+        parts.append(f'<path d="M {-w/2:.2f} {y0:.2f} H {w/2:.2f} V {y0 + LANE_W:.2f} H {-w/2:.2f} Z" '
+                     f'fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
+    if defn['kind'] == 'start':
+        cell = LANE_W / 2
         for r in range(4):
             for c in range(2):
                 if (r + c) % 2 == 0:
-                    parts.append(f'<rect x="{-w/6 + c*cell:.2f}" y="{-h/2 + r*cell:.2f}" width="{cell:.2f}" height="{cell:.2f}" fill="#ffffff"/>')
-        parts.append('</g>')
-    elif kind == 'slope':
-        n = max(2, round(w / 9))
-        for i in range(n):
-            parts.append(chevron(-w / 2 + 3 + (w - 6) * i / n, 0, h / 3))
-    elif kind == 'jump':
-        # Bri2.0 measured (1 px = 1 cm): a clean 3-lane runway — solid
-        # dividers, no chevrons, open ends — whose bottom-lane strip is
-        # the jump's front elevation: bed→bank-gray left-to-right
-        # gradient, a ~1.5 cm dark end wall ~37.5 cm from the left edge
-        # (re-measured: opaque content ends ~col 37; the ~2 cm dark
-        # edge is the wall), corner beyond the ramp left transparent.
-        RAMP, ENDW = 37.5, 1.5                  # re-measured: opaque content ends ~col 37; the ~2cm dark edge is the wall
-        y0 = -LANE_W * lanes / 2 + LANE_W * (lanes - 1)   # last lane boundary
-        x1, x2 = -w / 2 + RAMP - ENDW, -w / 2 + RAMP
-        parts = [
-            # bed: full-width band plus the ramp footprint (cut corner
-            # stays transparent), all strokes drawn as open lines below
-            f'<path d="M {-w/2:.2f} {-h/2:.2f} H {w/2:.2f} V {y0:.2f} H {x2:.2f} V {h/2:.2f} H {-w/2:.2f} Z" fill="{BED}"/>',
-            f'<defs><linearGradient id="jumpface" gradientUnits="userSpaceOnUse" x1="{-w/2+2:.2f}" y1="0" x2="{-w/2+20:.2f}" y2="0">'
-            f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient></defs>',
-            f'<rect x="{-w/2:.2f}" y="{y0+1:.2f}" width="{x1+w/2:.2f}" height="{h/2-y0-1:.2f}" fill="url(#jumpface)"/>',
-            f'<rect x="{x1:.2f}" y="{y0:.2f}" width="{ENDW:.2f}" height="{h/2-y0:.2f}" fill="{OUTLINE}"/>',
-            # walls (open lines: the rip caps divider/wall ends only)
-            line(-w / 2, -h / 2 + 0.6, w / 2, -h / 2 + 0.6, OUTLINE, 1.2, dash=None),
-            line(w / 2 - 0.6, -h / 2, w / 2 - 0.6, y0, OUTLINE, 1.2, dash=None),
-            line(-w / 2, h / 2 - 0.6, x2, h / 2 - 0.6, OUTLINE, 1.2, dash=None),
-            line(-w / 2 + 0.5, y0, -w / 2 + 0.5, h / 2, rail, 1.0, dash=None),
-            # face top: dark shadow under the elevated part of the ramp
-            # (the light tail at the left is divider2's own AA), dark
-            # step past it
-            line(-w / 2 + 12, y0 + 0.55, x2, y0 + 0.55, DASH, 1.1, dash=None),
-            line(x2, y0 + 0.55, w / 2, y0 + 0.55, OUTLINE, 1.1, dash=None),
-        ]
-        # lane dividers (solid in the rip); the bottom one doubles as
-        # the face top border above the shadow line
-        for i in range(1, lanes):
-            dy = -LANE_W * lanes / 2 + LANE_W * i - (0.3 if i == lanes - 1 else 0)
-            parts.append(line(-w / 2, dy, w / 2, dy, DASH, 1.8, dash=None))
-        return parts
-    elif kind == 'bank':
-        # the original bank is a solid variant-colored banked block
-        parts = [rr(-w / 2, -h / 2, w, h, min(2.0, h / 4), fill=rail)]
-        parts.append(rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, min(1.6, h * 0.12), 1.0, fill=OUTLINE, stroke='none'))
-        parts.append(rr(-w / 2 + 0.4, h / 2 - 0.4 - min(1.6, h * 0.12), w - 0.8, min(1.6, h * 0.12), 1.0, fill=OUTLINE, stroke='none'))
-        for i in range(1, lanes):
-            y = -LANE_W * lanes / 2 + LANE_W * i
-            parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
-        return parts
-    elif kind == 'wave':
-        # Chicane = Bri2.0's vocabulary riding the confirmed hump:
-        # closed stroked lane rectangles (1.2, miter joins) on the
-        # regulation grid, per-lane bed fills, nothing else. The
-        # centerline runs through the verts (+vy flat, -vy mid) so
-        # joints align with the straights.
-        band = LANE_W * lanes
-        vy = defn['verts'][0][1]
-        if defn['verts'][1][1] != vy or vy + band / 2 + 0.6 > h / 2:
-            raise ValueError(f'{defn.get("label", "wave")}: hump does not fit')
-        n = int(round(w))
-        xs = [-w / 2 + w * i / n for i in range(n + 1)]
-
-        def c(x):
-            t = (x + w / 2) / w
-            return vy * (2 * math.cos(math.pi * t) ** 2 - 1)
-
-        def lane_path(i):
-            top = lambda x: c(x) - band / 2 + LANE_W * i
-            d = ' '.join(f'{"M" if k == 0 else "L"} {xs[k]:.2f} {top(xs[k]):.2f}' for k in range(n + 1))
-            d += ' ' + ' '.join(f'L {x:.2f} {top(x) + LANE_W:.2f}' for x in reversed(xs))
-            return d + ' Z'
-
-        # bed: whole humped band
-        bed = ' '.join(f'{"M" if k == 0 else "L"} {xs[k]:.2f} {c(xs[k]) - band / 2:.2f}' for k in range(n + 1))
-        bed += ' ' + ' '.join(f'L {x:.2f} {c(x) + band / 2:.2f}' for x in reversed(xs))
-        parts = [f'<path d="{bed} Z" fill="{BED}"/>']
-        for i in range(lanes):
-            parts.append(f'<path d="{lane_path(i)}" fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
-        return parts
-    elif kind == 'changer':
-        for i in range(lanes + 1):
-            y1 = -h / 2 + (i * h) / lanes
-            y2 = -h / 2 + ((lanes - i) * h) / lanes
-            parts.append(line(-w / 2 + 3, y1, w / 2 - 3, y2, DASH, 0.8, dash=None))
-        parts.append(chevron(-w / 6, 0, 6, 2.2))
-        parts.append(chevron(w / 6, 0, 6, -2.2))
+                    parts.append(f'<rect x="{-w/6 + c*cell:.2f}" y="{-half + r*cell:.2f}" width="{cell:.2f}" height="{cell:.2f}" fill="#ffffff"/>')
     return parts
 
 
@@ -402,46 +310,38 @@ def lan2_art(defn, rail):
 
 
 def arc_family(defn, rail):
-    """corner/hairpin: annular sector from solveGeo geometry."""
+    """corner/hairpin: Bri2.0's vocabulary on annular geometry — each
+    lane a closed annular band (arc out, radial end, arc back, close)
+    stroked 1.2 on the regulation grid, one sector bed fill. No rails
+    or dashes; the mid-arc direction chevron stays as a marking."""
     geo = defn['_geo']
     lanes = defn.get('lanes', 3)
-    band = defn['band']
     cx, cy = geo['cx'], geo['cy']
     a1, sweep = geo['a1'], geo['sweep']
     R = geo['R']
     P = lambda r, a: (cx + r * math.cos(a), cy + r * math.sin(a))
-
-    ro, ri = R + band / 2, R - band / 2
-    wo, wi = R + LANE_W * lanes / 2, R - LANE_W * lanes / 2  # wall lines
+    half = LANE_W * lanes / 2
     large = 1 if abs(sweep) > math.pi else 0
     sflag = 1 if sweep > 0 else 0
-    x1, y1 = P(ro, a1); x2, y2 = P(ro, a1 + sweep)
-    x3, y3 = P(ri, a1 + sweep); x4, y4 = P(ri, a1)
-    parts = [
-        f'<path d="M {x1:.2f} {y1:.2f} A {ro:.2f} {ro:.2f} 0 {large} {sflag} {x2:.2f} {y2:.2f} '
-        f'L {x3:.2f} {y3:.2f} A {ri:.2f} {ri:.2f} 0 {large} {1-sflag} {x4:.2f} {y4:.2f} Z" '
-        f'fill="{BED}"/>'
-    ]
-    # walls on the regulation grid (same inset as the straight family,
-    # so corner lanes are 11.5 like chicane/weave pieces, not 12.25)
-    for r in (wo, wi):
-        xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
-        parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
-    # rails: thin arcs just inside the walls
-    for r, col in ((wo - 0.9, rail), (wi + 0.9, rail)):
-        xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
-        parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{col}" stroke-width="1.6"/>')
-    # lane separators: dashed arcs
-    for i in range(1, lanes):
-        r = R - LANE_W * lanes / 2 + LANE_W * i
-        xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
-        parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{DASH}" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>')
-    # direction chevron at mid-arc
+
+    def band_path(r0, r1):
+        x1, y1 = P(r0, a1); x2, y2 = P(r0, a1 + sweep)
+        x3, y3 = P(r1, a1 + sweep); x4, y4 = P(r1, a1)
+        return (f'M {x1:.2f} {y1:.2f} A {r0:.2f} {r0:.2f} 0 {large} {sflag} {x2:.2f} {y2:.2f} '
+                f'L {x3:.2f} {y3:.2f} A {r1:.2f} {r1:.2f} 0 {large} {1-sflag} {x4:.2f} {y4:.2f} Z')
+
+    parts = [f'<path d="{band_path(R - half, R + half)}" fill="{BED}"/>']
+    for i in range(lanes):
+        parts.append(f'<path d="{band_path(R - half + LANE_W * i, R - half + LANE_W * (i + 1))}" '
+                     f'fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
+    # direction chevron at mid-arc (marking, not structure)
     am = a1 + sweep / 2
-    rm = R
-    px, py = P(rm, am)
+    px, py = P(R, am)
     tang = am + (math.pi / 2 if sweep > 0 else -math.pi / 2)
-    parts.append(f'<path d="M {px - 1.6*math.cos(tang):.2f} {py - 1.6*math.sin(tang) - band/6:.2f} L {px + 1.6*math.cos(tang):.2f} {py + 1.6*math.sin(tang):.2f} L {px - 1.6*math.cos(tang):.2f} {py - 1.6*math.sin(tang) + band/6:.2f}" fill="none" stroke="{CHEVRON}" stroke-width="0.9" transform="rotate({math.degrees(tang):.1f} {px:.2f} {py:.2f})"/>')
+    parts.append(f'<path d="M {px - 1.6*math.cos(tang):.2f} {py - 1.6*math.sin(tang) - half/3:.2f} '
+                 f'L {px + 1.6*math.cos(tang):.2f} {py + 1.6*math.sin(tang):.2f} '
+                 f'L {px - 1.6*math.cos(tang):.2f} {py - 1.6*math.sin(tang) + half/3:.2f}" '
+                 f'fill="none" stroke="{DASH}" stroke-width="0.9"/>')
     return parts
 
 

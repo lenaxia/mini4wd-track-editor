@@ -1,13 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="-26.0 -26.0 52 52">
   <clipPath id="vb"><rect x="-26.0" y="-26.0" width="52" height="52"/></clipPath>
   <g clip-path="url(#vb)">
-  <path d="M -26.01 -26.00 A 72.00 72.00 0 0 1 24.92 -4.93 L -0.52 20.53 A 36.00 36.00 0 0 0 -25.99 10.00 Z" fill="#efeae5"/>
-  <path d="M -26.01 -25.25 A 71.25 71.25 0 0 1 24.39 -4.40" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -25.99 9.25 A 36.75 36.75 0 0 1 0.01 20.00" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -26.01 -24.35 A 70.35 70.35 0 0 1 23.76 -3.77" fill="none" stroke="#2ea89b" stroke-width="1.6"/>
-  <path d="M -25.99 8.35 A 37.65 37.65 0 0 1 0.64 19.37" fill="none" stroke="#2ea89b" stroke-width="1.6"/>
-  <path d="M -26.00 -2.25 A 48.25 48.25 0 0 1 8.14 11.87" fill="none" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <path d="M -26.00 -13.75 A 59.75 59.75 0 0 1 16.26 3.73" fill="none" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
-  <path d="M -6.81 -10.51 L -3.85 -3.29 L -6.81 1.49" fill="none" stroke="#8a8683" stroke-width="0.9" transform="rotate(22.5 -5.33 -3.90)"/>
+  <path d="M -25.99 9.25 A 36.75 36.75 0 0 1 0.01 20.00 L 24.39 -4.40 A 71.25 71.25 0 0 0 -26.01 -25.25 Z" fill="#efeae5"/>
+  <path d="M -25.99 9.25 A 36.75 36.75 0 0 1 0.01 20.00 L 8.14 11.87 A 48.25 48.25 0 0 0 -26.00 -2.25 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -26.00 -2.25 A 48.25 48.25 0 0 1 8.14 11.87 L 16.26 3.73 A 59.75 59.75 0 0 0 -26.00 -13.75 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -26.00 -13.75 A 59.75 59.75 0 0 1 16.26 3.73 L 24.39 -4.40 A 71.25 71.25 0 0 0 -26.01 -25.25 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -6.81 -10.26 L -3.85 -3.29 L -6.81 1.24" fill="none" stroke="#8a8683" stroke-width="0.9"/>
   </g>
 </svg>
