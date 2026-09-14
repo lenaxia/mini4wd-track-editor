@@ -179,8 +179,12 @@ def rect_family(defn, rail):
         # sections visible on the end caps
         parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + WALL / 2))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
         parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + band - WALL / 2))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
+        # dividers on the CENTERED grid (c - LANE_W*lanes/2 + LANE_W*i)
+        # so chi's lanes match the straights'/weaves' exactly at the
+        # joint — anchoring at the top wall (e + WALL/2) shifts the
+        # grid half a stroke and makes the last lane run 10.9
         for i in range(1, lanes):
-            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: e(x) + WALL / 2 + LANE_W * i))}" fill="none" stroke="{DASH}" stroke-width="{WALL}"/>')
+            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: e(x) + band / 2 - LANE_W * lanes / 2 + LANE_W * i))}" fill="none" stroke="{DASH}" stroke-width="{WALL}"/>')
         return parts
     elif kind == 'changer':
         for i in range(lanes + 1):
