@@ -278,3 +278,17 @@ test('applySolution removes and inserts in one undoable step', () => {
   assert.equal(state.sprites[2].x, 208); /* doomed is back */
   assert.ok(!state.sprites.some((p) => p.name === 'Lan1'));
 });
+
+test('rotate with a piece armed moves only the armed angle (ghost), not the selection', () => {
+  const a = { name: 'Str1', x: 0, y: 0, a: 0, c: 0, z: 0 };
+  state.sprites.push(a);
+  state.selection.add(a);
+  setTool('Str1'); /* re-armed for the next placement — selection still held */
+  const rotated = rotate(45);
+  assert.equal(rotated, false); /* selection did NOT spin */
+  assert.equal(a.a, 0);
+  assert.equal(state.angle, 45);
+  setTool('Move');
+  assert.equal(rotate(45), true); /* under Move the selection rotates */
+  assert.equal(a.a, 45);
+});

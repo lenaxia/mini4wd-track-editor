@@ -237,7 +237,7 @@ function onKeyDown(e) {
       setTool(fam[(i + 1) % fam.length]);
     }
   } else if (k === 'q') setTool('Move');
-  else if (k === 'h') setTool('Pan');
+  else if (k === ' ') { e.preventDefault(); setTool('Pan'); }
   else if (k === 'l') closeLoopAction();
   else if (k === 'w') setTool('Delete');
   else if (k === 'e') setTool('Color');

@@ -153,3 +153,10 @@ kbd {
   .palette { flex-wrap: wrap; }
   .hint { display: none; }
 }
+
+/* ---------- dialog heads (✕ close) ---------- */
+.dialog-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 6px;
+}
+.dialog-head h2 { margin: 0; }

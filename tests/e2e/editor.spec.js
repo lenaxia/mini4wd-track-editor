@@ -583,3 +583,34 @@ test('real rucdoc sprites load: SVGs serve for real-data pieces', async ({ page 
   expect(resolves.src).toBe('R2Ramp.svg');
   expect(resolves.loaded).toBe(true);
 });
+
+test('Space arms Pan; Z with a piece armed rotates the ghost, not the placed piece', async ({ page }) => {
+  await page.locator('.chip').first().click(); /* Str1 */
+  await clickCanvas(page, 0.5, 0.5);
+  const placed = (await st(page)).sprites[0];
+  expect(placed.a).toBe(0);
+
+  /* re-arm the same piece; the placed piece is still selected */
+  await page.locator('.chip').first().click();
+  await page.keyboard.press('z'); /* ghost rotation only */
+  const s = await st(page);
+  expect(s.angle).toBe(315);
+  expect(s.sprites[0].a).toBe(0); /* untouched */
+
+  await page.keyboard.press(' '); /* spacebar arms Pan */
+  expect((await st(page)).tool).toBe('Pan');
+});
+
+test('menu closes with the X button and Escape', async ({ page }) => {
+  await page.locator('#btnMenu').click();
+  await expect(page.locator('#menuDialog')).toBeVisible();
+  await page.locator('#btnCloseMenu').click();
+  await expect(page.locator('#menuDialog')).not.toBeVisible();
+
+  await page.locator('#btnMenu').click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#menuDialog')).not.toBeVisible();
+
+  await page.locator('#btnMenu').click();
+  await expect(page.locator('#btnDeleteAll')).toBeVisible(); /* moved here from the toolbar */
+});

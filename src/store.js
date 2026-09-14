@@ -110,10 +110,13 @@ export function clearAll() {
 
 /* Rotate the armed angle and (when present) the selection. With exactly one
  * external joint the selection pivots about it (the connection survives);
- * otherwise it spins around the visual-center centroid (docs/design §4). */
+ * otherwise it spins around the visual-center centroid (docs/design §4).
+ * While a piece tool is armed, ONLY the armed angle moves — Z/X during
+ * placement must turn the ghost, not the last placed piece. */
 export function rotate(delta) {
   state.angle = (state.angle + delta + 360) % 360;
-  if (state.selection.size) {
+  const pieceArmed = !TOOLS.includes(state.tool);
+  if (state.selection.size && !pieceArmed) {
     pushHistory();
     const joint = externalJoint(state.selection, state.sprites);
     let cx, cy;

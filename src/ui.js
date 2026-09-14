@@ -193,6 +193,14 @@ export function init(dimsGetter) {
   $('btnMenu').addEventListener('click', () => openDialog($('menuDialog')));
   $('btnCloseMenu').addEventListener('click', () => closeDialog($('menuDialog')));
 
+  /* Esc closes any open dialog (native showModal also cancels; this covers
+   * the attribute-fallback path and makes the behavior guaranteed) */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const open = document.querySelector('dialog[open]');
+    if (open) closeDialog(open);
+  });
+
   $('btnShare').addEventListener('click', () => {
     ioMode = 'share';
     $('ioTitle').textContent = 'Share link';
@@ -253,8 +261,9 @@ export function init(dimsGetter) {
   $('btnUndo').addEventListener('click', () => { if (!undo()) toast('Nothing to undo'); });
   $('btnLvlUp').addEventListener('click', () => toast(levelToast(bumpLevel(1))));
   $('btnLvlDown').addEventListener('click', () => toast(levelToast(bumpLevel(-1))));
-  $('btnClear').addEventListener('click', () => {
+  $('btnDeleteAll').addEventListener('click', () => {
     if (!state.sprites.length) return;
+    closeDialog($('menuDialog'));
     if (confirm('Delete all pieces?')) clearAll();
   });
   $('btnZoomIn').addEventListener('click', () => zoomAt(getDims().w / 2, getDims().h / 2, 1.25));
