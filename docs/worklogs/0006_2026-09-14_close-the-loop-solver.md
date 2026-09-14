@@ -72,3 +72,22 @@ overlapping path — the invariant the tests pin.
 Select exactly two pieces (✥ + ctrl/tap-toggle), press **L** or ☰ → Close
 loop. Toast reports pieces + meters; flex bends are reported in cm. Undo (R)
 removes the whole run in one step.
+
+## Follow-ups (same session, owner-driven)
+
+- **Drift fix**: app-welded chains drift ~0.01 cm/piece; joints are now
+  exempt at connection range (2 cm) and exact landings tolerate 0.5 cm, with
+  the run's last piece welded explicitly onto the goal vertex (snapPiece
+  could re-weld the run's own joint on short paths). Flex heading tolerance
+  1.5° (catalog corners carry ~0.024° each). Fixed the owner's ring, oval,
+  and 6.5 cm cases.
+- **Detour budget** accounts for the ends' heading mismatch (perpendicular
+  ends need an out-and-back even when they touch): 18 m + 8x crow flight +
+  2.5 m per 45° of required net turn; budget 25k expansions/combo.
+- **Failure diagnostics**: no-path results classify as blocked (with the
+  culprit piece) / facing / off-grid / limit (truncated searches refuse to
+  guess).
+- **Step-back close**: on failure the UI offers removing pieces until the
+  loop closes — named blockers first, then each end chain stepped back
+  (removing a corner flips the end heading). One undo step for the whole
+  operation (store.applySolution).
