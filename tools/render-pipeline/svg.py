@@ -41,7 +41,7 @@ def _px(buf, W, H, ch, x, y):
     if not (0 <= x < W and 0 <= y < H):
         return None
     o = (y*W+x)*ch
-    if buf[o+3] <= 200:
+    if ch == 4 and buf[o+3] <= 200:
         return None
     return (buf[o], buf[o+1], buf[o+2])
 
@@ -136,6 +136,11 @@ def _set_overrides(rip, fname, defn):
     """sample the rip and set BED_FILL / LANE_FILLS / BED_DEFS"""
     global BED_FILL, LANE_FILLS, BED_DEFS
     BED_FILL, LANE_FILLS = BED, None
+    ov = OWNER_OVERRIDES.get(fname[:-4])
+    if ov:
+        LANE_FILLS = list(ov[1])
+        BED_FILL = ov[1][0]
+        return
     lanes = defn.get('lanes', 1)
     vy = defn['verts'][0][1] if defn.get('verts') else 0
     if defn['kind'] in ('corner', 'hairpin'):
@@ -219,6 +224,21 @@ def rect_family(defn, rail):
     bank keeps its solid block.)"""
     w, h, lanes = defn['w'], defn['h'], defn.get('lanes', 1)
     half = LANE_W * lanes / 2
+    if defn['kind'] == 'bank':
+        global BED_DEFS
+        # banked block: variant color as a rip-sampled gradient along x
+        grad = BANK_GRAD.get(FNAME[:-4])
+        if grad:
+            gid = 'bankg_' + FNAME[:-4].replace('.', '_')
+            BED_DEFS += _grad_def(gid, [(int(g[1:3], 16), int(g[3:5], 16), int(g[5:7], 16)) for g in grad])
+            fillv = f'url(#{gid})'
+        else:
+            fillv = rail
+        parts = [rr(-w / 2, -h / 2, w, h, min(2.0, h / 4), fill=fillv)]
+        for i in range(1, lanes):
+            y = -LANE_W * lanes / 2 + LANE_W * i
+            parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
+        return parts
     parts = []
     if defn['kind'] == 'wave':
         # Chicane = Bri2.0's vocabulary riding the confirmed hump:
@@ -536,6 +556,23 @@ def arc_family(defn, rail):
     return parts
 
 
+OWNER_OVERRIDES = {
+    # owner-specified variant pieces the sampler can't read
+    'Str1.1': ('lanes', ['#30c090', '#30c090', '#30c090']),           # green
+    'Str1.2': ('lanes', ['#0868a8', '#0868a8', '#0868a8']),           # blue
+    'Str1.5': ('lanes', ['#d81820', '#f8f8f8', '#0868a8']),           # red white blue
+    'Cor1.9': ('lanes', ['#d81820', '#f8f8f8', '#0868a8']),           # red white blue
+}
+BANK_GRAD = {
+    'Ban1.0': ['#30b080', '#30a070', '#209060'],
+    'Ban1.1': ['#e0e0e0', '#c0c0c0', '#c0b0b0'],
+    'Ban1.2': ['#0060a0', '#004080', '#004080'],
+    'Ban1.3': ['#d01010', '#a00000', '#900000'],
+    'Ban2.0': ['#d0a060', '#e0c090', '#e0d0c0'],
+}
+FNAME = ''   # current output filename (banks key gradients by it)
+
+
 def emit(defn, rail, rip=None):
     global BED_DEFS
     # Lan1's changer art is hand-modeled from measurements; Lan4 and the
@@ -612,7 +649,8 @@ def main():
                 if defn['kind'] in ('changer', 'hairpin') else None
             if rip and not os.path.exists(rip):
                 rip = None  # fall through to modeled art instead of crashing
-            global BED_FILL, LANE_FILLS, BED_DEFS
+            global BED_FILL, LANE_FILLS, BED_DEFS, FNAME
+            FNAME = fname
             BED_FILL, LANE_FILLS, BED_DEFS = BED, None, ''
             rip_any = os.path.join(root, 'assets', fname[:-4] + '.png')
             if os.path.exists(rip_any) and defn['kind'] not in ('bank', 'changer', 'hairpin', 'start'):
