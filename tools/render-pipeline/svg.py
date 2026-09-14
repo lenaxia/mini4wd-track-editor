@@ -129,52 +129,34 @@ def rect_family(defn, rail):
             parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
         return parts
     elif kind == 'wave':
-        """Chicane, from scratch per INVARIANTS.
-
-        Geometry: a regulation lane band (LANE_W * lanes) whose
-        centerline runs through the verts (flat at +vy, mid-span at
-        -vy) on a raised-cosine hump — the curvature the owner
-        confirmed. Everything insets so the swept outline always fits
-        the canvas: wall stroke centers at band/2 - 0.4, i.e. the
-        outermost ink is vy_max + band/2 <= h/2 - 0.
-
-        Styling: the straight family's tokens exactly — 0.8 OUTLINE
-        walls, 0.7 DASH dashed dividers (2.4,1.8) on the centered
-        grid, variant rail loop, open ends.
-        """
+        # Chicane = Bri2.0's vocabulary riding the confirmed hump:
+        # closed stroked lane rectangles (1.2, miter joins) on the
+        # regulation grid, per-lane bed fills, nothing else. The
+        # centerline runs through the verts (+vy flat, -vy mid) so
+        # joints align with the straights.
         band = LANE_W * lanes
         vy = defn['verts'][0][1]
-        amp = 2 * vy
-        if defn['verts'][1][1] != vy or amp <= 0 or vy + band / 2 + 0.4 > h / 2:
+        if defn['verts'][1][1] != vy or vy + band / 2 + 0.6 > h / 2:
             raise ValueError(f'{defn.get("label", "wave")}: hump does not fit')
-
         n = int(round(w))
         xs = [-w / 2 + w * i / n for i in range(n + 1)]
 
-        def c(x):                               # centerline: +vy ends, -vy mid
+        def c(x):
             t = (x + w / 2) / w
             return vy * (2 * math.cos(math.pi * t) ** 2 - 1)
 
-        def pts(fn, xx=None):
-            xx = xs if xx is None else xx
-            return [f'{"M" if i == 0 else "L"} {xx[i]:.2f} {fn(xx[i]):.2f}' for i in range(len(xx))]
+        def lane_path(i):
+            top = lambda x: c(x) - band / 2 + LANE_W * i
+            d = ' '.join(f'{"M" if k == 0 else "L"} {xs[k]:.2f} {top(xs[k]):.2f}' for k in range(n + 1))
+            d += ' ' + ' '.join(f'L {x:.2f} {top(x) + LANE_W:.2f}' for x in reversed(xs))
+            return d + ' Z'
 
-        INSET = 0.4                             # wall/rail stroke half-widths
-        top = lambda x: c(x) - band / 2 + INSET
-        bot = lambda x: c(x) + band / 2 - INSET
-        # bed: humped band between the wall line centers
-        bed_d = ' '.join(pts(top)) + ' ' + ' '.join(f'L {x:.2f} {bot(x):.2f}' for x in reversed(xs))
-        parts = [f'<path d="{bed_d} Z" fill="{BED}"/>']
-        # rails: variant loop wrapping both ends
-        xr = [-w / 2 + 0.5] + xs[1:-1] + [w / 2 - 0.5]
-        rail_d = ' '.join(pts(lambda x: top(x) + 1.5, xr)) + ' ' + ' '.join(f'L {x:.2f} {bot(x) - 1.5:.2f}' for x in reversed(xr))
-        parts.append(f'<path d="{rail_d} Z" fill="none" stroke="{rail}" stroke-width="1.0" stroke-linejoin="round"/>')
-        # walls: straight-family weight, inset so nothing clips
-        parts.append(f'<path d="{" ".join(pts(top))}" fill="none" stroke="{OUTLINE}" stroke-width="0.8"/>')
-        parts.append(f'<path d="{" ".join(pts(bot))}" fill="none" stroke="{OUTLINE}" stroke-width="0.8"/>')
-        # dividers: straight-family dashes on the centered grid
-        for i in range(1, lanes):
-            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: c(x) - LANE_W * lanes / 2 + LANE_W * i))}" fill="none" stroke="{DASH}" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>')
+        # bed: whole humped band
+        bed = ' '.join(f'{"M" if k == 0 else "L"} {xs[k]:.2f} {c(xs[k]) - band / 2:.2f}' for k in range(n + 1))
+        bed += ' ' + ' '.join(f'L {x:.2f} {c(x) + band / 2:.2f}' for x in reversed(xs))
+        parts = [f'<path d="{bed} Z" fill="{BED}"/>']
+        for i in range(lanes):
+            parts.append(f'<path d="{lane_path(i)}" fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
         return parts
     elif kind == 'changer':
         for i in range(lanes + 1):
