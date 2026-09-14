@@ -109,11 +109,11 @@ def main():
             continue
         # lane-gap arithmetic only where the road is flat and
         # undecorated; arcs/humps/weaves are covered by the golden diff
-        # variant-colored beds read as dark runs and poison the
-        # centroid probe — golden diff covers them
-        body = open(os.path.join(ASSETS, f)).read()
-        colored = 'linearGradient' in body
-        if not f.startswith(('Cor', 'Lan', 'Chi')) and not colored:
+        # the gap probe is only meaningful on flat, undecorated
+        # families (Str/Ban on this baseline); arcs, humps, weaves,
+        # slopes with markings, and variant colors all read as runs —
+        # the golden diff covers them
+        if f.startswith(('Str', 'Ban')):
             check_lanes(f, png, failures)
         check_silhouette(f, png, failures)
         compare_golden(f, png, failures)
