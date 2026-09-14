@@ -2,8 +2,8 @@
  * overlays (rubber band, drag vertices, hover preview). */
 
 import { state, subscribe } from './store.js';
-import { PIECES, TOOLS, HITBOX_RADIUS } from './pieces.js';
-import { rad, centerOf, vertexOf, vertsOf, pieceHalfExtents, worldFromScreen, snapPiece } from './geometry.js';
+import { PIECES, TOOLS, HITBOX_RADIUS, VARIANT_COLORS } from './pieces.js';
+import { rad, rot, centerOf, vertexOf, vertsOf, pieceHalfExtents, worldFromScreen, snapPiece } from './geometry.js';
 import { imageFor } from './assets.js';
 import { drawPieceArt } from './art.js';
 import * as input from './input.js';
@@ -98,21 +98,10 @@ function drawGrid() {
 function drawPiece(p, alpha) {
   const def = PIECES[p.name];
   const img = imageFor(p.name, p.c);
-  const z = p.z || 0;
   ctx.save();
-  /* elevation shadow + semi-transparency over lower track: the crossover
-   * experience depends on seeing what you bridge over (docs/design §5) */
+  /* semi-transparency over lower track: the crossover experience depends
+   * on seeing what you bridge over (docs/design §5) */
   ctx.globalAlpha = alpha * (p._over ? 0.8 : 1);
-  if (z > 0) {
-    /* world-frame offset: the shadow falls one way regardless of piece angle */
-    const o = Math.min(12, z * 0.15);
-    ctx.translate(p.x + o, p.y + o);
-    ctx.rotate(rad(p.a));
-    ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.fillRect(-def.w / 2, -def.h / 2, def.w, def.h);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.translate(state.view.x, state.view.y); ctx.scale(state.view.scale, state.view.scale);
-  }
   ctx.translate(p.x, p.y);
   ctx.rotate(rad(p.a));
   if (img && img.complete && img.naturalWidth) {
@@ -131,6 +120,11 @@ function drawPiece(p, alpha) {
   drawElevation(p);
 }
 
+const luminance = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255;
+};
+
 /* Always-on elevation readouts (owner rule): every piece not at floor level
  * shows its level; ramps/banks of the slope kind get an amber chevron at
  * their high end (which side is up is intrinsic — no travel direction). */
@@ -140,13 +134,20 @@ function drawElevation(p) {
   let hi = -1;
   for (let i = 0; i < def.verts.length; i++) if ((def.verts[i][2] || 0) > 0) hi = i;
   if (!z && hi < 0) return;
-  const { hx, hy } = pieceHalfExtents(p);
   ctx.save();
-  if (z && !state.selection.has(p)) { /* selected pieces get the selection badge instead */
-    ctx.fillStyle = '#7dd3fc';
-    ctx.font = `${10 / state.view.scale}px monospace`;
+  if (z) { /* level readout centered in a lane, ink contrasting the variant */
+    const halfLane = def.h / def.lanes / 2;
+    const o = def.lanes % 2 === 0 ? rot(0, halfLane, p.a) : { x: 0, y: 0 }; /* even lane counts: the center is a wall */
+    const col = VARIANT_COLORS[p.c % VARIANT_COLORS.length];
+    const lum = luminance(col);
+    ctx.font = `bold ${13 / state.view.scale}px monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText(`${z}`, p.x, p.y - hy - 4 / state.view.scale);
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 2.5 / state.view.scale;
+    ctx.strokeStyle = lum > 0.5 ? 'rgba(255,255,255,.85)' : 'rgba(0,0,0,.6)';
+    ctx.fillStyle = lum > 0.5 ? '#1b1e24' : '#ffffff';
+    ctx.strokeText(`${z}mm`, p.x + o.x, p.y + o.y);
+    ctx.fillText(`${z}mm`, p.x + o.x, p.y + o.y);
   }
   if (hi >= 0) { /* amber chevron pointing at the high vertex */
     const v = vertexOf(p, hi), c = centerOf(p);
@@ -180,15 +181,6 @@ function drawSelection() {
     ctx.rect(p.x - hx - 2, p.y - hy - 2, 2 * hx + 4, 2 * hy + 4);
     ctx.fill();
     ctx.stroke();
-    if (p.z) { /* elevation badge on selected raised pieces */
-      ctx.setLineDash([]);
-      ctx.fillStyle = '#7dd3fc';
-      ctx.font = `${12 / state.view.scale}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillText(`${p.z}mm`, p.x, p.y - hy - 6 / state.view.scale);
-      ctx.setLineDash([6 / state.view.scale, 4 / state.view.scale]);
-      ctx.fillStyle = 'rgba(255,209,102,.08)';
-    }
   }
   ctx.restore();
 }
