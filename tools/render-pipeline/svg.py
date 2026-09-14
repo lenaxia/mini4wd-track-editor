@@ -74,9 +74,8 @@ def _bed_override(rip, fname):
     gid = 'bedg_' + fname.replace('.', '_').replace('-', '_')
     stops = ''.join(f'<stop offset="{o:.2f}" stop-color="#%02x%02x%02x"/>' % c
                    for o, c in zip((0, 0.5, 1), cols))
-    BED_DEFS += f'<defs><linearGradient id="{gid}" gradientUnits="userSpaceOnUse" x1="{-0:.2f}" y1="0" x2="0" y2="0" spreadMethod="pad">{stops}</linearGradient></defs>'
-    # x1/x2 set per-piece width below (patched in main)
-    BED_DEFS = BED_DEFS.replace('x1="{-0:.2f}"', 'x1="{X1}"').replace('x2="0"', 'x2="{X2}"')
+    BED_DEFS = ('<defs><linearGradient id="' + gid + '" gradientUnits="userSpaceOnUse" '
+                'x1="{X1}" y1="0" x2="{X2}" y2="0" spreadMethod="pad">' + stops + '</linearGradient></defs>')
     BED_FILL = f'url(#{gid})'
 
 
@@ -449,6 +448,7 @@ def arc_family(defn, rail):
 
 
 def emit(defn, rail, rip=None):
+    global BED_DEFS
     # Lan1's changer art is hand-modeled from measurements; Lan4 and the
     # hairpin rips still route through the measured tracer until their
     # hand models land (3/4-view illustrations: flyover corridors,
