@@ -9,18 +9,35 @@ import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { drawPieceArt } from './art.js';
-import { closeLoop, closeLoopStepping } from './solver.js';
+import { closeLoop, closeLoopStepping, solverSetFor } from './solver.js';
 
 const $ = (id) => document.getElementById(id);
 let ioMode = 'import'; /* or 'share' */
 let getDims = () => ({ w: 800, h: 600, dpr: 1 });
 
-export function toast(msg) {
+/* Toast. opts: { duration (ms, default 2200; 9000 with an action),
+ * actionLabel, onAction } — with an action the toast carries a tappable
+ * button and outlives the default fade. */
+export function toast(msg, opts = {}) {
   const el = $('toast');
   el.textContent = msg;
-  el.classList.add('show');
+  if (el._click) { el.removeEventListener('click', el._click); el._click = null; }
   clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('show'), 2200);
+  if (opts.actionLabel) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = opts.actionLabel;
+    el.append(btn);
+    el._click = (ev) => {
+      if (ev.target !== btn) return;
+      el.classList.remove('show');
+      clearTimeout(el._t);
+      opts.onAction();
+    };
+    el.addEventListener('click', el._click);
+  }
+  el._t = setTimeout(() => el.classList.remove('show'), opts.duration ?? (opts.actionLabel ? 9000 : 2200));
+  el.classList.add('show');
 }
 
 function openDialog(dlg) { if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', ''); }
@@ -119,7 +136,9 @@ function importText(text) {
 export function closeLoopAction() {
   const sel = [...state.selection];
   if (sel.length !== 2) { toast('Select exactly two pieces (Move tool), then Close loop'); return; }
-  const res = closeLoop(state.sprites, sel[0], sel[1]);
+  const set = solverSetFor(sel[0], sel[1]);
+  if (!set) { toast('Pick two ends of the same lane count — e.g. both 3-lane'); return; }
+  const res = closeLoop(state.sprites, sel[0], sel[1], { set });
   if (!res.ok) {
     if (res.reason === 'no-open') { toast('One end has no free connection point'); return; }
     if (res.reason === 'level') {
@@ -127,7 +146,7 @@ export function closeLoopAction() {
       toast(`Ends are at different levels${Number.isFinite(z0) ? ` (${z0} vs ${z1} mm)` : ''} — link them with a slope first`);
       return;
     }
-    if (res.reason === 'no-path') { offerStepBack(sel, res); return; }
+    if (res.reason === 'no-path') { offerStepBack(sel, res, set); return; }
     toast('Could not close the loop from these ends');
     return;
   }
@@ -138,23 +157,30 @@ export function closeLoopAction() {
     : `Loop closed \u00B7 ${res.pieces.length} pcs \u00B7 ${res.length.toFixed(2)} m`);
 }
 
-/* A failed closure explains itself, then offers to remove pieces (the named
- * blocker first, then stepping the end chains back) until it closes. One
- * undo restores everything. */
-function offerStepBack(sel, res) {
+/* A failed closure explains itself in a toast, with a tappable offer to
+ * remove pieces (the named blocker first, then stepping the end chains
+ * back) until it closes. One undo restores everything. */
+function offerStepBack(sel, res, set) {
   const why = {
     blocked: 'the closing pieces fit but track is in the way',
     facing: `the ends face ${res.miss.dh.toFixed(0)}\u00B0 apart`,
     'off-grid': `the ends are ${res.miss.d.toFixed(1)} cm out of line for any piece run`,
     limit: 'the search gave up',
   }[res.why] || 'no run fits';
-  const go = confirm(`Could not close — ${why}.\n\nRemove pieces step-by-step until it closes?`);
-  if (!go) return;
-  const step = closeLoopStepping(state.sprites, sel[0], sel[1]);
-  if (!step.ok) { toast('No closable point, even stepping back'); return; }
-  applySolution(step.removed, step.closed.pieces);
-  closeDialog($('menuDialog'));
-  toast(`Stepped back ${step.removed.length} pc${step.removed.length === 1 ? '' : 's'} \u00B7 closed with ${step.closed.pieces.length} pcs \u00B7 ${step.closed.length.toFixed(2)} m`);
+  toast(`Couldn\u2019t close — ${why}.`, {
+    actionLabel: 'Step back pieces',
+    onAction: () => {
+      if (!state.sprites.includes(sel[0]) || !state.sprites.includes(sel[1])) {
+        toast('Selection changed — reselect the two ends and retry');
+        return;
+      }
+      const step = closeLoopStepping(state.sprites, sel[0], sel[1], { set });
+      if (!step.ok) { toast('No closable point, even stepping back'); return; }
+      applySolution(step.removed, step.closed.pieces);
+      closeDialog($('menuDialog'));
+      toast(`Stepped back ${step.removed.length} pc${step.removed.length === 1 ? '' : 's'} \u00B7 closed with ${step.closed.pieces.length} pcs \u00B7 ${step.closed.length.toFixed(2)} m`);
+    },
+  });
 }
 
 /* ---------- init ---------- */

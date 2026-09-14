@@ -142,7 +142,11 @@ kbd {
   opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s;
   max-width: 88vw; text-align: center; z-index: 50;
 }
-#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+#toast button {
+  margin-left: 10px; border: 1px solid #7dd3fc; background: transparent;
+  color: #7dd3fc; border-radius: 999px; padding: 4px 10px; font-size: 12px;
+}
 
 @media (min-width: 900px) {
   /* desktop: toolbar becomes a left sidebar-ish wide palette, but flex works fine as-is */

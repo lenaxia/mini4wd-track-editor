@@ -19,7 +19,21 @@ import {
   inwardTangent, outwardTangent,
 } from './geometry.js';
 
-export const SOLVER_SET = ['Str1', 'Cor1'];
+/* Per-family piece sets (owner ruling: straights + 45-degree corners only,
+ * no lane changers). The family is keyed on the lane count of the two
+ * selected end pieces — they must match. */
+const FAMILY_SETS = {
+  1: ['R1S250', 'R1C45I150'],
+  2: ['R2S250', 'R2C45I150'],
+  3: ['Str1', 'Cor1'],
+  5: ['Str3', 'Str4', 'Str5', 'Str6', 'Cor2'],
+};
+
+export function solverSetFor(a, b) {
+  const la = PIECES[a.name].lanes, lb = PIECES[b.name].lanes;
+  if (la !== lb) return null;
+  return FAMILY_SETS[la] || null;
+}
 
 const OPEN_EPS = 2;       // cm — a vertex with another this close is connected
 const INSET = 1;          // cm adjacency margin (mirrors store.bboxOverlap)
@@ -355,7 +369,8 @@ const lengthOf = (pieces) => pieces.reduce((m, p) => m + PIECES[p.name].l, 0);
 /* ---------- entry point ---------- */
 
 export function closeLoop(sprites, a, b, opts = {}) {
-  const allowed = opts.set || SOLVER_SET;
+  const allowed = opts.set || solverSetFor(a, b);
+  if (!allowed) return { ok: false, reason: 'lane-mismatch' };
   const searchOpts = { maxDepth: opts.maxDepth ?? 40, maxExpansions: opts.maxExpansions ?? 25000 };
 
   const openA = openVerts(sprites, a), openB = openVerts(sprites, b);

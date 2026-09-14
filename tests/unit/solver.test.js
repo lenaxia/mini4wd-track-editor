@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { closeLoop, closeLoopStepping, piecesCollide, SOLVER_SET } from '../../src/solver.js';
+import { closeLoop, closeLoopStepping, piecesCollide, solverSetFor } from '../../src/solver.js';
 import { PIECES } from '../../src/pieces.js';
 import {
   orientAngle, vertexOf, vertsOf, levelAt, rot, outwardTangent, inwardTangent,
@@ -62,8 +62,9 @@ function straightGapFixture(z = 0) {
   return { sprites, A, B };
 }
 
-test('SOLVER_SET is the 3-lane test subset (owner: no lane changers)', () => {
-  assert.deepEqual(SOLVER_SET, ['Str1', 'Cor1']);
+test('solver set is straights + 45-degree corners of the ends\u2019 family', () => {
+  /* owner ruling: no lane changers; family keyed on the selected ends */
+  assert.deepEqual(solverSetFor(mk('Str1', 0, 0), mk('Cor1', 0, 0)), ['Str1', 'Cor1']);
 });
 
 test('closes a straight 108 cm gap with the minimal 2 straights', () => {
@@ -344,4 +345,50 @@ test('stepping gives up cleanly when nothing helps', () => {
   const res = closeLoopStepping([A, B], A, B, { maxCost: 2, maxSteps: 2 });
   assert.equal(res.ok, false);
   assert.equal(res.reason, 'no-path');
+});
+
+/* ---------- lane-family solver sets (keyed on the selected ends) ---------- */
+
+test('solverSetFor derives the family from the two selected ends', () => {
+  assert.deepEqual(solverSetFor(mk('Str1', 0, 0), mk('Cor1', 0, 0)), ['Str1', 'Cor1']);
+  const five = solverSetFor(mk('Str4', 0, 0), mk('Cor2', 0, 0));
+  assert.ok(five.includes('Str4') && five.includes('Cor2'));
+  assert.ok(!five.includes('Cor3') && !five.includes('Cor5') && !five.includes('Lan4')); /* straights + 45s only */
+  assert.deepEqual(solverSetFor(mk('R2S250', 0, 0), mk('R2C45I150', 0, 0)), ['R2S250', 'R2C45I150']);
+});
+
+test('solverSetFor rejects mixed-lane selections', () => {
+  assert.equal(solverSetFor(mk('Str1', 0, 0), mk('Str4', 0, 0)), null);
+  assert.equal(closeLoop([mk('Str1', 100, 100), mk('Str4', 300, 300)], mk('Str1', 100, 100), mk('Str4', 300, 300)).reason, 'lane-mismatch');
+});
+
+test('closes a 5-lane gap with 5-lane pieces', () => {
+  const sprites = [mk('Str4', 100, 100)];
+  const A = sprites[0];
+  let cur = A;
+  for (let k = 0; k < 2; k++) cur = weldOn(sprites, 'Str4', cur, 1, 0);
+  const B = weldOn(sprites, 'Str4', cur, 1, 0);
+  sprites.splice(1, 2); /* 2 x 60 cm gap */
+  const res = closeLoop(sprites, A, B);
+  assert.equal(res.ok, true);
+  /* 120 cm: one Str6 ties 2x Str4 on length and wins on piece count */
+  assert.equal(res.pieces.length, 1);
+  assert.equal(res.pieces[0].name, 'Str6');
+  assert.ok(Math.abs(res.cost - 6) < 1e-9);
+  assert.equal(noCollisions(sprites.concat(res.pieces)), null);
+});
+
+test('closes a rucdoc 2-lane gap with rucdoc pieces', () => {
+  const sprites = [mk('R2S250', 500, 500)];
+  const A = sprites[0];
+  const M = weldOn(sprites, 'R2S250', A, 1, 0);
+  const B = weldOn(sprites, 'R2S250', M, 1, 0);
+  sprites.splice(sprites.indexOf(M), 1); /* 25 cm gap */
+  const res = closeLoop(sprites, A, B);
+  assert.equal(res.ok, true);
+  assert.equal(res.pieces.length, 1);
+  assert.equal(res.pieces[0].name, 'R2S250');
+  const all = sprites.concat(res.pieces);
+  assert.deepEqual(badJoints(all), []);
+  assert.equal(noCollisions(all), null);
 });
