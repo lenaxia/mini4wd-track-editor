@@ -109,7 +109,11 @@ def main():
             continue
         # lane-gap arithmetic only where the road is flat and
         # undecorated; arcs/humps/weaves are covered by the golden diff
-        if not f.startswith(('Cor', 'Lan', 'Chi')):
+        # variant-colored beds read as dark runs and poison the
+        # centroid probe — golden diff covers them
+        body = open(os.path.join(ASSETS, f)).read()
+        colored = any(c in body for c in ('fill="#d', 'fill="#e8', 'fill="#f8', 'fill="#3', 'fill="#0', 'fill="#8'))
+        if not f.startswith(('Cor', 'Lan', 'Chi')) and not colored:
             check_lanes(f, png, failures)
         check_silhouette(f, png, failures)
         compare_golden(f, png, failures)
