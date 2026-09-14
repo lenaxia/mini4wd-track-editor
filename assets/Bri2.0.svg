@@ -1,14 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="54" height="36" viewBox="-27.0 -18.0 54 36">
-  <path d="M -27.00 -18.00 H 27.00 V 5.75 H 10.50 V 18.00 H -27.00 Z" fill="#efeae5"/>
-  <defs><linearGradient id="jumpface" gradientUnits="userSpaceOnUse" x1="-25.00" y1="0" x2="-7.00" y2="0"><stop offset="0" stop-color="#efeae5"/><stop offset="1" stop-color="#c0bcb8"/></linearGradient></defs>
-  <rect x="-27.00" y="6.75" width="36.00" height="11.25" fill="url(#jumpface)"/>
-  <rect x="9.00" y="5.75" width="1.50" height="12.25" fill="#5d5a57"/>
-  <line x1="-27.00" y1="-17.40" x2="27.00" y2="-17.40" stroke="#5d5a57" stroke-width="1.2"/>
-  <line x1="26.40" y1="-18.00" x2="26.40" y2="5.75" stroke="#5d5a57" stroke-width="1.2"/>
-  <line x1="-27.00" y1="17.40" x2="10.50" y2="17.40" stroke="#5d5a57" stroke-width="1.2"/>
-  <line x1="-26.50" y1="5.75" x2="-26.50" y2="18.00" stroke="#c9d1dc" stroke-width="1.0"/>
-  <line x1="-15.00" y1="6.30" x2="10.50" y2="6.30" stroke="#8a8683" stroke-width="1.1"/>
-  <line x1="10.50" y1="6.30" x2="27.00" y2="6.30" stroke="#5d5a57" stroke-width="1.1"/>
-  <line x1="-27.00" y1="-5.75" x2="27.00" y2="-5.75" stroke="#8a8683" stroke-width="1.8"/>
-  <line x1="-27.00" y1="5.45" x2="27.00" y2="5.45" stroke="#8a8683" stroke-width="1.8"/>
+  <defs><linearGradient id="bri2ramp" gradientUnits="userSpaceOnUse" x1="-25" y1="0" x2="-7" y2="0"><stop offset="0" stop-color="#efeae5"/><stop offset="1" stop-color="#c0bcb8"/></linearGradient></defs><path d="M -27 -17.25 H 27 V 5.75 H -27 Z" fill="#efeae5"/>
+  <path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="url(#bri2ramp)"/>
+  <path d="M -27 -17.25 H 27 V -5.75 H -27 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -27 -5.75 H 27 V 5.75 H -27 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <rect x="-27.00" y="-17.25" width="1.20" height="34.50" rx="0.00" fill="#5d5a57" stroke="none" stroke-width="0.8"/>
+  <rect x="25.80" y="-17.25" width="1.20" height="23.00" rx="0.00" fill="#5d5a57" stroke="none" stroke-width="0.8"/>
 </svg>

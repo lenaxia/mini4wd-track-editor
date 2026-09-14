@@ -28,6 +28,168 @@ CHEVRON = '#8a8683'
 # bank palettes sampled from the original rips (their own palettes, not
 # VARIANT_COLORS); keyed per family — Ban2's single tan variant is NOT
 # Ban1's green c0
+BED_FILL = BED      # whole-piece fallback (bed or gradient url)
+LANE_FILLS = None   # per-lane: '#rrggbb' | ('url', gid, stops) | None
+BED_DEFS = ""       # accumulated gradient defs
+
+
+def _near(c, t, tol=48):
+    return abs(c[0]-t[0])+abs(c[1]-t[1])+abs(c[2]-t[2]) < tol
+
+
+def _px(buf, W, H, ch, x, y):
+    if not (0 <= x < W and 0 <= y < H):
+        return None
+    o = (y*W+x)*ch
+    if ch == 4 and buf[o+3] <= 200:
+        return None
+    return (buf[o], buf[o+1], buf[o+2])
+
+
+def _lane_samples(rip, w, h, lanes, vy):
+    """colors per lane at start/mid/end; None where only bed/lines"""
+    pw, ph, pch, pbuf = _decode_png(rip)
+    OUT, DSH, BD = (93,90,87), (138,134,131), (239,234,229)
+    res = []
+    for i in range(lanes):
+        yc = vy - (LANE_W*lanes)/2 + LANE_W*(i+0.5)
+        y = int(round(yc + ph/2))
+        st = []
+        for fx in (0.06, 0.5, 0.94):
+            x = int(pw*fx)
+            from collections import Counter
+            cs = Counter()
+            for dy in (-1,0,1):
+                for dx in (-1,0,1):
+                    c = _px(pbuf, pw, ph, pch, x+dx, y+dy)
+                    if c and not _near(c, OUT) and not _near(c, DSH) and not _near(c, BD, 60) and (max(c) - min(c) > 40 or min(c) > 225):
+                        cs[(c[0]//16*16, c[1]//16*16, c[2]//16*16)] += 1
+            st.append(cs.most_common(1)[0][0] if cs else None)
+        res.append(st)
+    return res
+
+
+def _whole_stops(rip):
+    """dominant color at 3 stations across the whole rip (fallback)"""
+    pw, ph, pch, pbuf = _decode_png(rip)
+    OUT, DSH, BD = (93,90,87), (138,134,131), (239,234,229)
+    from collections import Counter
+    stops = []
+    for fx in (0.06, 0.5, 0.94):
+        x = int(pw*fx)
+        cs = Counter()
+        for y in range(2, ph-2):
+            c = _px(pbuf, pw, ph, pch, x, y)
+            if c and not _near(c, OUT) and not _near(c, DSH) and not _near(c, BD, 60) and (max(c) - min(c) > 40 or min(c) > 225):
+                cs[(c[0]//16*16, c[1]//16*16, c[2]//16*16)] += 1
+        best, n = (cs.most_common(1)[0][0], cs.most_common(1)[0] and 1) if cs else (None, 0)
+        n = cs[best] if best else 0
+        stops.append(best if n >= 6 else None)
+    return stops
+
+
+def _hex(c):
+    return '#%02x%02x%02x' % (min(c[0]+8, 255), min(c[1]+8, 255), min(c[2]+8, 255))
+
+
+def _grad_def(gid, stops):
+    return ('<defs><linearGradient id="' + gid + '" gradientUnits="userSpaceOnUse" '
+            'x1="{X1}" y1="0" x2="{X2}" y2="0" spreadMethod="pad">'
+            + ''.join(f'<stop offset="{o:.2f}" stop-color="{_hex(c)}"/>'
+                      for o, c in zip((0, 0.5, 1), stops))
+            + '</linearGradient></defs>')
+
+
+BANK_COLORS = {
+  'Ban1': ['#2e966f', '#c0bcb8', '#004282', '#9a0400'],
+  'Ban2': ['#dabc90'],
+}
+
+def _decode_png(path):
+    import struct as _st, zlib as _zl
+    data = open(path, 'rb').read()
+    pos, idat, w, h, ch = 8, b'', 0, 0, 3
+    while pos < len(data):
+        ln, typ = _st.unpack('>I4s', data[pos:pos + 8]); pos += 8
+        chunk = data[pos:pos + ln]; pos += ln + 4
+        if typ == b'IHDR':
+            w, h, bd, ct = _st.unpack('>IIBB', chunk[:10]); ch = {2: 3, 6: 4}.get(ct)
+        elif typ == b'IDAT': idat += chunk
+        elif typ == b'IEND': break
+    raw = _zl.decompress(idat); stride = w * ch
+    out = bytearray(w * h * ch); prev = bytearray(stride)
+    for y in range(h):
+        f = raw[y * (stride + 1)]; line = bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for x in range(stride):
+            a = line[x - ch] if x >= ch else 0; b = prev[x]; c = prev[x - ch] if x >= ch else 0
+            if f == 1: line[x] = (line[x] + a) & 255
+            elif f == 2: line[x] = (line[x] + b) & 255
+            elif f == 3: line[x] = (line[x] + (a + b) // 2) & 255
+            elif f == 4:
+                p = a + b - c; pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        out[y * stride:(y + 1) * stride] = line; prev = line
+    return w, h, ch, out
+
+
+def _set_overrides(rip, fname, defn):
+    """sample the rip and set BED_FILL / LANE_FILLS / BED_DEFS"""
+    global BED_FILL, LANE_FILLS, BED_DEFS
+    BED_FILL, LANE_FILLS = BED, None
+    ov = OWNER_OVERRIDES.get(fname[:-4])
+    if ov:
+        LANE_FILLS = list(ov[1])
+        BED_FILL = ov[1][0]
+        return
+    lanes = defn.get('lanes', 1)
+    vy = defn['verts'][0][1] if defn.get('verts') else 0
+    if defn['kind'] in ('corner', 'hairpin'):
+        vy = 0  # arc pieces: sample lane bands by radius later; whole for now
+    lanesamp = _lane_samples(rip, defn['w'], defn['h'], lanes, vy) if defn['kind'] not in ('corner','hairpin') else None
+    gid_n = [0]
+    def mkgrad(stops):
+        global BED_DEFS
+        gid_n[0] += 1
+        gid = 'g_%s_%d' % (fname.replace('.','_').replace('-','_'), gid_n[0])
+        BED_DEFS += _grad_def(gid, stops)
+        return f'url(#{gid})'
+
+    fills = []
+    any_lane = False
+    if lanesamp:
+        for st in lanesamp:
+            real = [c for c in st if c]
+            if not real:
+                fills.append(None); continue
+            any_lane = True
+            if len(set(real)) == 1:
+                fills.append(_hex(real[0]))
+            else:
+                base = real[0]
+                fills.append(mkgrad([c if c else base for c in st]))
+    if any_lane:
+        LANE_FILLS = fills
+        # whole-piece fallback from lane 0
+        st = lanesamp[0]
+        real = [c for c in st if c]
+        if real:
+            if len(set(real)) == 1:
+                BED_FILL = _hex(real[0])
+            else:
+                base = real[0]
+                BED_FILL = mkgrad([c if c else base for c in st])
+        return
+    # fallback: whole-rip dominant (rails/blocks — banks, Str1.3 style)
+    stops = _whole_stops(rip)
+    real = [c for c in stops if c]
+    if real:
+        if len(set(real)) == 1:
+            BED_FILL = _hex(real[0])
+        else:
+            base = real[0]
+            BED_FILL = mkgrad([c if c else base for c in stops])
+
+
 LANE_W = 11.5   # regulation Tamiya lane width (115 mm); boundaries
                # sit at +/-(n*LANE_W)/2 + i*LANE_W, centered in the
                # footprint so every piece's lanes align at seams
@@ -55,131 +217,80 @@ def chevron(x, y, h, dx=2.2, color=CHEVRON, w=0.9):
 
 
 def rect_family(defn, rail):
-    """straight/start/slope/jump/bank/wave/changer share the rect footprint."""
+    """straight/start/slope — Bri2.0's vocabulary: per-lane closed
+    stroked rectangles (1.2, miter joins) on the regulation grid over
+    one bed fill. No rails, dashes, or chevrons; the start checker
+    stays as a marking on top. (jump/wave route to their own art;
+    bank keeps its solid block.)"""
     w, h, lanes = defn['w'], defn['h'], defn.get('lanes', 1)
-    kind = defn['kind']
-    parts = [rr(-w / 2, -h / 2, w, h, min(2.0, h / 4), fill=BED)]
-    # rails (variant color) inside the top/bottom edges
-    rail_h = min(1.8, h * 0.14)
-    parts.append(rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, rail_h, 1.0, fill=rail, stroke='none'))
-    parts.append(rr(-w / 2 + 0.4, h / 2 - 0.4 - rail_h, w - 0.8, rail_h, 1.0, fill=rail, stroke='none'))
-    # lane separators: straight kinds (wave/changer override below)
-    if kind in ('straight', 'start', 'slope', 'jump', 'bank'):
-        for i in range(1, lanes):
-            y = -LANE_W * lanes / 2 + LANE_W * i
-            parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
-    if kind == 'straight':
-        n = max(1, round(w / 54))
-        for i in range(n):
-            parts.append(chevron(-w / 4 + (w / 2 / n) * i + 2.2, 0, h / 8, 2.2, 'rgba(0,0,0,.18)'))
-    elif kind == 'start':
-        cell = h / 4
-        parts.append('<g>')
-        for r in range(4):
-            for c in range(2):
-                if (r + c) % 2 == 0:
-                    parts.append(f'<rect x="{-w/6 + c*cell:.2f}" y="{-h/2 + r*cell:.2f}" width="{cell:.2f}" height="{cell:.2f}" fill="#ffffff"/>')
-        parts.append('</g>')
-    elif kind == 'slope':
-        n = max(2, round(w / 9))
-        for i in range(n):
-            parts.append(chevron(-w / 2 + 3 + (w - 6) * i / n, 0, h / 3))
-    elif kind == 'jump':
-        # Bri2.0 measured (1 px = 1 cm): a clean 3-lane runway — solid
-        # dividers, no chevrons, open ends — whose bottom-lane strip is
-        # the jump's front elevation: bed→bank-gray left-to-right
-        # gradient, a ~1.5 cm dark end wall ~37.5 cm from the left edge
-        # (re-measured: opaque content ends ~col 37; the ~2 cm dark
-        # edge is the wall), corner beyond the ramp left transparent.
-        RAMP, ENDW = 37.5, 1.5                  # re-measured: opaque content ends ~col 37; the ~2cm dark edge is the wall
-        y0 = -LANE_W * lanes / 2 + LANE_W * (lanes - 1)   # last lane boundary
-        x1, x2 = -w / 2 + RAMP - ENDW, -w / 2 + RAMP
-        parts = [
-            # bed: full-width band plus the ramp footprint (cut corner
-            # stays transparent), all strokes drawn as open lines below
-            f'<path d="M {-w/2:.2f} {-h/2:.2f} H {w/2:.2f} V {y0:.2f} H {x2:.2f} V {h/2:.2f} H {-w/2:.2f} Z" fill="{BED}"/>',
-            f'<defs><linearGradient id="jumpface" gradientUnits="userSpaceOnUse" x1="{-w/2+2:.2f}" y1="0" x2="{-w/2+20:.2f}" y2="0">'
-            f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient></defs>',
-            f'<rect x="{-w/2:.2f}" y="{y0+1:.2f}" width="{x1+w/2:.2f}" height="{h/2-y0-1:.2f}" fill="url(#jumpface)"/>',
-            f'<rect x="{x1:.2f}" y="{y0:.2f}" width="{ENDW:.2f}" height="{h/2-y0:.2f}" fill="{OUTLINE}"/>',
-            # walls (open lines: the rip caps divider/wall ends only)
-            line(-w / 2, -h / 2 + 0.6, w / 2, -h / 2 + 0.6, OUTLINE, 1.2, dash=None),
-            line(w / 2 - 0.6, -h / 2, w / 2 - 0.6, y0, OUTLINE, 1.2, dash=None),
-            line(-w / 2, h / 2 - 0.6, x2, h / 2 - 0.6, OUTLINE, 1.2, dash=None),
-            line(-w / 2 + 0.5, y0, -w / 2 + 0.5, h / 2, rail, 1.0, dash=None),
-            # face top: dark shadow under the elevated part of the ramp
-            # (the light tail at the left is divider2's own AA), dark
-            # step past it
-            line(-w / 2 + 12, y0 + 0.55, x2, y0 + 0.55, DASH, 1.1, dash=None),
-            line(x2, y0 + 0.55, w / 2, y0 + 0.55, OUTLINE, 1.1, dash=None),
-        ]
-        # lane dividers (solid in the rip); the bottom one doubles as
-        # the face top border above the shadow line
-        for i in range(1, lanes):
-            dy = -LANE_W * lanes / 2 + LANE_W * i - (0.3 if i == lanes - 1 else 0)
-            parts.append(line(-w / 2, dy, w / 2, dy, DASH, 1.8, dash=None))
-        return parts
-    elif kind == 'bank':
-        # the original bank is a solid variant-colored banked block
-        parts = [rr(-w / 2, -h / 2, w, h, min(2.0, h / 4), fill=rail)]
-        parts.append(rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, min(1.6, h * 0.12), 1.0, fill=OUTLINE, stroke='none'))
-        parts.append(rr(-w / 2 + 0.4, h / 2 - 0.4 - min(1.6, h * 0.12), w - 0.8, min(1.6, h * 0.12), 1.0, fill=OUTLINE, stroke='none'))
+    half = LANE_W * lanes / 2
+    if defn['kind'] == 'bank':
+        global BED_DEFS
+        # banked block: variant color as a rip-sampled gradient along x
+        grad = BANK_GRAD.get(FNAME[:-4])
+        if grad:
+            gid = 'bankg_' + FNAME[:-4].replace('.', '_')
+            BED_DEFS += _grad_def(gid, [(int(g[1:3], 16), int(g[3:5], 16), int(g[5:7], 16)) for g in grad])
+            fillv = f'url(#{gid})'
+        else:
+            fillv = rail
+        parts = [rr(-w / 2, -h / 2, w, h, min(2.0, h / 4), fill=fillv)]
         for i in range(1, lanes):
             y = -LANE_W * lanes / 2 + LANE_W * i
             parts.append(line(-w / 2 + 2, y, w / 2 - 2, y, DASH, 0.7))
         return parts
-    elif kind == 'wave':
-        # Chicane, measured on the Chi1.0/Chi2.0 rips (1 px = 1 cm): a
-        # constant-height lane band whose whole cross-section — walls,
-        # rails, dividers — rides one raised-cosine hump that lifts the
-        # road at mid-span. Lanes stay parallel the whole way: solid
-        # full-width dividers, no pinch, no phase alternation, no dashes.
-        # Catalog h = band height + amplitude, so the humped outline
-        # exactly fills the viewBox (the verts entry y and the negative
-        # catalog center y encode the same shift).
-        band = LANE_W * lanes                  # regulation lane width
-        amp = h - band                        # 7.5 (Chi1), 14.5 (Chi2)
-        if amp <= 0:                          # not in the catalog; stay sane
-            amp = h / 7
-
+    parts = []
+    if defn['kind'] == 'wave':
+        # Chicane = Bri2.0's vocabulary riding the confirmed hump:
+        # closed stroked lane rectangles (1.2, miter joins) on the
+        # regulation grid, per-lane bed fills, nothing else. The
+        # centerline runs through the verts (+vy flat, -vy mid) so
+        # joints align with the straights.
+        band = LANE_W * lanes
+        vy = defn['verts'][0][1]
+        if defn['verts'][1][1] != vy or vy + band / 2 + 0.6 > h / 2:
+            raise ValueError(f'{defn.get("label", "wave")}: hump does not fit')
         n = int(round(w))
-        xs = [-w / 2 + w * i / n for i in range(n + 1)]   # 1 sample per cm
+        xs = [-w / 2 + w * i / n for i in range(n + 1)]
 
-        def e(x):                              # raw top edge: -h/2 at mid, -h/2+amp at ends
+        def c(x):
             t = (x + w / 2) / w
-            return -h / 2 + amp * math.cos(math.pi * t) ** 2
+            return vy * (2 * math.cos(math.pi * t) ** 2 - 1)
 
-        WALL = 1.2                             # walls/dividers read 1-2 px in the rips
+        def lane_path(i):
+            top = lambda x: c(x) - band / 2 + LANE_W * i
+            d = ' '.join(f'{"M" if k == 0 else "L"} {xs[k]:.2f} {top(xs[k]):.2f}' for k in range(n + 1))
+            d += ' ' + ' '.join(f'L {x:.2f} {top(x) + LANE_W:.2f}' for x in reversed(xs))
+            return d + ' Z'
 
-        def pts(fn, xx=None):
-            xx = xs if xx is None else xx
-            return [f'{"M" if i == 0 else "L"} {xx[i]:.2f} {fn(xx[i]):.2f}' for i in range(len(xx))]
-
-        # bed: closed humped band, unstroked (strokes are drawn separately
-        # so the piece ends can stay open — the rips cap them with the
-        # rail color, not the outline)
-        edge = pts(lambda x: e(x) + WALL / 2) + [f'L {x:.2f} {e(x) + band - WALL / 2:.2f}' for x in reversed(xs)]
-        parts = [f'<path d="{" ".join(edge)} Z" fill="{BED}"/>']
-        # variant rails: a closed loop hugging the walls and wrapping
-        # around both ends (1 cm strip in the rips); inset 0.5 so the
-        # stroke never crosses the viewBox edge
-        xr = [-w / 2 + 0.5] + xs[1:-1] + [w / 2 - 0.5]
-        rail_loop = pts(lambda x: e(x) + 1.9, xr) + [f'L {x:.2f} {e(x) + band - 1.9:.2f}' for x in reversed(xr)]
-        parts.append(f'<path d="{" ".join(rail_loop)} Z" fill="none" stroke="{rail}" stroke-width="1.0" stroke-linejoin="round"/>')
-        # walls: open polylines — their butt ends form the wall cross
-        # sections visible on the end caps
-        parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + WALL / 2))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
-        parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + band - WALL / 2))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
-        for i in range(1, lanes):
-            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: e(x) + WALL / 2 + LANE_W * i))}" fill="none" stroke="{DASH}" stroke-width="{WALL}"/>')
+        # bed: whole humped band
+        bed = ' '.join(f'{"M" if k == 0 else "L"} {xs[k]:.2f} {c(xs[k]) - band / 2:.2f}' for k in range(n + 1))
+        bed += ' ' + ' '.join(f'L {x:.2f} {c(x) + band / 2:.2f}' for x in reversed(xs))
+        for i in range(lanes):
+            fill = (LANE_FILLS[i] if LANE_FILLS and i < len(LANE_FILLS) and LANE_FILLS[i] else BED_FILL)
+            parts.append(f'<path d="{lane_path(i)}" fill="{fill}" stroke="{OUTLINE}" stroke-width="1.2"/>')
         return parts
-    elif kind == 'changer':
-        for i in range(lanes + 1):
-            y1 = -h / 2 + (i * h) / lanes
-            y2 = -h / 2 + ((lanes - i) * h) / lanes
-            parts.append(line(-w / 2 + 3, y1, w / 2 - 3, y2, DASH, 0.8, dash=None))
-        parts.append(chevron(-w / 6, 0, 6, 2.2))
-        parts.append(chevron(w / 6, 0, 6, -2.2))
+
+    for i in range(lanes):
+        y0 = -half + LANE_W * i
+        fill = (LANE_FILLS[i] if LANE_FILLS and i < len(LANE_FILLS) and LANE_FILLS[i] else BED_FILL)
+        parts.append(f'<path d="M {-w/2:.2f} {y0:.2f} H {w/2:.2f} V {y0 + LANE_W:.2f} H {-w/2:.2f} Z" '
+                     f'fill="{fill}" stroke="{OUTLINE}" stroke-width="1.2"/>')
+    if defn['kind'] == 'start':
+        # checkered flag band across ALL lanes (black/white, 2 columns
+        # of half-lane cells) at the start end, then a direction arrow
+        # per lane pointing along travel
+        cell = LANE_W / 2
+        rows = lanes * 2
+        x0 = w / 2 - 2 - 2 * cell
+        for r in range(rows):
+            for c in range(2):
+                col = '#ffffff' if (r + c) % 2 == 0 else '#1a1a1a'
+                parts.append(f'<rect x="{x0 + c*cell:.2f}" y="{-half + r*cell:.2f}" width="{cell:.2f}" height="{cell:.2f}" fill="{col}"/>')
+        for i in range(lanes):
+            yc = -half + LANE_W * (i + 0.5)
+            cx = -w / 4
+            parts.append(f'<path d="M {cx-4:.2f} {yc-3:.2f} L {cx+4:.2f} {yc:.2f} L {cx-4:.2f} {yc+3:.2f} Z" fill="{OUTLINE}" stroke="none"/>')
     return parts
 
 
@@ -276,23 +387,72 @@ def changer_art(defn):
     # by owner decision: rails render in the wall color, so the
     # variant color has no surface in this piece.
     parts = [
-        f'<path d="{bed}" fill="{BED}"/>',
+        f'<path d="{bed}" fill="{BED_FILL}"/>',
+        f'<defs><linearGradient id="approach" gradientUnits="userSpaceOnUse" x1="-81" y1="0" x2="-44" y2="0">'
+        f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient>'
+        f'<linearGradient id="exit" gradientUnits="userSpaceOnUse" x1="42.5" y1="0" x2="81" y2="0">'
+        f'<stop offset="0" stop-color="{BANK_GRAY}"/><stop offset="1" stop-color="{BED}"/></linearGradient></defs>'
+        f'<path d="M -81 5.75 H -44 V 17.25 H -81 Z" fill="url(#approach)"/>',
+        f'<path d="M 42.5 -17.25 H 81 V -5.75 H 42.5 Z" fill="url(#exit)"/>',
+
         stroke(stepped(-17.25), OUTLINE, 1.2),
         stroke(stepped(-5.75), OUTLINE, 1.2),
         stroke(stepped(5.75), OUTLINE, 1.2),
         line2([(-27.5, -17.25), (-27.5, 5.75)], OUTLINE, 1.2),
         line2([(27, -5.75), (27, 17.25)], OUTLINE, 1.2),
+        # bridge fill above the lane lines (its end sections tuck
+        # the approach/exit gradients are lane-surface shading: under
+        # every line, like the bed. The bridge band stays solid and
+        # keeps its calibrated layer (above the lane lines, below its
+        # edges/walls/delineators)
+        f'<defs><linearGradient id="approach" gradientUnits="userSpaceOnUse" x1="-81" y1="0" x2="-44" y2="0">'
+        f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient>'
+        f'<linearGradient id="exit" gradientUnits="userSpaceOnUse" x1="42.5" y1="0" x2="81" y2="0">'
+        f'<stop offset="0" stop-color="{BANK_GRAY}"/><stop offset="1" stop-color="{BED}"/></linearGradient></defs>'
         f'<path d="M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)} L 42.5 -5.75 {b_cmd(42.5, -5.75, -43.5, 17.25)} Z" fill="{BANK_GRAY}"/>',
         stroke(f'M -44 5.75 {b_cmd(-44, 5.75, 42.5, -17.25)}', OUTLINE, 1.2),
         stroke(f'M -43.5 17.25 {b_cmd(-43.5, 17.25, 42.5, -5.75)}', OUTLINE, 1.2),
-        line2([(42.5, -17.25), (80, -17.25)], OUTLINE, 1.2),
-        line2([(-80, 17.25), (-43.5, 17.25)], OUTLINE, 1.2),
-        line2([(15, 17.25), (80, 17.25)], OUTLINE, 1.2),
+        line2([(42.5, -17.25), (81, -17.25)], OUTLINE, 1.2),
+        line2([(-81, 17.25), (-43.5, 17.25)], OUTLINE, 1.2),
+        line2([(15, 17.25), (81, 17.25)], OUTLINE, 1.2),
         line2([(42.5, -17.25), (42.5, -5.75)], OUTLINE, 1.2),
         line2([(-43.5, 5.75), (-43.5, 17.25)], OUTLINE, 1.2),
         # end rails, wall color
-        rr(-81, -18, 1.2, 36, 0, fill=OUTLINE, stroke='none'),
-        rr(79.8, -18, 1.2, 36, 0, fill=OUTLINE, stroke='none'),
+        rr(-81, -17.25, 1.2, 34.5, 0, fill=OUTLINE, stroke='none'),
+        rr(79.8, -17.25, 1.2, 34.5, 0, fill=OUTLINE, stroke='none'),
+    ]
+    return parts
+
+
+def bri2_art(defn):
+    """Bri2.0 (jump): per owner, the entry straight of the Lan1 weave —
+    the same lane rectangles, wall lines, and end rails — except the
+    bottom lane runs shorter, ending on a vertical face at x=+15 with
+    the corner beyond it cut transparent (measured on the rip)."""
+    def line2(pts, color, width):
+        d = f'M {pts[0][0]:.1f} {pts[0][1]:.1f} ' + ' '.join(f'L {x:.1f} {y:.1f}' for x, y in pts[1:])
+        return f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" stroke-linecap="butt"/>'
+    parts = [
+        # bed with the bottom-right corner cut (beyond the ramp face)
+        # closed stroked rectangles: miter joins give crisp corners
+        # (separate butt-capped lines left notches where they met).
+        # Top and middle lanes run full width; the bottom lane is its
+        # own rectangle ending on the face at x=+15 — shared divider
+        # strokes double, same color.
+        # bed: full width for the top two lanes, to the face for the
+        # bottom — the cut corner stays transparent
+        '<defs><linearGradient id="bri2ramp" gradientUnits="userSpaceOnUse" x1="-25" y1="0" x2="-7" y2="0">'
+        '<stop offset="0" stop-color="' + BED + '"/><stop offset="1" stop-color="' + BANK_GRAY + '"/></linearGradient></defs>'
+        # top two lanes: flat bed; the ramp lane carries the rip's
+        # rise gradient (bed -> bank-gray, measured stops 2..20 cm
+        # from the left edge, flat gray to the face)
+        '<path d="M -27 -17.25 H 27 V 5.75 H -27 Z" fill="' + BED_FILL + '"/>',
+        '<path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="url(#bri2ramp)"/>',
+        '<path d="M -27 -17.25 H 27 V -5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
+        '<path d="M -27 -5.75 H 27 V 5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
+        '<path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
+        rr(-27, -17.25, 1.2, 34.5, 0, fill=OUTLINE, stroke='none'),
+        rr(25.8, -17.25, 1.2, 23.0, 0, fill=OUTLINE, stroke='none'),
     ]
     return parts
 
@@ -336,7 +496,7 @@ def lan2_art(defn, rail):
         f'L 18 36 A 36 36 0 0 0 18 -36 Z '
         f'M -90 36 H 18 V 72 H -90 Z '
         f'M -27 -72 L -2 -72 L -9 -67.5 Z '
-        f'M 2 -72 L 17 -72 L 10 -68.5 Z" fill="{BED}" fill-rule="evenodd"/>',
+        f'M 2 -72 L 17 -72 L 10 -68.5 Z" fill="{BED_FILL}" fill-rule="evenodd"/>',
         # the three identical S boundaries, each settling into its arc:
         # top of lane 1 -> r 59.75 (it runs the full sweep to the exit)
         stroke(stepped(-71.25) + ' A 59.75 59.75 0 0 1 18 59.75 L -90 59.75', OUTLINE, 1.2),
@@ -368,50 +528,53 @@ def lan2_art(defn, rail):
 
 
 def arc_family(defn, rail):
-    """corner/hairpin: annular sector from solveGeo geometry."""
+    """corner/hairpin: Bri2.0's vocabulary on annular geometry — each
+    lane a closed annular band (arc out, radial end, arc back, close)
+    stroked 1.2 on the regulation grid, one sector bed fill. No rails
+    or dashes; the mid-arc direction chevron stays as a marking."""
     geo = defn['_geo']
     lanes = defn.get('lanes', 3)
-    band = defn['band']
     cx, cy = geo['cx'], geo['cy']
     a1, sweep = geo['a1'], geo['sweep']
     R = geo['R']
     P = lambda r, a: (cx + r * math.cos(a), cy + r * math.sin(a))
-
-    ro, ri = R + band / 2, R - band / 2
-    wo, wi = R + LANE_W * lanes / 2, R - LANE_W * lanes / 2  # wall lines
+    half = LANE_W * lanes / 2
     large = 1 if abs(sweep) > math.pi else 0
     sflag = 1 if sweep > 0 else 0
-    x1, y1 = P(ro, a1); x2, y2 = P(ro, a1 + sweep)
-    x3, y3 = P(ri, a1 + sweep); x4, y4 = P(ri, a1)
-    parts = [
-        f'<path d="M {x1:.2f} {y1:.2f} A {ro:.2f} {ro:.2f} 0 {large} {sflag} {x2:.2f} {y2:.2f} '
-        f'L {x3:.2f} {y3:.2f} A {ri:.2f} {ri:.2f} 0 {large} {1-sflag} {x4:.2f} {y4:.2f} Z" '
-        f'fill="{BED}"/>'
-    ]
-    # walls on the regulation grid (same inset as the straight family,
-    # so corner lanes are 11.5 like chicane/weave pieces, not 12.25)
-    for r in (wo, wi):
-        xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
-        parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
-    # rails: thin arcs just inside the walls
-    for r, col in ((wo - 0.9, rail), (wi + 0.9, rail)):
-        xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
-        parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{col}" stroke-width="1.6"/>')
-    # lane separators: dashed arcs
-    for i in range(1, lanes):
-        r = R - LANE_W * lanes / 2 + LANE_W * i
-        xa, ya = P(r, a1); xb, yb = P(r, a1 + sweep)
-        parts.append(f'<path d="M {xa:.2f} {ya:.2f} A {r:.2f} {r:.2f} 0 {large} {sflag} {xb:.2f} {yb:.2f}" fill="none" stroke="{DASH}" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>')
-    # direction chevron at mid-arc
-    am = a1 + sweep / 2
-    rm = R
-    px, py = P(rm, am)
-    tang = am + (math.pi / 2 if sweep > 0 else -math.pi / 2)
-    parts.append(f'<path d="M {px - 1.6*math.cos(tang):.2f} {py - 1.6*math.sin(tang) - band/6:.2f} L {px + 1.6*math.cos(tang):.2f} {py + 1.6*math.sin(tang):.2f} L {px - 1.6*math.cos(tang):.2f} {py - 1.6*math.sin(tang) + band/6:.2f}" fill="none" stroke="{CHEVRON}" stroke-width="0.9" transform="rotate({math.degrees(tang):.1f} {px:.2f} {py:.2f})"/>')
+
+    def band_path(r0, r1):
+        x1, y1 = P(r0, a1); x2, y2 = P(r0, a1 + sweep)
+        x3, y3 = P(r1, a1 + sweep); x4, y4 = P(r1, a1)
+        return (f'M {x1:.2f} {y1:.2f} A {r0:.2f} {r0:.2f} 0 {large} {sflag} {x2:.2f} {y2:.2f} '
+                f'L {x3:.2f} {y3:.2f} A {r1:.2f} {r1:.2f} 0 {large} {1-sflag} {x4:.2f} {y4:.2f} Z')
+
+    parts = []
+    for i in range(lanes):
+        fill = (LANE_FILLS[i] if LANE_FILLS and i < len(LANE_FILLS) and LANE_FILLS[i] else BED_FILL)
+        parts.append(f'<path d="{band_path(R - half + LANE_W * i, R - half + LANE_W * (i + 1))}" '
+                     f'fill="{fill}" stroke="{OUTLINE}" stroke-width="1.2"/>')
     return parts
 
 
+OWNER_OVERRIDES = {
+    # owner-specified variant pieces the sampler can't read
+    'Str1.1': ('lanes', ['#30c090', '#30c090', '#30c090']),           # green
+    'Str1.2': ('lanes', ['#0868a8', '#0868a8', '#0868a8']),           # blue
+    'Str1.5': ('lanes', ['#d81820', '#f8f8f8', '#0868a8']),           # red white blue
+    'Cor1.9': ('lanes', ['#d81820', '#f8f8f8', '#0868a8']),           # red white blue
+}
+BANK_GRAD = {
+    'Ban1.0': ['#30b080', '#30a070', '#209060'],
+    'Ban1.1': ['#e0e0e0', '#c0c0c0', '#c0b0b0'],
+    'Ban1.2': ['#0060a0', '#004080', '#004080'],
+    'Ban1.3': ['#d01010', '#a00000', '#900000'],
+    'Ban2.0': ['#d0a060', '#e0c090', '#e0d0c0'],
+}
+FNAME = ''   # current output filename (banks key gradients by it)
+
+
 def emit(defn, rail, rip=None):
+    global BED_DEFS
     # Lan1's changer art is hand-modeled from measurements; Lan4 and the
     # hairpin rips still route through the measured tracer until their
     # hand models land (3/4-view illustrations: flyover corridors,
@@ -420,6 +583,8 @@ def emit(defn, rail, rip=None):
         body = changer_art(defn)
     elif defn['kind'] == 'hairpin' and (defn['w'], defn['h']) == (180, 144):
         body = lan2_art(defn, rail)
+    elif defn['kind'] == 'jump':
+        body = bri2_art(defn)
     elif rip:
         body = traced_body(rip, defn['w'], defn['h'],
                            (('solid', BED), ('gray', BANK_GRAY), ('mark', DASH), ('outline', OUTLINE)))
@@ -435,8 +600,9 @@ def emit(defn, rail, rip=None):
         # draws sprites at def.w x def.h)
         body = [f'<clipPath id="vb"><rect x="{-w/2}" y="{-h/2}" width="{w}" height="{h}"/></clipPath>',
                 '<g clip-path="url(#vb)">'] + body + ['</g>']
+    defs = BED_DEFS.replace('{X1}', f'{-w/2:.2f}').replace('{X2}', f'{w/2:.2f}')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
-            f'viewBox="{-w/2} {-h/2} {w} {h}">\n  ' + '\n  '.join(body) + '\n</svg>\n')
+            f'viewBox="{-w/2} {-h/2} {w} {h}">\n  ' + defs + '\n  '.join(body) + '\n</svg>\n')
 
 
 def main():
@@ -483,6 +649,12 @@ def main():
                 if defn['kind'] in ('changer', 'hairpin') else None
             if rip and not os.path.exists(rip):
                 rip = None  # fall through to modeled art instead of crashing
+            global BED_FILL, LANE_FILLS, BED_DEFS, FNAME
+            FNAME = fname
+            BED_FILL, LANE_FILLS, BED_DEFS = BED, None, ''
+            rip_any = os.path.join(root, 'assets', fname[:-4] + '.png')
+            if os.path.exists(rip_any) and defn['kind'] not in ('bank', 'changer', 'hairpin', 'start'):
+                _set_overrides(rip_any, fname, defn)
             with open(os.path.join(out, fname), 'w') as f:
                 f.write(emit(defn, rail, rip))
             n += 1

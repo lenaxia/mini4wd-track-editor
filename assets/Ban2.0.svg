@@ -1,7 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="54" height="60" viewBox="-27.0 -30.0 54 60">
-  <rect x="-27.00" y="-30.00" width="54.00" height="60.00" rx="2.00" fill="#dabc90" stroke="#5d5a57" stroke-width="0.8"/>
-  <rect x="-26.60" y="-29.60" width="53.20" height="1.60" rx="0.80" fill="#5d5a57" stroke="none" stroke-width="0.8"/>
-  <rect x="-26.60" y="28.00" width="53.20" height="1.60" rx="0.80" fill="#5d5a57" stroke="none" stroke-width="0.8"/>
+  <defs><linearGradient id="bankg_Ban2_0" gradientUnits="userSpaceOnUse" x1="-27.00" y1="0" x2="27.00" y2="0" spreadMethod="pad"><stop offset="0.00" stop-color="#d8a868"/><stop offset="0.50" stop-color="#e8c898"/><stop offset="1.00" stop-color="#e8d8c8"/></linearGradient></defs><rect x="-27.00" y="-30.00" width="54.00" height="60.00" rx="2.00" fill="url(#bankg_Ban2_0)" stroke="#5d5a57" stroke-width="0.8"/>
   <line x1="-25.00" y1="-17.25" x2="25.00" y2="-17.25" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
   <line x1="-25.00" y1="-5.75" x2="25.00" y2="-5.75" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>
   <line x1="-25.00" y1="5.75" x2="25.00" y2="5.75" stroke="#8a8683" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>

@@ -35,7 +35,7 @@ export const PIECES = {
   Cor2: { label: '45\u00B0 corner', lanes: 5, l: 2.46, w: 72, h: 72, colors: 3, verts: [[-36, -6], [6.42, 11.58]],       kind: 'corner', R: 60, band: 60 },
   Cor3: { label: '90\u00B0 corner', lanes: 5, l: 4.92, w: 90, h: 90, colors: 3, verts: [[-45, -15], [15, 45]],          kind: 'corner', R: 60, band: 60 },
   Cor4: { label: 'Digital curve', lanes: 5, l: 4.92, w: 90,  h: 90,  colors: 3, verts: [[-45, -15], [15, 45]],          kind: 'corner', R: 60, band: 60 },
-  Cor5: { label: 'R2100 curve',   lanes: 5, l: 14.33, w: 210, h: 210, colors: 1, verts: [[-105, -75], [75, 105]],       kind: 'corner', R: 210, band: 60 },
+  Cor5: { label: 'R2100 curve',   lanes: 5, l: 14.33, w: 210, h: 210, colors: 1, verts: [[-105, -75], [75, 105]],       kind: 'corner', R: 180, band: 60 },
   Lan3: { label: 'Burning chg.',  lanes: 5, l: 9.84, w: 90,  h: 180, colors: 1, verts: [[-45, -60], [-45, 60]],         kind: 'hairpin', R: 60, band: 60 },
   Lan4: { label: 'Lane changer',  lanes: 5, l: 12,   w: 240, h: 60,  colors: 1, verts: [[-120, 0], [120, 0]],           kind: 'changer' },
   Bri3: { label: '\u00BD Slope',    lanes: 5, l: 3,    w: 60,  h: 60,  colors: 1, verts: [[-30, 0], [30, 0, 75]],       kind: 'slope' },
