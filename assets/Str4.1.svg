@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="-30.0 -30.0 60 60">
-  <path d="M -30.00 -28.75 H 30.00 V 28.75 H -30.00 Z" fill="#efeae5"/>
-  <path d="M -30.00 -28.75 H 30.00 V -17.25 H -30.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -30.00 -17.25 H 30.00 V -5.75 H -30.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -30.00 -5.75 H 30.00 V 5.75 H -30.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -30.00 5.75 H 30.00 V 17.25 H -30.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -30.00 17.25 H 30.00 V 28.75 H -30.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -30.00 -28.75 H 30.00 V -17.25 H -30.00 Z" fill="#f8f8f8" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -30.00 -17.25 H 30.00 V -5.75 H -30.00 Z" fill="#e80808" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -30.00 -5.75 H 30.00 V 5.75 H -30.00 Z" fill="#f8f858" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -30.00 5.75 H 30.00 V 17.25 H -30.00 Z" fill="#089848" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -30.00 17.25 H 30.00 V 28.75 H -30.00 Z" fill="#0878c8" stroke="#5d5a57" stroke-width="1.2"/>
 </svg>

@@ -1,11 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="-36.0 -36.0 72 72">
   <clipPath id="vb"><rect x="-36.0" y="-36.0" width="72" height="72"/></clipPath>
   <g clip-path="url(#vb)">
-  <path d="M -36.01 22.75 A 31.25 31.25 0 0 1 -13.91 31.91 L 26.75 -8.75 A 88.75 88.75 0 0 0 -35.99 -34.75 Z" fill="#efeae5"/>
-  <path d="M -36.01 22.75 A 31.25 31.25 0 0 1 -13.91 31.91 L -5.78 23.78 A 42.75 42.75 0 0 0 -36.00 11.25 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -36.00 11.25 A 42.75 42.75 0 0 1 -5.78 23.78 L 2.35 15.65 A 54.25 54.25 0 0 0 -36.00 -0.25 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -36.00 -0.25 A 54.25 54.25 0 0 1 2.35 15.65 L 10.49 7.51 A 65.75 65.75 0 0 0 -36.00 -11.75 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -36.00 -11.75 A 65.75 65.75 0 0 1 10.49 7.51 L 18.62 -0.62 A 77.25 77.25 0 0 0 -36.00 -23.25 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -36.00 -23.25 A 77.25 77.25 0 0 1 18.62 -0.62 L 26.75 -8.75 A 88.75 88.75 0 0 0 -35.99 -34.75 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -36.01 22.75 A 31.25 31.25 0 0 1 -13.91 31.91 L -5.78 23.78 A 42.75 42.75 0 0 0 -36.00 11.25 Z" fill="#efeae5" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -36.00 11.25 A 42.75 42.75 0 0 1 -5.78 23.78 L 2.35 15.65 A 54.25 54.25 0 0 0 -36.00 -0.25 Z" fill="#efeae5" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -36.00 -0.25 A 54.25 54.25 0 0 1 2.35 15.65 L 10.49 7.51 A 65.75 65.75 0 0 0 -36.00 -11.75 Z" fill="#efeae5" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -36.00 -11.75 A 65.75 65.75 0 0 1 10.49 7.51 L 18.62 -0.62 A 77.25 77.25 0 0 0 -36.00 -23.25 Z" fill="#efeae5" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -36.00 -23.25 A 77.25 77.25 0 0 1 18.62 -0.62 L 26.75 -8.75 A 88.75 88.75 0 0 0 -35.99 -34.75 Z" fill="#efeae5" stroke="#5d5a57" stroke-width="1.2"/>
   </g>
 </svg>

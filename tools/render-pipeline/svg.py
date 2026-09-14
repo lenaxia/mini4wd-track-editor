@@ -28,56 +28,82 @@ CHEVRON = '#8a8683'
 # bank palettes sampled from the original rips (their own palettes, not
 # VARIANT_COLORS); keyed per family — Ban2's single tan variant is NOT
 # Ban1's green c0
-BED_FILL = BED    # per-variant bed override (set in main from the rip)
-BED_DEFS = ""     # gradient defs when the override is a gradient
+BED_FILL = BED      # whole-piece fallback (bed or gradient url)
+LANE_FILLS = None   # per-lane: '#rrggbb' | ('url', gid, stops) | None
+BED_DEFS = ""       # accumulated gradient defs
 
 
-def _dominant(rip):
-    """dominant saturated color at start/mid/end stations, or None"""
-    import re as _re
-    pw, ph, pch, pbuf = _decode_png(rip)
-    stations = []
-    for fx in (0.08, 0.5, 0.92):
-        x = int(pw * fx)
-        counts = {}
-        for y in range(2, ph - 2):
-            o = (y * pw + x) * pch
-            if pbuf[o + 3] > 200:
-                r, g, b = pbuf[o], pbuf[o + 1], pbuf[o + 2]
-                if abs(r - 239) + abs(g - 234) + abs(b - 229) < 60:
-                    continue
-                if max(r, g, b) - min(r, g, b) < 30 and (r + g + b) / 3 > 190:
-                    continue  # neutral light grays = lines/bed
-                key = (r // 8 * 8, g // 8 * 8, b // 8 * 8)
-                counts[key] = counts.get(key, 0) + 1
-        best = max(counts.items(), key=lambda kv: kv[1])[0] if counts else None
-        n = counts.get(best, 0) if best else 0
-        stations.append((best, n) if n >= 15 else (None, 0))
-    if not any(c for c, n in stations):
+def _near(c, t, tol=48):
+    return abs(c[0]-t[0])+abs(c[1]-t[1])+abs(c[2]-t[2]) < tol
+
+
+def _px(buf, W, H, ch, x, y):
+    if not (0 <= x < W and 0 <= y < H):
         return None
-    first = next((c for c, n in stations if c), stations[0][0])
-    stations = [(c if c else first, n) for c, n in stations]
-    return [c for c, n in stations]
+    o = (y*W+x)*ch
+    if buf[o+3] <= 200:
+        return None
+    return (buf[o], buf[o+1], buf[o+2])
 
 
-def _bed_override(rip, fname):
-    """returns fill string, appending gradient defs to BED_DEFS if needed"""
-    global BED_FILL, BED_DEFS
-    cols = _dominant(rip)
-    if cols is None:
-        BED_FILL = BED
-        return
-    uniq = list(dict.fromkeys(cols))
-    if len(uniq) == 1:
-        BED_FILL = '#%02x%02x%02x' % uniq[0]
-        return
-    gid = 'bedg_' + fname.replace('.', '_').replace('-', '_')
-    stops = ''.join(f'<stop offset="{o:.2f}" stop-color="#%02x%02x%02x"/>' % c
-                   for o, c in zip((0, 0.5, 1), cols))
-    BED_DEFS = ('<defs><linearGradient id="' + gid + '" gradientUnits="userSpaceOnUse" '
-                'x1="{X1}" y1="0" x2="{X2}" y2="0" spreadMethod="pad">' + stops + '</linearGradient></defs>')
-    BED_FILL = f'url(#{gid})'
+def _lane_samples(rip, w, h, lanes, vy):
+    """colors per lane at start/mid/end; None where only bed/lines"""
+    pw, ph, pch, pbuf = _decode_png(rip)
+    OUT, DSH, BD = (93,90,87), (138,134,131), (239,234,229)
+    res = []
+    for i in range(lanes):
+        yc = vy - (LANE_W*lanes)/2 + LANE_W*(i+0.5)
+        y = int(round(yc + ph/2))
+        st = []
+        for fx in (0.06, 0.5, 0.94):
+            x = int(pw*fx)
+            from collections import Counter
+            cs = Counter()
+            for dy in (-1,0,1):
+                for dx in (-1,0,1):
+                    c = _px(pbuf, pw, ph, pch, x+dx, y+dy)
+                    if c and not _near(c, OUT) and not _near(c, DSH) and not _near(c, BD, 60) and (max(c) - min(c) > 40 or min(c) > 225):
+                        cs[(c[0]//16*16, c[1]//16*16, c[2]//16*16)] += 1
+            st.append(cs.most_common(1)[0][0] if cs else None)
+        res.append(st)
+    return res
 
+
+def _whole_stops(rip):
+    """dominant color at 3 stations across the whole rip (fallback)"""
+    pw, ph, pch, pbuf = _decode_png(rip)
+    OUT, DSH, BD = (93,90,87), (138,134,131), (239,234,229)
+    from collections import Counter
+    stops = []
+    for fx in (0.06, 0.5, 0.94):
+        x = int(pw*fx)
+        cs = Counter()
+        for y in range(2, ph-2):
+            c = _px(pbuf, pw, ph, pch, x, y)
+            if c and not _near(c, OUT) and not _near(c, DSH) and not _near(c, BD, 60) and (max(c) - min(c) > 40 or min(c) > 225):
+                cs[(c[0]//16*16, c[1]//16*16, c[2]//16*16)] += 1
+        best, n = (cs.most_common(1)[0][0], cs.most_common(1)[0] and 1) if cs else (None, 0)
+        n = cs[best] if best else 0
+        stops.append(best if n >= 6 else None)
+    return stops
+
+
+def _hex(c):
+    return '#%02x%02x%02x' % (min(c[0]+8, 255), min(c[1]+8, 255), min(c[2]+8, 255))
+
+
+def _grad_def(gid, stops):
+    return ('<defs><linearGradient id="' + gid + '" gradientUnits="userSpaceOnUse" '
+            'x1="{X1}" y1="0" x2="{X2}" y2="0" spreadMethod="pad">'
+            + ''.join(f'<stop offset="{o:.2f}" stop-color="{_hex(c)}"/>'
+                      for o, c in zip((0, 0.5, 1), stops))
+            + '</linearGradient></defs>')
+
+
+BANK_COLORS = {
+  'Ban1': ['#2e966f', '#c0bcb8', '#004282', '#9a0400'],
+  'Ban2': ['#dabc90'],
+}
 
 def _decode_png(path):
     import struct as _st, zlib as _zl
@@ -104,6 +130,59 @@ def _decode_png(path):
                 line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
         out[y * stride:(y + 1) * stride] = line; prev = line
     return w, h, ch, out
+
+
+def _set_overrides(rip, fname, defn):
+    """sample the rip and set BED_FILL / LANE_FILLS / BED_DEFS"""
+    global BED_FILL, LANE_FILLS, BED_DEFS
+    BED_FILL, LANE_FILLS = BED, None
+    lanes = defn.get('lanes', 1)
+    vy = defn['verts'][0][1] if defn.get('verts') else 0
+    if defn['kind'] in ('corner', 'hairpin'):
+        vy = 0  # arc pieces: sample lane bands by radius later; whole for now
+    lanesamp = _lane_samples(rip, defn['w'], defn['h'], lanes, vy) if defn['kind'] not in ('corner','hairpin') else None
+    gid_n = [0]
+    def mkgrad(stops):
+        global BED_DEFS
+        gid_n[0] += 1
+        gid = 'g_%s_%d' % (fname.replace('.','_').replace('-','_'), gid_n[0])
+        BED_DEFS += _grad_def(gid, stops)
+        return f'url(#{gid})'
+
+    fills = []
+    any_lane = False
+    if lanesamp:
+        for st in lanesamp:
+            real = [c for c in st if c]
+            if not real:
+                fills.append(None); continue
+            any_lane = True
+            if len(set(real)) == 1:
+                fills.append(_hex(real[0]))
+            else:
+                base = real[0]
+                fills.append(mkgrad([c if c else base for c in st]))
+    if any_lane:
+        LANE_FILLS = fills
+        # whole-piece fallback from lane 0
+        st = lanesamp[0]
+        real = [c for c in st if c]
+        if real:
+            if len(set(real)) == 1:
+                BED_FILL = _hex(real[0])
+            else:
+                base = real[0]
+                BED_FILL = mkgrad([c if c else base for c in st])
+        return
+    # fallback: whole-rip dominant (rails/blocks — banks, Str1.3 style)
+    stops = _whole_stops(rip)
+    real = [c for c in stops if c]
+    if real:
+        if len(set(real)) == 1:
+            BED_FILL = _hex(real[0])
+        else:
+            base = real[0]
+            BED_FILL = mkgrad([c if c else base for c in stops])
 
 
 LANE_W = 11.5   # regulation Tamiya lane width (115 mm); boundaries
@@ -140,6 +219,7 @@ def rect_family(defn, rail):
     bank keeps its solid block.)"""
     w, h, lanes = defn['w'], defn['h'], defn.get('lanes', 1)
     half = LANE_W * lanes / 2
+    parts = []
     if defn['kind'] == 'wave':
         # Chicane = Bri2.0's vocabulary riding the confirmed hump:
         # closed stroked lane rectangles (1.2, miter joins) on the
@@ -166,20 +246,20 @@ def rect_family(defn, rail):
         # bed: whole humped band
         bed = ' '.join(f'{"M" if k == 0 else "L"} {xs[k]:.2f} {c(xs[k]) - band / 2:.2f}' for k in range(n + 1))
         bed += ' ' + ' '.join(f'L {x:.2f} {c(x) + band / 2:.2f}' for x in reversed(xs))
-        parts = [f'<path d="{bed} Z" fill="{BED_FILL}"/>']
         for i in range(lanes):
-            parts.append(f'<path d="{lane_path(i)}" fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
+            fill = (LANE_FILLS[i] if LANE_FILLS and i < len(LANE_FILLS) and LANE_FILLS[i] else BED_FILL)
+            parts.append(f'<path d="{lane_path(i)}" fill="{fill}" stroke="{OUTLINE}" stroke-width="1.2"/>')
         return parts
 
-
-    parts = [f'<path d="M {-w/2:.2f} {-half:.2f} H {w/2:.2f} V {half:.2f} H {-w/2:.2f} Z" fill="{BED_FILL}"/>']
     for i in range(lanes):
         y0 = -half + LANE_W * i
+        fill = (LANE_FILLS[i] if LANE_FILLS and i < len(LANE_FILLS) and LANE_FILLS[i] else BED_FILL)
         parts.append(f'<path d="M {-w/2:.2f} {y0:.2f} H {w/2:.2f} V {y0 + LANE_W:.2f} H {-w/2:.2f} Z" '
-                     f'fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
+                     f'fill="{fill}" stroke="{OUTLINE}" stroke-width="1.2"/>')
     if defn['kind'] == 'start':
         cell = LANE_W / 2
-        for r in range(4):
+        rows = lanes * 2
+        for r in range(rows):
             for c in range(2):
                 if (r + c) % 2 == 0:
                     parts.append(f'<rect x="{-w/6 + c*cell:.2f}" y="{-half + r*cell:.2f}" width="{cell:.2f}" height="{cell:.2f}" fill="#ffffff"/>')
@@ -440,10 +520,11 @@ def arc_family(defn, rail):
         return (f'M {x1:.2f} {y1:.2f} A {r0:.2f} {r0:.2f} 0 {large} {sflag} {x2:.2f} {y2:.2f} '
                 f'L {x3:.2f} {y3:.2f} A {r1:.2f} {r1:.2f} 0 {large} {1-sflag} {x4:.2f} {y4:.2f} Z')
 
-    parts = [f'<path d="{band_path(R - half, R + half)}" fill="{BED_FILL}"/>']
+    parts = []
     for i in range(lanes):
+        fill = (LANE_FILLS[i] if LANE_FILLS and i < len(LANE_FILLS) and LANE_FILLS[i] else BED_FILL)
         parts.append(f'<path d="{band_path(R - half + LANE_W * i, R - half + LANE_W * (i + 1))}" '
-                     f'fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
+                     f'fill="{fill}" stroke="{OUTLINE}" stroke-width="1.2"/>')
     return parts
 
 
@@ -523,11 +604,11 @@ def main():
                 if defn['kind'] in ('changer', 'hairpin') else None
             if rip and not os.path.exists(rip):
                 rip = None  # fall through to modeled art instead of crashing
-            global BED_FILL, BED_DEFS
-            BED_FILL, BED_DEFS = BED, ''
+            global BED_FILL, LANE_FILLS, BED_DEFS
+            BED_FILL, LANE_FILLS, BED_DEFS = BED, None, ''
             rip_any = os.path.join(root, 'assets', fname[:-4] + '.png')
-            if os.path.exists(rip_any):
-                _bed_override(rip_any, fname)
+            if os.path.exists(rip_any) and defn['kind'] not in ('bank', 'changer', 'hairpin'):
+                _set_overrides(rip_any, fname, defn)
             with open(os.path.join(out, fname), 'w') as f:
                 f.write(emit(defn, rail, rip))
             n += 1

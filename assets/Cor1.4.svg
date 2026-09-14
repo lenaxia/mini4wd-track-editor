@@ -1,9 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="-26.0 -26.0 52 52">
   <clipPath id="vb"><rect x="-26.0" y="-26.0" width="52" height="52"/></clipPath>
   <g clip-path="url(#vb)">
-  <path d="M -25.99 9.25 A 36.75 36.75 0 0 1 0.01 20.00 L 24.39 -4.40 A 71.25 71.25 0 0 0 -26.01 -25.25 Z" fill="#f8b020"/>
-  <path d="M -25.99 9.25 A 36.75 36.75 0 0 1 0.01 20.00 L 8.14 11.87 A 48.25 48.25 0 0 0 -26.00 -2.25 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -26.00 -2.25 A 48.25 48.25 0 0 1 8.14 11.87 L 16.26 3.73 A 59.75 59.75 0 0 0 -26.00 -13.75 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -26.00 -13.75 A 59.75 59.75 0 0 1 16.26 3.73 L 24.39 -4.40 A 71.25 71.25 0 0 0 -26.01 -25.25 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -25.99 9.25 A 36.75 36.75 0 0 1 0.01 20.00 L 8.14 11.87 A 48.25 48.25 0 0 0 -26.00 -2.25 Z" fill="#f8b828" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -26.00 -2.25 A 48.25 48.25 0 0 1 8.14 11.87 L 16.26 3.73 A 59.75 59.75 0 0 0 -26.00 -13.75 Z" fill="#f8b828" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -26.00 -13.75 A 59.75 59.75 0 0 1 16.26 3.73 L 24.39 -4.40 A 71.25 71.25 0 0 0 -26.01 -25.25 Z" fill="#f8b828" stroke="#5d5a57" stroke-width="1.2"/>
   </g>
 </svg>

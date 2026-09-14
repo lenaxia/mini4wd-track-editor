@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="30" height="60" viewBox="-15.0 -30.0 30 60">
-  <path d="M -15.00 -28.75 H 15.00 V 28.75 H -15.00 Z" fill="#efeae5"/>
-  <path d="M -15.00 -28.75 H 15.00 V -17.25 H -15.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -15.00 -17.25 H 15.00 V -5.75 H -15.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -15.00 -5.75 H 15.00 V 5.75 H -15.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -15.00 5.75 H 15.00 V 17.25 H -15.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -15.00 17.25 H 15.00 V 28.75 H -15.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
+  <defs><linearGradient id="g_Str3_1_svg_1" gradientUnits="userSpaceOnUse" x1="-15.00" y1="0" x2="15.00" y2="0" spreadMethod="pad"><stop offset="0.00" stop-color="#b83838"/><stop offset="0.50" stop-color="#e80808"/><stop offset="1.00" stop-color="#e80808"/></linearGradient></defs><defs><linearGradient id="g_Str3_1_svg_2" gradientUnits="userSpaceOnUse" x1="-15.00" y1="0" x2="15.00" y2="0" spreadMethod="pad"><stop offset="0.00" stop-color="#388858"/><stop offset="0.50" stop-color="#089848"/><stop offset="1.00" stop-color="#089848"/></linearGradient></defs><defs><linearGradient id="g_Str3_1_svg_3" gradientUnits="userSpaceOnUse" x1="-15.00" y1="0" x2="15.00" y2="0" spreadMethod="pad"><stop offset="0.00" stop-color="#3878a8"/><stop offset="0.50" stop-color="#0878c8"/><stop offset="1.00" stop-color="#0878c8"/></linearGradient></defs><path d="M -15.00 -28.75 H 15.00 V -17.25 H -15.00 Z" fill="#f8f8f8" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -15.00 -17.25 H 15.00 V -5.75 H -15.00 Z" fill="url(#g_Str3_1_svg_1)" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -15.00 -5.75 H 15.00 V 5.75 H -15.00 Z" fill="#f8f858" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -15.00 5.75 H 15.00 V 17.25 H -15.00 Z" fill="url(#g_Str3_1_svg_2)" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -15.00 17.25 H 15.00 V 28.75 H -15.00 Z" fill="url(#g_Str3_1_svg_3)" stroke="#5d5a57" stroke-width="1.2"/>
 </svg>
