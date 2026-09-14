@@ -28,14 +28,15 @@ function notify() { for (const fn of subs) fn(); }
 /* Discrete change: notify + autosave + refresh cached joint/overlap flags. */
 function emit() { normalizeLevels(); refreshFlags(); notify(); storage.autosave(state); }
 
-/* Elevation baseline (owner rule): the lowest piece is floor level. Tracks
- * built downward (bridges placed below their approach) would otherwise read
- * negative; shift the whole track up so min(z) = 0. Deliberately-raised
- * tracks (nothing negative) are left alone. */
+/* Elevation baseline (owner rule): the lowest piece is ALWAYS floor level
+ * (0 mm) — bidirectional. Building downward shifts the track up; deleting
+ * the bottom piece (e.g. a down ramp) shifts it back down. */
 function normalizeLevels() {
-  let min = 0;
-  for (const p of state.sprites) if ((p.z || 0) < min) min = p.z || 0;
-  if (min < 0) for (const p of state.sprites) p.z = (p.z || 0) - min;
+  let min = Infinity;
+  for (const p of state.sprites) min = Math.min(min, p.z || 0);
+  if (Number.isFinite(min) && min !== 0) {
+    for (const p of state.sprites) p.z = (p.z || 0) - min;
+  }
 }
 
 /* Transient change (drag/pan/pinch frames): notify only. */

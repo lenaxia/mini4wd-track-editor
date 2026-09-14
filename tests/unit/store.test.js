@@ -328,3 +328,13 @@ test('welded level changes are drop disjunctions, not errors', () => {
   assert.equal(flat._bad, false); /* aligned tangents: informational, not red */
   assert.equal(raised._bad, false);
 });
+
+test('floor baseline recomputes on delete (down ramp removed -> back to 0)', () => {
+  const a = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 };
+  const ramp = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: -75 };
+  state.sprites.push(a, ramp);
+  setTool('Pan'); /* emit -> normalize: floor moves to the ramp bottom */
+  assert.deepEqual(state.sprites.map((p) => p.z), [75, 0]);
+  removePiece(ramp); /* delete the bottom: everything settles back down */
+  assert.equal(a.z, 0);
+});
