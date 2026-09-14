@@ -257,12 +257,20 @@ def rect_family(defn, rail):
         parts.append(f'<path d="M {-w/2:.2f} {y0:.2f} H {w/2:.2f} V {y0 + LANE_W:.2f} H {-w/2:.2f} Z" '
                      f'fill="{fill}" stroke="{OUTLINE}" stroke-width="1.2"/>')
     if defn['kind'] == 'start':
+        # checkered flag band across ALL lanes (black/white, 2 columns
+        # of half-lane cells) at the start end, then a direction arrow
+        # per lane pointing along travel
         cell = LANE_W / 2
         rows = lanes * 2
+        x0 = -w / 2 + 2
         for r in range(rows):
             for c in range(2):
-                if (r + c) % 2 == 0:
-                    parts.append(f'<rect x="{-w/6 + c*cell:.2f}" y="{-half + r*cell:.2f}" width="{cell:.2f}" height="{cell:.2f}" fill="#ffffff"/>')
+                col = '#ffffff' if (r + c) % 2 == 0 else '#1a1a1a'
+                parts.append(f'<rect x="{x0 + c*cell:.2f}" y="{-half + r*cell:.2f}" width="{cell:.2f}" height="{cell:.2f}" fill="{col}"/>')
+        for i in range(lanes):
+            yc = -half + LANE_W * (i + 0.5)
+            cx = w / 4
+            parts.append(f'<path d="M {cx-4:.2f} {yc-3:.2f} L {cx+4:.2f} {yc:.2f} L {cx-4:.2f} {yc+3:.2f} Z" fill="{OUTLINE}" stroke="none"/>')
     return parts
 
 
@@ -607,7 +615,7 @@ def main():
             global BED_FILL, LANE_FILLS, BED_DEFS
             BED_FILL, LANE_FILLS, BED_DEFS = BED, None, ''
             rip_any = os.path.join(root, 'assets', fname[:-4] + '.png')
-            if os.path.exists(rip_any) and defn['kind'] not in ('bank', 'changer', 'hairpin'):
+            if os.path.exists(rip_any) and defn['kind'] not in ('bank', 'changer', 'hairpin', 'start'):
                 _set_overrides(rip_any, fname, defn)
             with open(os.path.join(out, fname), 'w') as f:
                 f.write(emit(defn, rail, rip))
