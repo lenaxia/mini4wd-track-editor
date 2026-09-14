@@ -138,17 +138,6 @@ function collisionData(p) {
 
 /* ---------- piece-level collision (piecesCollide is exported for tests) ---------- */
 
-function sharesJoint(a, b) {
-  for (let i = 0; i < vertsOf(a).length; i++) {
-    const va = vertexOf(a, i);
-    for (let j = 0; j < vertsOf(b).length; j++) {
-      const vb = vertexOf(b, j);
-      if (Math.hypot(va.x - vb.x, va.y - vb.y) <= JOINT_EPS) return true;
-    }
-  }
-  return false;
-}
-
 function collideData(dA, dB) {
   const a = dA.p, b = dB.p;
   if (Math.hypot(b.x - a.x, b.y - a.y) >= dA.reach + dB.reach - INSET) return false;
