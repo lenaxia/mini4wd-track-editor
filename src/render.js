@@ -128,6 +128,43 @@ function drawPiece(p, alpha) {
     ctx.setLineDash([]);
   }
   ctx.restore();
+  drawElevation(p);
+}
+
+/* Always-on elevation readouts (owner rule): every piece not at floor level
+ * shows its level; ramps/banks of the slope kind get an amber chevron at
+ * their high end (which side is up is intrinsic — no travel direction). */
+function drawElevation(p) {
+  const z = p.z || 0;
+  const def = PIECES[p.name];
+  let hi = -1;
+  for (let i = 0; i < def.verts.length; i++) if ((def.verts[i][2] || 0) > 0) hi = i;
+  if (!z && hi < 0) return;
+  const { hx, hy } = pieceHalfExtents(p);
+  ctx.save();
+  if (z && !state.selection.has(p)) { /* selected pieces get the selection badge instead */
+    ctx.fillStyle = '#7dd3fc';
+    ctx.font = `${10 / state.view.scale}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`${z}`, p.x, p.y - hy - 4 / state.view.scale);
+  }
+  if (hi >= 0) { /* amber chevron pointing at the high vertex */
+    const v = vertexOf(p, hi), c = centerOf(p);
+    const ang = Math.atan2(v.y - c.y, v.x - c.x);
+    const mx = c.x + (v.x - c.x) * 0.55, my = c.y + (v.y - c.y) * 0.55;
+    const s = 7 / state.view.scale + 2;
+    ctx.translate(mx, my);
+    ctx.rotate(ang);
+    ctx.fillStyle = '#e5b84b';
+    ctx.strokeStyle = '#1b1e24';
+    ctx.lineWidth = 1.5 / state.view.scale;
+    ctx.beginPath();
+    ctx.moveTo(s, 0); ctx.lineTo(-s * 0.7, -s * 0.7); ctx.lineTo(-s * 0.7, s * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawSelection() {

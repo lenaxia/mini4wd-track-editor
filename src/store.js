@@ -24,7 +24,17 @@ export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
 function notify() { for (const fn of subs) fn(); }
 
 /* Discrete change: notify + autosave + refresh cached joint/overlap flags. */
-function emit() { refreshFlags(); notify(); storage.autosave(state); }
+function emit() { normalizeLevels(); refreshFlags(); notify(); storage.autosave(state); }
+
+/* Elevation baseline (owner rule): the lowest piece is floor level. Tracks
+ * built downward (bridges placed below their approach) would otherwise read
+ * negative; shift the whole track up so min(z) = 0. Deliberately-raised
+ * tracks (nothing negative) are left alone. */
+function normalizeLevels() {
+  let min = 0;
+  for (const p of state.sprites) if ((p.z || 0) < min) min = p.z || 0;
+  if (min < 0) for (const p of state.sprites) p.z = (p.z || 0) - min;
+}
 
 /* Transient change (drag/pan/pinch frames): notify only. */
 export function updateLight(mut) { mut(state); notify(); }

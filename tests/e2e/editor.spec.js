@@ -614,3 +614,33 @@ test('menu closes with the X button and Escape', async ({ page }) => {
   await page.locator('#btnMenu').click();
   await expect(page.locator('#btnDeleteAll')).toBeVisible(); /* moved here from the toolbar */
 });
+
+test('slope chain adopts level; floor normalization keeps the lowest at 0', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.locator('.chip').nth(5).click(); /* Bri1 slope */
+  await clickCanvas(page, 0.4, 0.5);
+  const slope = (await st(page)).sprites[0];
+  expect(slope.z).toBe(0);
+
+  /* chain a straight onto the slope's high end: level adopted (z = 75) */
+  await page.locator('.chip').first().click(); /* Str1 */
+  const pt = await toScreen(page, slope.x + 50, slope.y + 3);
+  await page.mouse.click(pt.x, pt.y);
+  const s = await st(page);
+  expect(s.sprites).toHaveLength(2);
+  const top = s.sprites[1];
+  expect(top.z).toBe(75); /* adopted the slope's high level */
+
+  /* lowering the floor piece renormalizes instead of going negative */
+  await page.evaluate(() => {
+    const s = window.__m4wd.state;
+    s.selection.clear();
+    s.selection.add(s.sprites[0]);
+  });
+  await page.keyboard.press('PageDown'); /* floor piece to -10 -> shifts up */
+  const s2 = await st(page);
+  expect(s2.sprites[0].z).toBe(0);
+  expect(s2.sprites[1].z).toBe(85);
+  expect(errors).toEqual([]); /* render loop happy with badges + chevron */
+});

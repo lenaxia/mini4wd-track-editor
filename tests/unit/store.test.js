@@ -190,7 +190,7 @@ test('bumpLevel steps armed and selection by 10mm with clamping', () => {
   const p = place('Str1', 100, 100, 0, 0); /* explicit z=0 (not the armed 300) */
   state.selection.clear(); state.selection.add(p);
   assert.equal(bumpLevel(-2), 'selection');
-  assert.equal(p.z, -20);
+  assert.equal(p.z, 0); /* stepped to -20, renormalized: lowest piece = floor */
   assert.equal(state.history.length, 1);
 });
 
@@ -291,4 +291,19 @@ test('rotate with a piece armed moves only the armed angle (ghost), not the sele
   setTool('Move');
   assert.equal(rotate(45), true); /* under Move the selection rotates */
   assert.equal(a.a, 45);
+});
+
+test('negative floors renormalize to 0 mm on emit (lowest piece = floor)', () => {
+  const low = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: -75 };
+  const top = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 0 };
+  state.sprites.push(low, top);
+  setTool('Pan'); /* emit -> normalize */
+  assert.equal(low.z, 0);
+  assert.equal(top.z, 75);
+  /* already-floored tracks are untouched (no surprise shifts) */
+  const ok = { name: 'Str1', x: 300, y: 300, a: 0, c: 0, z: 0 };
+  state.sprites.push(ok);
+  setTool('Pan');
+  assert.equal(ok.z, 0);
+  assert.deepEqual(state.sprites.map((p) => p.z), [0, 75, 0]);
 });
