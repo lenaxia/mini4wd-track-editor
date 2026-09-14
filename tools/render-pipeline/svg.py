@@ -24,13 +24,8 @@ _CTX = shapes.Ctx()
 
 from riptrace import traced_body
 
-BED = '#efeae5'
-DASH = '#8a8683'   # dark gray separators — white was invisible on the light bed
-OUTLINE = '#5d5a57'
-CHEVRON = '#8a8683'
-# bank palettes sampled from the original rips (their own palettes, not
-# VARIANT_COLORS); keyed per family — Ban2's single tan variant is NOT
-# Ban1's green c0
+from svg_globals import BED, DASH, OUTLINE, LANE_W, BANK_GRAY, rr
+
 BED_FILL = BED      # whole-piece fallback (bed or gradient url)
 LANE_FILLS = None   # per-lane: '#rrggbb' | ('url', gid, stops) | None
 BED_DEFS = ""       # accumulated gradient defs
@@ -193,30 +188,13 @@ def _set_overrides(rip, fname, defn):
             BED_FILL = mkgrad([c if c else base for c in stops])
 
 
-LANE_W = 11.5   # regulation Tamiya lane width (115 mm); boundaries
-               # sit at +/-(n*LANE_W)/2 + i*LANE_W, centered in the
-               # footprint so every piece's lanes align at seams
-BANK_GRAY = '#c0bcb8'   # Bri2's ramp-face midtone (same swatch as Ban1 c1)
+# bank palettes sampled from the original rips (their own palettes, not
+# VARIANT_COLORS); keyed per family — Ban2's single tan variant is NOT
+# Ban1's green c0
 BANK_COLORS = {
   'Ban1': ['#2e966f', '#c0bcb8', '#004282', '#9a0400'],
   'Ban2': ['#dabc90'],
 }
-
-
-def rr(x, y, w, h, r, **kw):
-    fill = kw.get('fill', BED)
-    stroke = kw.get('stroke', OUTLINE)
-    sw = kw.get('stroke_width', 0.8)
-    return f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" rx="{min(r, w/2, h/2):.2f}" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>'
-
-
-def line(x1, y1, x2, y2, color=DASH, w=0.7, dash='2.4,1.8'):
-    d = f' stroke-dasharray="{dash}"' if dash else ''
-    return f'<line x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}" stroke="{color}" stroke-width="{w}"{d}/>'
-
-
-def chevron(x, y, h, dx=2.2, color=CHEVRON, w=0.9):
-    return f'<path d="M {x:.2f} {y-h/2:.2f} L {x+dx:.2f} {y:.2f} L {x:.2f} {y+h/2:.2f}" fill="none" stroke="{color}" stroke-width="{w}"/>'
 
 
 def rect_family(defn, rail):
@@ -505,7 +483,10 @@ def emit(defn, rail, rip=None):
         # draws sprites at def.w x def.h)
         body = [f'<clipPath id="vb"><rect x="{-w/2}" y="{-h/2}" width="{w}" height="{h}"/></clipPath>',
                 '<g clip-path="url(#vb)">'] + body + ['</g>']
-    if len(_CTX.bed_defs) > len(BED_DEFS):
+    if _CTX.bed_defs != BED_DEFS:
+        # shapes only ever APPENDS to the seeded copy — if that contract
+        # breaks, the length-based handoff below would silently drop defs
+        assert _CTX.bed_defs.startswith(BED_DEFS), 'bed_defs handoff is not a pure append'
         BED_DEFS = _CTX.bed_defs  # bank gradients appended inside shapes
     defs = BED_DEFS.replace('{X1}', f'{-w/2:.2f}').replace('{X2}', f'{w/2:.2f}')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '

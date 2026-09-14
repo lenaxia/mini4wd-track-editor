@@ -78,7 +78,7 @@ def check_silhouette(fname, png, failures):
 
 def compare_golden(fname, png, failures):
     gold = os.path.join(GOLDEN, fname + '.png')
-    if not os.path.exists(golden := gold):
+    if not os.path.exists(gold):
         failures.append(f'{fname}: no golden')
         return
     W, H, ch, a = decode(png)
@@ -107,14 +107,11 @@ def main():
             os.makedirs(GOLDEN, exist_ok=True)
             subprocess.run(['cp', png, os.path.join(GOLDEN, f + '.png')], check=True)
             continue
-        # lane-gap arithmetic only where the road is flat and
-        # undecorated; arcs/humps/weaves are covered by the golden diff
-        # the gap probe is only meaningful on flat, undecorated
-        # families (Str/Ban on this baseline); arcs, humps, weaves,
-        # slopes with markings, and variant colors all read as runs —
-        # the golden diff covers them
-        # rainbow-lane variants have intentional non-11.5 color bands
-        # Str2's checker band reads as runs at the 92% column
+        # lane-gap arithmetic only where the road is flat and undecorated:
+        # arcs, humps, weaves, slopes with markings, and variant colors all
+        # read as runs — the golden diff covers them. Rainbow-lane variants
+        # have intentional non-11.5 color bands; Str2's checker band reads
+        # as runs at the 92% column.
         if f.startswith(('Str', 'Ban')) and f != 'Str2.0.svg' and not f.endswith(('1.svg', '2.svg', '5.svg')):
             check_lanes(f, png, failures)
         check_silhouette(f, png, failures)
