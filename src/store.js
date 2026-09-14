@@ -14,6 +14,7 @@ export const state = {
   zArm: 0,              // armed elevation (mm) for the next placement
   sprites: [],           // placed pieces: {name,x,y,a,c,z}
   links: [],             // cached open-vert disjunctions (jumps, near misses)
+  drops: [],             // cached welded level changes (connected jumps)
   selection: new Set(),  // pieces selected with the Move tool
   view: { x: 0, y: 0, scale: 0.62 },
   history: [],
@@ -174,6 +175,7 @@ function refreshFlags() {
   const sprites = state.sprites;
   state.links = openLinks(sprites); /* disjunctions: jumps/near-misses, informational */
   for (const p of sprites) { p._over = false; p._warn = false; p._bad = false; }
+  state.drops = [];
   for (let i = 0; i < sprites.length; i++) {
     for (let j = i + 1; j < sprites.length; j++) {
       const a = sprites[i], b = sprites[j];
@@ -197,7 +199,11 @@ function refreshFlags() {
           const b = vertexOf(g, gi);
           if (Math.hypot(a.x - b.x, a.y - b.y) > JOINT_EPS) continue;
           const dT = Math.abs(((outwardTangent(s, si) - inwardTangent(g, gi) + 540) % 360) - 180);
-          if (dT > 0.05 || levelAt(s, si) !== levelAt(g, gi)) { s._bad = true; g._bad = true; }
+          if (dT > 0.05) { s._bad = true; g._bad = true; } /* kinked joint: error */
+          else if (levelAt(s, si) !== levelAt(g, gi) && i < j) {
+            /* welded level change — a connected jump/drop: informational */
+            state.drops.push({ x: a.x, y: a.y, dz: levelAt(g, gi) - levelAt(s, si) });
+          }
         }
       }
     }

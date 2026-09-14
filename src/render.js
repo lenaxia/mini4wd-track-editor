@@ -66,6 +66,7 @@ function render() {
   }
 
   drawLinks(); /* disjunction arcs under the selection layer */
+  drawDrops(); /* welded level changes: dashed rings at the joint */
   drawSelection();
   if (input.dragActive()) for (const p of state.selection) drawVertices(p, input.dragSnapped());
   drawRubberBand();
@@ -145,6 +146,22 @@ function drawLinks() {
       ctx.arc(v.x, v.y, 3 / state.view.scale + 1, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+  ctx.restore();
+}
+
+/* Connected jumps/drops (owner rule): welded joints whose levels differ —
+ * dashed blue ring at the joint point; the piece level numbers explain. */
+function drawDrops() {
+  if (!state.drops.length) return;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(125,211,252,.8)';
+  ctx.lineWidth = 1.5 / state.view.scale;
+  ctx.setLineDash([4 / state.view.scale, 3 / state.view.scale]);
+  for (const d of state.drops) {
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 5 / state.view.scale + 2, 0, Math.PI * 2);
+    ctx.stroke();
   }
   ctx.restore();
 }

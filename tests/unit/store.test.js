@@ -317,3 +317,14 @@ test('refreshFlags caches open-vert disjunction links on state', () => {
   assert.equal(state.links.length, 1);
   assert.ok(Math.abs(state.links[0].d - 33) < 1e-9);
 });
+
+test('welded level changes are drop disjunctions, not errors', () => {
+  const flat = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 };
+  const raised = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 75 };
+  state.sprites.push(flat, raised);
+  setTool('Pan'); /* emit -> refreshFlags */
+  assert.equal(state.drops.length, 1); /* one joint, one drop */
+  assert.ok(Math.abs(Math.abs(state.drops[0].dz) - 75) < 1e-9);
+  assert.equal(flat._bad, false); /* aligned tangents: informational, not red */
+  assert.equal(raised._bad, false);
+});
