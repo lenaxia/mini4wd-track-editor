@@ -28,6 +28,85 @@ CHEVRON = '#8a8683'
 # bank palettes sampled from the original rips (their own palettes, not
 # VARIANT_COLORS); keyed per family — Ban2's single tan variant is NOT
 # Ban1's green c0
+BED_FILL = BED    # per-variant bed override (set in main from the rip)
+BED_DEFS = ""     # gradient defs when the override is a gradient
+
+
+def _dominant(rip):
+    """dominant saturated color at start/mid/end stations, or None"""
+    import re as _re
+    pw, ph, pch, pbuf = _decode_png(rip)
+    stations = []
+    for fx in (0.08, 0.5, 0.92):
+        x = int(pw * fx)
+        counts = {}
+        for y in range(2, ph - 2):
+            o = (y * pw + x) * pch
+            if pbuf[o + 3] > 200:
+                r, g, b = pbuf[o], pbuf[o + 1], pbuf[o + 2]
+                if abs(r - 239) + abs(g - 234) + abs(b - 229) < 60:
+                    continue
+                if max(r, g, b) - min(r, g, b) < 30 and (r + g + b) / 3 > 190:
+                    continue  # neutral light grays = lines/bed
+                key = (r // 8 * 8, g // 8 * 8, b // 8 * 8)
+                counts[key] = counts.get(key, 0) + 1
+        best = max(counts.items(), key=lambda kv: kv[1])[0] if counts else None
+        n = counts.get(best, 0) if best else 0
+        stations.append((best, n) if n >= 15 else (None, 0))
+    if not any(c for c, n in stations):
+        return None
+    first = next((c for c, n in stations if c), stations[0][0])
+    stations = [(c if c else first, n) for c, n in stations]
+    return [c for c, n in stations]
+
+
+def _bed_override(rip, fname):
+    """returns fill string, appending gradient defs to BED_DEFS if needed"""
+    global BED_FILL, BED_DEFS
+    cols = _dominant(rip)
+    if cols is None:
+        BED_FILL = BED
+        return
+    uniq = list(dict.fromkeys(cols))
+    if len(uniq) == 1:
+        BED_FILL = '#%02x%02x%02x' % uniq[0]
+        return
+    gid = 'bedg_' + fname.replace('.', '_').replace('-', '_')
+    stops = ''.join(f'<stop offset="{o:.2f}" stop-color="#%02x%02x%02x"/>' % c
+                   for o, c in zip((0, 0.5, 1), cols))
+    BED_DEFS += f'<defs><linearGradient id="{gid}" gradientUnits="userSpaceOnUse" x1="{-0:.2f}" y1="0" x2="0" y2="0" spreadMethod="pad">{stops}</linearGradient></defs>'
+    # x1/x2 set per-piece width below (patched in main)
+    BED_DEFS = BED_DEFS.replace('x1="{-0:.2f}"', 'x1="{X1}"').replace('x2="0"', 'x2="{X2}"')
+    BED_FILL = f'url(#{gid})'
+
+
+def _decode_png(path):
+    import struct as _st, zlib as _zl
+    data = open(path, 'rb').read()
+    pos, idat, w, h, ch = 8, b'', 0, 0, 3
+    while pos < len(data):
+        ln, typ = _st.unpack('>I4s', data[pos:pos + 8]); pos += 8
+        chunk = data[pos:pos + ln]; pos += ln + 4
+        if typ == b'IHDR':
+            w, h, bd, ct = _st.unpack('>IIBB', chunk[:10]); ch = {2: 3, 6: 4}.get(ct)
+        elif typ == b'IDAT': idat += chunk
+        elif typ == b'IEND': break
+    raw = _zl.decompress(idat); stride = w * ch
+    out = bytearray(w * h * ch); prev = bytearray(stride)
+    for y in range(h):
+        f = raw[y * (stride + 1)]; line = bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for x in range(stride):
+            a = line[x - ch] if x >= ch else 0; b = prev[x]; c = prev[x - ch] if x >= ch else 0
+            if f == 1: line[x] = (line[x] + a) & 255
+            elif f == 2: line[x] = (line[x] + b) & 255
+            elif f == 3: line[x] = (line[x] + (a + b) // 2) & 255
+            elif f == 4:
+                p = a + b - c; pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        out[y * stride:(y + 1) * stride] = line; prev = line
+    return w, h, ch, out
+
+
 LANE_W = 11.5   # regulation Tamiya lane width (115 mm); boundaries
                # sit at +/-(n*LANE_W)/2 + i*LANE_W, centered in the
                # footprint so every piece's lanes align at seams
@@ -88,13 +167,13 @@ def rect_family(defn, rail):
         # bed: whole humped band
         bed = ' '.join(f'{"M" if k == 0 else "L"} {xs[k]:.2f} {c(xs[k]) - band / 2:.2f}' for k in range(n + 1))
         bed += ' ' + ' '.join(f'L {x:.2f} {c(x) + band / 2:.2f}' for x in reversed(xs))
-        parts = [f'<path d="{bed} Z" fill="{BED}"/>']
+        parts = [f'<path d="{bed} Z" fill="{BED_FILL}"/>']
         for i in range(lanes):
             parts.append(f'<path d="{lane_path(i)}" fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
         return parts
 
 
-    parts = [f'<path d="M {-w/2:.2f} {-half:.2f} H {w/2:.2f} V {half:.2f} H {-w/2:.2f} Z" fill="{BED}"/>']
+    parts = [f'<path d="M {-w/2:.2f} {-half:.2f} H {w/2:.2f} V {half:.2f} H {-w/2:.2f} Z" fill="{BED_FILL}"/>']
     for i in range(lanes):
         y0 = -half + LANE_W * i
         parts.append(f'<path d="M {-w/2:.2f} {y0:.2f} H {w/2:.2f} V {y0 + LANE_W:.2f} H {-w/2:.2f} Z" '
@@ -201,7 +280,7 @@ def changer_art(defn):
     # by owner decision: rails render in the wall color, so the
     # variant color has no surface in this piece.
     parts = [
-        f'<path d="{bed}" fill="{BED}"/>',
+        f'<path d="{bed}" fill="{BED_FILL}"/>',
         f'<defs><linearGradient id="approach" gradientUnits="userSpaceOnUse" x1="-81" y1="0" x2="-44" y2="0">'
         f'<stop offset="0" stop-color="{BED}"/><stop offset="1" stop-color="{BANK_GRAY}"/></linearGradient>'
         f'<linearGradient id="exit" gradientUnits="userSpaceOnUse" x1="42.5" y1="0" x2="81" y2="0">'
@@ -260,7 +339,7 @@ def bri2_art(defn):
         # top two lanes: flat bed; the ramp lane carries the rip's
         # rise gradient (bed -> bank-gray, measured stops 2..20 cm
         # from the left edge, flat gray to the face)
-        '<path d="M -27 -17.25 H 27 V 5.75 H -27 Z" fill="' + BED + '"/>',
+        '<path d="M -27 -17.25 H 27 V 5.75 H -27 Z" fill="' + BED_FILL + '"/>',
         '<path d="M -27 5.75 H 15 V 17.25 H -27 Z" fill="url(#bri2ramp)"/>',
         '<path d="M -27 -17.25 H 27 V -5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
         '<path d="M -27 -5.75 H 27 V 5.75 H -27 Z" fill="none" stroke="' + OUTLINE + '" stroke-width="1.2"/>',
@@ -310,7 +389,7 @@ def lan2_art(defn, rail):
         f'L 18 36 A 36 36 0 0 0 18 -36 Z '
         f'M -90 36 H 18 V 72 H -90 Z '
         f'M -27 -72 L -2 -72 L -9 -67.5 Z '
-        f'M 2 -72 L 17 -72 L 10 -68.5 Z" fill="{BED}" fill-rule="evenodd"/>',
+        f'M 2 -72 L 17 -72 L 10 -68.5 Z" fill="{BED_FILL}" fill-rule="evenodd"/>',
         # the three identical S boundaries, each settling into its arc:
         # top of lane 1 -> r 59.75 (it runs the full sweep to the exit)
         stroke(stepped(-71.25) + ' A 59.75 59.75 0 0 1 18 59.75 L -90 59.75', OUTLINE, 1.2),
@@ -362,7 +441,7 @@ def arc_family(defn, rail):
         return (f'M {x1:.2f} {y1:.2f} A {r0:.2f} {r0:.2f} 0 {large} {sflag} {x2:.2f} {y2:.2f} '
                 f'L {x3:.2f} {y3:.2f} A {r1:.2f} {r1:.2f} 0 {large} {1-sflag} {x4:.2f} {y4:.2f} Z')
 
-    parts = [f'<path d="{band_path(R - half, R + half)}" fill="{BED}"/>']
+    parts = [f'<path d="{band_path(R - half, R + half)}" fill="{BED_FILL}"/>']
     for i in range(lanes):
         parts.append(f'<path d="{band_path(R - half + LANE_W * i, R - half + LANE_W * (i + 1))}" '
                      f'fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
@@ -443,6 +522,11 @@ def main():
                 if defn['kind'] in ('changer', 'hairpin') else None
             if rip and not os.path.exists(rip):
                 rip = None  # fall through to modeled art instead of crashing
+            global BED_FILL, BED_DEFS
+            BED_FILL, BED_DEFS = BED, ''
+            rip_any = os.path.join(root, 'assets', fname[:-4] + '.png')
+            if os.path.exists(rip_any):
+                _bed_override(rip_any, fname)
             with open(os.path.join(out, fname), 'w') as f:
                 f.write(emit(defn, rail, rip))
             n += 1

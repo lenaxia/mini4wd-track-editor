@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="180" height="144" viewBox="-90.0 -72.0 180 144">
-  <path d="M -90 -72 H 18 V -36 H -90 Z M 18 -72 A 72 72 0 0 1 18 72 L 18 36 A 36 36 0 0 0 18 -36 Z M -90 36 H 18 V 72 H -90 Z M -27 -72 L -2 -72 L -9 -67.5 Z M 2 -72 L 17 -72 L 10 -68.5 Z" fill="#efeae5" fill-rule="evenodd"/>
+  <path d="M -90 -72 H 18 V -36 H -90 Z M 18 -72 A 72 72 0 0 1 18 72 L 18 36 A 36 36 0 0 0 18 -36 Z M -90 36 H 18 V 72 H -90 Z M -27 -72 L -2 -72 L -9 -67.5 Z M 2 -72 L 17 -72 L 10 -68.5 Z" fill="#c0b8b8" fill-rule="evenodd"/>
   <path d="M -90 -71.25 L -27 -71.25 C -14.7 -71.2 -2.3 -59.8 10.0 -59.8 L 18 -59.75 A 59.75 59.75 0 0 1 18 59.75 L -90 59.75" fill="none" stroke="#5d5a57" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M -90 -59.75 L -27 -59.75 C -14.7 -59.8 -2.3 -48.2 10.0 -48.2 L 18 -48.25 A 48.25 48.25 0 0 1 18 48.25 L -90 48.25" fill="none" stroke="#5d5a57" stroke-width="1.1" stroke-linecap="round"/>
   <path d="M -90 -48.25 L -27 -48.25 C -14.7 -48.2 -2.3 -36.8 10.0 -36.8 L 18 -36.75" fill="none" stroke="#5d5a57" stroke-width="1.1" stroke-linecap="round"/>
