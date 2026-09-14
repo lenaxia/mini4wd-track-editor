@@ -135,8 +135,8 @@ kbd {
 
 /* ---------- toast ---------- */
 #toast {
-  position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom));
-  transform: translateX(-50%) translateY(8px);
+  position: fixed; left: 50%; top: calc(52px + env(safe-area-inset-top));
+  transform: translateX(-50%) translateY(-8px);
   background: #2e3140; border: 1px solid var(--line); color: #fff;
   padding: 9px 16px; border-radius: 999px; font-size: 13px;
   opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s;

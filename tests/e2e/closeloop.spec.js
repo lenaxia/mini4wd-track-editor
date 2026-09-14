@@ -143,7 +143,7 @@ test('failed close offers step-back as a tappable toast, not a native dialog', a
   const toast = page.locator('#toast');
   await expect(toast).toContainText('Couldn\u2019t close');
   const btn = toast.locator('button');
-  await expect(btn).toHaveText('Step back pieces');
+  await expect(btn).toHaveText('Yes');
   await btn.click();
 
   await expect(toast).toContainText('Stepped back 1 pc');

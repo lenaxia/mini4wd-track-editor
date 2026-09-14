@@ -167,8 +167,8 @@ function offerStepBack(sel, res, set) {
     'off-grid': `the ends are ${res.miss.d.toFixed(1)} cm out of line for any piece run`,
     limit: 'the search gave up',
   }[res.why] || 'no run fits';
-  toast(`Couldn\u2019t close — ${why}.`, {
-    actionLabel: 'Step back pieces',
+  toast(`Couldn\u2019t close — ${why}. Would you like to automatically remove pieces until a workable solution is found?`, {
+    actionLabel: 'Yes',
     onAction: () => {
       if (!state.sprites.includes(sel[0]) || !state.sprites.includes(sel[1])) {
         toast('Selection changed — reselect the two ends and retry');
