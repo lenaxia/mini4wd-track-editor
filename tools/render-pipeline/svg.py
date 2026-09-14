@@ -262,14 +262,14 @@ def rect_family(defn, rail):
         # per lane pointing along travel
         cell = LANE_W / 2
         rows = lanes * 2
-        x0 = -w / 2 + 2
+        x0 = w / 2 - 2 - 2 * cell
         for r in range(rows):
             for c in range(2):
                 col = '#ffffff' if (r + c) % 2 == 0 else '#1a1a1a'
                 parts.append(f'<rect x="{x0 + c*cell:.2f}" y="{-half + r*cell:.2f}" width="{cell:.2f}" height="{cell:.2f}" fill="{col}"/>')
         for i in range(lanes):
             yc = -half + LANE_W * (i + 0.5)
-            cx = w / 4
+            cx = -w / 4
             parts.append(f'<path d="M {cx-4:.2f} {yc-3:.2f} L {cx+4:.2f} {yc:.2f} L {cx-4:.2f} {yc+3:.2f} Z" fill="{OUTLINE}" stroke="none"/>')
     return parts
 
