@@ -307,3 +307,13 @@ test('negative floors renormalize to 0 mm on emit (lowest piece = floor)', () =>
   assert.equal(ok.z, 0);
   assert.deepEqual(state.sprites.map((p) => p.z), [0, 75, 0]);
 });
+
+test('refreshFlags caches open-vert disjunction links on state', () => {
+  state.sprites.push(
+    { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 },
+    { name: 'Str1', x: 187, y: 100, a: 180, c: 0, z: 0 }, /* 33 cm gap, facing */
+  );
+  setTool('Pan'); /* emit -> refreshFlags */
+  assert.equal(state.links.length, 1);
+  assert.ok(Math.abs(state.links[0].d - 33) < 1e-9);
+});

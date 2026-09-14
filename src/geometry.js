@@ -257,6 +257,48 @@ export function externalJoint(selection, sprites) {
   return found.length === 1 ? found[0] : null;
 }
 
+/* ---------- disjunctions (unwelded but related ends) ---------- */
+
+const LINK_RANGE = 45;  // cm — plausible jump/landing or near-miss span
+const LINK_FACING = 50; // deg — each end must point at the other, roughly
+
+/* Pairs of OPEN connection vertices that face each other within jump range
+ * but are not welded: intentional jumps and landings, or near-miss joints.
+ * Informational only — never an error, never blocks anything. Pure. */
+export function openLinks(sprites) {
+  const open = [];
+  for (const p of sprites) {
+    for (let i = 0; i < vertsOf(p).length; i++) {
+      const v = vertexOf(p, i);
+      let connected = false;
+      for (const q of sprites) {
+        if (q === p) continue;
+        for (let j = 0; j < vertsOf(q).length; j++) {
+          const w = vertexOf(q, j);
+          if (Math.hypot(v.x - w.x, v.y - w.y) <= 2) { connected = true; break; }
+        }
+        if (connected) break;
+      }
+      if (!connected) open.push({ p, i, v, out: outwardTangent(p, i) });
+    }
+  }
+  const links = [];
+  for (let m = 0; m < open.length; m++) {
+    for (let n = m + 1; n < open.length; n++) {
+      const a = open[m], b = open[n];
+      if (a.p === b.p) continue;
+      const d = Math.hypot(b.v.x - a.v.x, b.v.y - a.v.y);
+      if (d > LINK_RANGE || d < 1e-6) continue;
+      const toB = Math.atan2(b.v.y - a.v.y, b.v.x - a.v.x) * 180 / Math.PI;
+      const toA = toB + 180;
+      const face = (t, to) => { const x = Math.abs(((t - to + 540) % 360) - 180); return 180 - x; }; /* 0..180, 180=aligned */
+      if (face(a.out, toB) < 180 - LINK_FACING || face(b.out, toA) < 180 - LINK_FACING) continue;
+      links.push({ a: a.p, ai: a.i, b: b.p, bi: b.i, d });
+    }
+  }
+  return links;
+}
+
 /* ---------- camera ---------- */
 
 export function worldFromScreen(view, sx, sy) {

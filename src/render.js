@@ -65,6 +65,7 @@ function render() {
     drawVertices(pv, sn);
   }
 
+  drawLinks(); /* disjunction arcs under the selection layer */
   drawSelection();
   if (input.dragActive()) for (const p of state.selection) drawVertices(p, input.dragSnapped());
   drawRubberBand();
@@ -118,6 +119,34 @@ function drawPiece(p, alpha) {
   }
   ctx.restore();
   drawElevation(p);
+}
+
+/* Disjunctions (owner rule): unwelded but facing open ends within jump
+ * range — dashed info-blue flight arc, never an error. */
+function drawLinks() {
+  if (!state.links.length) return;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(125,211,252,.75)';
+  ctx.fillStyle = 'rgba(125,211,252,.9)';
+  ctx.lineWidth = 1.5 / state.view.scale;
+  ctx.setLineDash([6 / state.view.scale, 4 / state.view.scale]);
+  for (const l of state.links) {
+    const a = vertexOf(l.a, l.ai), b = vertexOf(l.b, l.bi);
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const d = Math.hypot(b.x - a.x, b.y - a.y);
+    const nx = -(b.y - a.y) / (d || 1), ny = (b.x - a.x) / (d || 1);
+    const bow = Math.min(10, d * 0.22); /* flight-path bulge */
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.quadraticCurveTo(mx + nx * bow, my + ny * bow, b.x, b.y);
+    ctx.stroke();
+    for (const v of [a, b]) {
+      ctx.beginPath();
+      ctx.arc(v.x, v.y, 3 / state.view.scale + 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
 }
 
 const luminance = (hex) => {

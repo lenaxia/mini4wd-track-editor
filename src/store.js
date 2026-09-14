@@ -4,7 +4,7 @@
  * store is unit-testable under plain node. */
 
 import { PIECES, PALETTE, TOOLS, CLEARANCE_MM } from './pieces.js';
-import { rot, centerOf, snapPiece, groupSnap, externalJoint, worldFromScreen, clampScale, computeFit, vertsOf, vertexOf, levelAt, outwardTangent, inwardTangent, pieceHalfExtents } from './geometry.js';
+import { rot, centerOf, snapPiece, groupSnap, externalJoint, worldFromScreen, clampScale, computeFit, vertsOf, vertexOf, levelAt, outwardTangent, inwardTangent, pieceHalfExtents, openLinks } from './geometry.js';
 import * as storage from './storage.js';
 
 export const state = {
@@ -13,6 +13,7 @@ export const state = {
   angle: 0,
   zArm: 0,              // armed elevation (mm) for the next placement
   sprites: [],           // placed pieces: {name,x,y,a,c,z}
+  links: [],             // cached open-vert disjunctions (jumps, near misses)
   selection: new Set(),  // pieces selected with the Move tool
   view: { x: 0, y: 0, scale: 0.62 },
   history: [],
@@ -171,6 +172,7 @@ const JOINT_EPS = 1e-6;
 
 function refreshFlags() {
   const sprites = state.sprites;
+  state.links = openLinks(sprites); /* disjunctions: jumps/near-misses, informational */
   for (const p of sprites) { p._over = false; p._warn = false; p._bad = false; }
   for (let i = 0; i < sprites.length; i++) {
     for (let j = i + 1; j < sprites.length; j++) {
