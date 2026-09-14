@@ -62,8 +62,8 @@ function straightGapFixture(z = 0) {
   return { sprites, A, B };
 }
 
-test('SOLVER_SET is the 3-lane test subset', () => {
-  assert.deepEqual(SOLVER_SET, ['Str1', 'Cor1', 'Lan1']);
+test('SOLVER_SET is the 3-lane test subset (owner: no lane changers)', () => {
+  assert.deepEqual(SOLVER_SET, ['Str1', 'Cor1']);
 });
 
 test('closes a straight 108 cm gap with the minimal 2 straights', () => {
@@ -331,8 +331,9 @@ test('stepping backs the end chain past an offending corner', () => {
   const res = closeLoopStepping(sprites, A, B, { maxCost: 6 });
   assert.equal(res.ok, true);
   assert.deepEqual(res.removed, [A]);
-  assert.equal(res.closed.pieces.length, 1);
-  assert.equal(res.closed.pieces[0].name, 'Lan1');
+  assert.equal(res.closed.pieces.length, 3); /* 162 cm as 3x Str1 (no Lan1) */
+  assert.ok(res.closed.pieces.every((p) => p.name === 'Str1'));
+  assert.ok(Math.abs(res.closed.cost - 4.86) < 1e-9);
   const kept = sprites.filter((p) => p !== A).concat(res.closed.pieces);
   assert.equal(noCollisions(kept), null);
 });

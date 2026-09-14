@@ -19,7 +19,7 @@ import {
   inwardTangent, outwardTangent,
 } from './geometry.js';
 
-export const SOLVER_SET = ['Str1', 'Cor1', 'Lan1'];
+export const SOLVER_SET = ['Str1', 'Cor1'];
 
 const OPEN_EPS = 2;       // cm — a vertex with another this close is connected
 const INSET = 1;          // cm adjacency margin (mirrors store.bboxOverlap)

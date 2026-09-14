@@ -92,7 +92,7 @@
       <li><b>⟲ / ⟳</b> rotate the armed piece (or the selection) by 45°.</li>
       <li><b>✥</b> drag on empty space to rubber-band select · <b>ctrl/cmd+click</b> a piece to add/remove it · drag a selected piece to move the whole group (it snaps) · <b>⟲/⟳</b> rotate the selection.</li>
       <li><b>⌫</b> tap a piece to delete it. <b>◐</b> tap to cycle its color.</li>
-      <li><b>Close the loop</b> (☰ or <kbd>L</kbd>): select exactly two pieces with <b>✥</b> and the gap between their free ends is filled with the shortest run of 3-lane straights / 45° corners / lane changers that misses every placed piece. Ends 75 mm apart in level bridge straight over; smaller gaps and same-level overlaps are avoided. Ends that are slightly off-grid get one small bend, reported in the toast.</li>
+      <li><b>Close the loop</b> (☰ or <kbd>L</kbd>): select exactly two pieces with <b>✥</b> and the gap between their free ends is filled with the shortest run of 3-lane straights and 45° corners that misses every placed piece. Ends 75 mm apart in level bridge straight over; smaller gaps and same-level overlaps are avoided. If it can't close, the tool says why and can offer to remove pieces until it can — one undo puts everything back.</li>
       <li>Scale: 1 px = 1 cm, one grid square = 1 m (same as original).</li>
     </ul>
     <h3>Keyboard (desktop)</h3>
@@ -107,6 +107,6 @@
 
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=26"></script>
+  <script type="module" src="src/main.js?v=27"></script>
 </body>
 </html>
