@@ -4,7 +4,7 @@ import { PIECES, SNAP_RADIUS } from '../../src/pieces.js';
 import {
   rot, rad, solveGeo, centerOf, vertexOf, levelAt, vertsOf,
   outwardTangent, inwardTangent, orientAngle, topPieceAt,
-  snapPiece, groupSnap, externalJoint, worldFromScreen, clampScale, computeFit, pieceHalfExtents,
+  snapPiece, groupSnap, externalJoint, worldFromScreen, clampScale, computeFit, pieceHalfExtents, openLinks,
 } from '../../src/geometry.js';
 
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
@@ -243,4 +243,24 @@ test('solveGeo arcs start exactly at verts[0] and end exactly at verts[1]', () =
     assert.ok(Math.hypot(p1.x - def.verts[0][0], p1.y - def.verts[0][1]) < 1e-6, `${name}: start`);
     assert.ok(Math.hypot(p2.x - def.verts[1][0], p2.y - def.verts[1][1]) < 1e-6, `${name}: end`);
   }
+});
+
+/* ---------- openLinks: disjunctions (jump/landing, near-miss ends) ---------- */
+
+test('openLinks pairs facing open ends within jump range', () => {
+  const jump = mk('Str1', 100, 100);            /* exit vert (127,100), heading east */
+  const landing = mk('Str1', 187, 100, 180);    /* entry vert (160,100), facing west */
+  const links = openLinks([jump, landing]);
+  assert.equal(links.length, 1);
+  assert.ok(Math.abs(links[0].d - 33) < 1e-9);
+});
+
+test('openLinks ignores distant or sideways ends', () => {
+  const jump = mk('Str1', 100, 100);
+  const far = mk('Str1', 400, 100, 180);        /* 243 cm away: out of range */
+  assert.equal(openLinks([jump, far]).length, 0);
+  const sideways = mk('Str1', 160, 130, 90);    /* close but turned across the flow */
+  assert.equal(openLinks([jump, sideways]).length, 0);
+  const chained = [mk('Str1', 100, 100), mk('Str1', 154, 100)]; /* welded: no open pair */
+  assert.equal(openLinks(chained).length, 0);
 });

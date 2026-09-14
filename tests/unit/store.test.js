@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   state, place, undo, pushHistory, snapshot, pushSnapshot,
   setTool, setMode, rotate, bumpLevel, deleteSelected, removePiece, cycleColor,
-  clearAll, loadSprites, subscribe,
+  clearAll, loadSprites, subscribe, addPieces, applySolution,
 } from '../../src/store.js';
 import { vertexOf } from '../../src/geometry.js';
 import { parseTrack } from '../../src/track.js';
@@ -190,7 +190,7 @@ test('bumpLevel steps armed and selection by 10mm with clamping', () => {
   const p = place('Str1', 100, 100, 0, 0); /* explicit z=0 (not the armed 300) */
   state.selection.clear(); state.selection.add(p);
   assert.equal(bumpLevel(-2), 'selection');
-  assert.equal(p.z, -20);
+  assert.equal(p.z, 0); /* stepped to -20, renormalized: lowest piece = floor */
   assert.equal(state.history.length, 1);
 });
 
@@ -243,4 +243,118 @@ test('setMode supports the rucdoc drawer (re-arm semantics)', () => {
   setTool('Pan'); /* tool-tools survive mode switches */
   setMode('rucdoc');
   assert.equal(state.tool, 'Pan');
+});
+
+test('addPieces bulk-inserts solver output, selects it, and is undoable', () => {
+  state.sprites.push({ name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 });
+  const run = [
+    { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 0 },
+    { name: 'Str1', x: 208, y: 100, a: 0, c: 0, z: 0 },
+  ];
+  addPieces(run);
+  assert.equal(state.sprites.length, 3);
+  assert.equal(state.selection.size, 2);
+  assert.ok(state.selection.has(run[0]) && state.selection.has(run[1]));
+  assert.equal(run[0]._bad, false); /* flags refreshed by emit */
+  assert.equal(undo(), true);
+  assert.equal(state.sprites.length, 1);
+  assert.equal(state.selection.size, 0);
+  assert.deepEqual(addPieces([]), undefined); /* no-op guard */
+});
+
+test('applySolution removes and inserts in one undoable step', () => {
+  const a = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 };
+  const b = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 0 };
+  const doomed = { name: 'Str1', x: 208, y: 100, a: 0, c: 0, z: 0 };
+  const run = [{ name: 'Lan1', x: 262, y: 100, a: 0, c: 0, z: 0 }];
+  state.sprites.push(a, b, doomed);
+  applySolution([doomed], run);
+  assert.equal(state.sprites.length, 3); /* a, b, run */
+  assert.ok(state.sprites.includes(run[0]));
+  assert.ok(!state.sprites.includes(doomed));
+  assert.equal(state.selection.size, 1);
+  assert.equal(undo(), true);
+  assert.equal(state.sprites.length, 3); /* fully restored (JSON clones) */
+  assert.equal(state.sprites[2].x, 208); /* doomed is back */
+  assert.ok(!state.sprites.some((p) => p.name === 'Lan1'));
+});
+
+test('rotate with a piece armed moves only the armed angle (ghost), not the selection', () => {
+  const a = { name: 'Str1', x: 0, y: 0, a: 0, c: 0, z: 0 };
+  state.sprites.push(a);
+  state.selection.add(a);
+  setTool('Str1'); /* re-armed for the next placement — selection still held */
+  const rotated = rotate(45);
+  assert.equal(rotated, false); /* selection did NOT spin */
+  assert.equal(a.a, 0);
+  assert.equal(state.angle, 45);
+  setTool('Move');
+  assert.equal(rotate(45), true); /* under Move the selection rotates */
+  assert.equal(a.a, 45);
+});
+
+test('negative floors renormalize to 0 mm on emit (lowest piece = floor)', () => {
+  const low = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: -75 };
+  const top = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 0 };
+  state.sprites.push(low, top);
+  setTool('Pan'); /* emit -> normalize */
+  assert.equal(low.z, 0);
+  assert.equal(top.z, 75);
+  /* already-floored tracks are untouched (no surprise shifts) */
+  const ok = { name: 'Str1', x: 300, y: 300, a: 0, c: 0, z: 0 };
+  state.sprites.push(ok);
+  setTool('Pan');
+  assert.equal(ok.z, 0);
+  assert.deepEqual(state.sprites.map((p) => p.z), [0, 75, 0]);
+});
+
+test('refreshFlags caches open-vert disjunction links on state', () => {
+  state.sprites.push(
+    { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 },
+    { name: 'Str1', x: 187, y: 100, a: 180, c: 0, z: 0 }, /* 33 cm gap, facing */
+  );
+  setTool('Pan'); /* emit -> refreshFlags */
+  assert.equal(state.links.length, 1);
+  assert.ok(Math.abs(state.links[0].d - 33) < 1e-9);
+});
+
+test('welded level changes are drop disjunctions, not errors', () => {
+  const flat = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 };
+  const raised = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 75 };
+  state.sprites.push(flat, raised);
+  setTool('Pan'); /* emit -> refreshFlags */
+  assert.equal(state.drops.length, 1); /* one joint, one drop */
+  assert.ok(Math.abs(Math.abs(state.drops[0].dz) - 75) < 1e-9);
+  assert.equal(flat._bad, false); /* aligned tangents: informational, not red */
+  assert.equal(raised._bad, false);
+});
+
+test('floor baseline recomputes on delete (down ramp removed -> back to 0)', () => {
+  const a = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 };
+  const ramp = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: -75 };
+  state.sprites.push(a, ramp);
+  setTool('Pan'); /* emit -> normalize: floor moves to the ramp bottom */
+  assert.deepEqual(state.sprites.map((p) => p.z), [75, 0]);
+  removePiece(ramp); /* delete the bottom: everything settles back down */
+  assert.equal(a.z, 0);
+});
+
+test('bumpLevel treats 0 mm as a stop point (5 -> 0, never -5)', () => {
+  const floorPc = { name: 'Str1', x: 300, y: 300, a: 0, c: 0, z: 0 };
+  const p = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 5 };
+  state.sprites.push(floorPc, p);
+  state.selection.add(p);
+  assert.equal(bumpLevel(-1), 'selection');
+  assert.equal(p.z, 0); /* crossed 0: landed on it */
+  assert.equal(bumpLevel(1), 'selection');
+  assert.equal(p.z, 10);
+  p.z = 75;
+  for (let i = 0; i < 7; i++) bumpLevel(-1);
+  assert.equal(p.z, 5); /* 75 -> ... -> 5 */
+  assert.equal(bumpLevel(-1), 'selection');
+  assert.equal(p.z, 0);
+  state.selection.clear();
+  state.zArm = 5;
+  bumpLevel(-1);
+  assert.equal(state.zArm, 0); /* armed path too */
 });

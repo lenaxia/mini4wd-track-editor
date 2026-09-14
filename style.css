@@ -81,7 +81,10 @@ body {
   border: 1px solid var(--line); border-radius: 10px;
   background: var(--panel-2); color: inherit; font-size: 19px; cursor: pointer;
   flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
 }
+.tool svg { display: block; }        /* rgb dots: baseline off, center it */
+.tool[data-tool='Move'] { font-size: 24px; } /* glyph reads small at 19px */
 .tool.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
 .sep { width: 1px; height: 28px; background: var(--line); flex: 0 0 auto; margin: 0 2px; }
 
@@ -135,17 +138,28 @@ kbd {
 
 /* ---------- toast ---------- */
 #toast {
-  position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom));
-  transform: translateX(-50%) translateY(8px);
+  position: fixed; left: 50%; top: calc(52px + env(safe-area-inset-top));
+  transform: translateX(-50%) translateY(-8px);
   background: #2e3140; border: 1px solid var(--line); color: #fff;
   padding: 9px 16px; border-radius: 999px; font-size: 13px;
   opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s;
   max-width: 88vw; text-align: center; z-index: 50;
 }
-#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+#toast button {
+  margin-left: 10px; border: 1px solid #7dd3fc; background: transparent;
+  color: #7dd3fc; border-radius: 999px; padding: 4px 10px; font-size: 12px;
+}
 
 @media (min-width: 900px) {
   /* desktop: toolbar becomes a left sidebar-ish wide palette, but flex works fine as-is */
   .palette { flex-wrap: wrap; }
   .hint { display: none; }
 }
+
+/* ---------- dialog heads (✕ close) ---------- */
+.dialog-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 6px;
+}
+.dialog-head h2 { margin: 0; }

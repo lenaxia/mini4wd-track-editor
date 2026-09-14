@@ -82,4 +82,4 @@ export const PALETTE = {
 export const VARIANT_COLORS = ['#c9d1dc', '#e05263', '#4f8fdd', '#2ea89b', '#e5b84b',
   '#9b6bd6', '#e08b4f', '#4fb67a', '#d66fae', '#7f8c9b'];
 
-export const TOOLS = ['Pan', 'Move', 'Delete', 'Color']; // non-piece tools
+export const TOOLS = ['Pan', 'Move', 'Delete', 'Color', 'Complete']; // non-piece tools

@@ -3,23 +3,41 @@
  * of render/input — keeps the module graph acyclic). */
 
 import {
-  state, subscribe, setTool, setMode, undo, clearAll, loadSprites, rotate, bumpLevel, zoomAt, fitView,
+  state, subscribe, setTool, setMode, undo, clearAll, loadSprites, rotate, bumpLevel, zoomAt, fitView, addPieces, applySolution,
 } from './store.js';
 import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { drawPieceArt } from './art.js';
+import { closeLoop, closeLoopStepping, solverSetFor, endPieceIssue } from './solver.js';
 
 const $ = (id) => document.getElementById(id);
 let ioMode = 'import'; /* or 'share' */
 let getDims = () => ({ w: 800, h: 600, dpr: 1 });
 
-export function toast(msg) {
+/* Toast. opts: { duration (ms, default 2200; 9000 with an action),
+ * actionLabel, onAction } — with an action the toast carries a tappable
+ * button and outlives the default fade. */
+export function toast(msg, opts = {}) {
   const el = $('toast');
   el.textContent = msg;
-  el.classList.add('show');
+  if (el._click) { el.removeEventListener('click', el._click); el._click = null; }
   clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('show'), 2200);
+  if (opts.actionLabel) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = opts.actionLabel;
+    el.append(btn);
+    el._click = (ev) => {
+      if (ev.target !== btn) return;
+      el.classList.remove('show');
+      clearTimeout(el._t);
+      opts.onAction();
+    };
+    el.addEventListener('click', el._click);
+  }
+  el._t = setTimeout(() => el.classList.remove('show'), opts.duration ?? (opts.actionLabel ? 9000 : 2200));
+  el.classList.add('show');
 }
 
 function openDialog(dlg) { if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', ''); }
@@ -110,6 +128,79 @@ function importText(text) {
   toast(`Imported ${sprites.length} pieces`);
 }
 
+/* ---------- close the loop (solver) ---------- */
+
+/* Complete-track explainer: shown once per session, the first time the tool
+ * is armed. Returns true when it just opened (the triggering tap is spent). */
+let completeIntroShown = false;
+export function completeToolIntro() {
+  if (completeIntroShown) return false;
+  completeIntroShown = true;
+  openDialog($('completeDialog'));
+  return true;
+}
+
+/* Fill the gap between exactly two selected pieces with the shortest run of
+ * family straights / 45-deg corners that clears every placed piece
+ * (75 mm level differences bridge over). Shared by the menu button, L and
+ * the Complete tool. Returns true when the loop was closed. */
+export function closeLoopAction() {
+  const sel = [...state.selection];
+  if (sel.length !== 2) { toast('Select exactly two pieces (Move tool), then Close loop'); return false; }
+  const set = solverSetFor(sel[0], sel[1]);
+  if (!set) { toast('Pick two ends of the same lane count — e.g. both 3-lane'); return false; }
+  for (const p of sel) {
+    const issue = endPieceIssue(state.sprites, p);
+    if (issue === 'kind') { toast(`${PIECES[p.name].label} isn\u2019t supported as an end yet — use a straight, corner, wave or lane changer`); return false; }
+    if (issue === 'multi-open') { toast('Pick end pieces with exactly one free end (this one has both ends free)'); return false; }
+    if (issue === 'no-open') { toast('That piece has no free end'); return false; }
+  }
+  const res = closeLoop(state.sprites, sel[0], sel[1], { set });
+  if (!res.ok) {
+    if (res.reason === 'no-open') { toast('One end has no free connection point'); return false; }
+    if (res.reason === 'level') {
+      const [z0, z1] = res.levels || [];
+      toast(`Ends are at different levels${Number.isFinite(z0) ? ` (${z0} vs ${z1} mm)` : ''} — link them with a slope first`);
+      return false;
+    }
+    if (res.reason === 'no-path') { offerStepBack(sel, res, set); return false; }
+    toast('Could not close the loop from these ends');
+    return false;
+  }
+  addPieces(res.pieces);
+  closeDialog($('menuDialog'));
+  toast(res.flex
+    ? `Loop closed \u00B7 ${res.pieces.length} pcs \u00B7 ${res.length.toFixed(2)} m \u00B7 ${res.gap.toFixed(1)} cm bend (ends off-grid)`
+    : `Loop closed \u00B7 ${res.pieces.length} pcs \u00B7 ${res.length.toFixed(2)} m`);
+  return true;
+}
+
+/* A failed closure explains itself in a toast, with a tappable offer to
+ * remove pieces (the named blocker first, then stepping the end chains
+ * back) until it closes. One undo restores everything. */
+function offerStepBack(sel, res, set) {
+  const why = {
+    blocked: 'the closing pieces fit but track is in the way',
+    facing: `the ends face ${res.miss.dh.toFixed(0)}\u00B0 apart`,
+    'off-grid': `the ends are ${res.miss.d.toFixed(1)} cm out of line for any piece run`,
+    limit: 'the search gave up',
+  }[res.why] || 'no run fits';
+  toast(`Couldn\u2019t close — ${why}. Would you like to automatically remove pieces until a workable solution is found?`, {
+    actionLabel: 'Yes',
+    onAction: () => {
+      if (!state.sprites.includes(sel[0]) || !state.sprites.includes(sel[1])) {
+        toast('Selection changed — reselect the two ends and retry');
+        return;
+      }
+      const step = closeLoopStepping(state.sprites, sel[0], sel[1], { set });
+      if (!step.ok) { toast('No closable point, even stepping back'); return; }
+      applySolution(step.removed, step.closed.pieces);
+      closeDialog($('menuDialog'));
+      toast(`Stepped back ${step.removed.length} pc${step.removed.length === 1 ? '' : 's'} \u00B7 closed with ${step.closed.pieces.length} pcs \u00B7 ${step.closed.length.toFixed(2)} m`);
+    },
+  });
+}
+
 /* ---------- init ---------- */
 
 export function init(dimsGetter) {
@@ -119,6 +210,14 @@ export function init(dimsGetter) {
 
   $('btnMenu').addEventListener('click', () => openDialog($('menuDialog')));
   $('btnCloseMenu').addEventListener('click', () => closeDialog($('menuDialog')));
+
+  /* Esc closes any open dialog (native showModal also cancels; this covers
+   * the attribute-fallback path and makes the behavior guaranteed) */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const open = document.querySelector('dialog[open]');
+    if (open) closeDialog(open);
+  });
 
   $('btnShare').addEventListener('click', () => {
     ioMode = 'share';
@@ -167,19 +266,25 @@ export function init(dimsGetter) {
   });
   $('ioClose').addEventListener('click', () => closeDialog($('ioDialog')));
 
+  $('btnLoop').addEventListener('click', () => { closeDialog($('menuDialog')); closeLoopAction(); });
+
   $('btnHelp').addEventListener('click', () => { closeDialog($('menuDialog')); openDialog($('helpDialog')); });
   $('helpClose').addEventListener('click', () => closeDialog($('helpDialog')));
 
   document.querySelectorAll('[data-tool]').forEach((b) => {
     b.addEventListener('click', () => setTool(b.dataset.tool));
   });
+  $('btnComplete').addEventListener('click', () => completeToolIntro()); /* once per session, on first arm */
+  $('completeOk').addEventListener('click', () => closeDialog($('completeDialog')));
+  $('completeClose').addEventListener('click', () => closeDialog($('completeDialog')));
   $('btnRotL').addEventListener('click', () => { if (!rotate(-45)) toast(`${state.angle}\u00B0`); });
   $('btnRotR').addEventListener('click', () => { if (!rotate(45)) toast(`${state.angle}\u00B0`); });
   $('btnUndo').addEventListener('click', () => { if (!undo()) toast('Nothing to undo'); });
   $('btnLvlUp').addEventListener('click', () => toast(levelToast(bumpLevel(1))));
   $('btnLvlDown').addEventListener('click', () => toast(levelToast(bumpLevel(-1))));
-  $('btnClear').addEventListener('click', () => {
+  $('btnDeleteAll').addEventListener('click', () => {
     if (!state.sprites.length) return;
+    closeDialog($('menuDialog'));
     if (confirm('Delete all pieces?')) clearAll();
   });
   $('btnZoomIn').addEventListener('click', () => zoomAt(getDims().w / 2, getDims().h / 2, 1.25));

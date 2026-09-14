@@ -2,8 +2,8 @@
  * overlays (rubber band, drag vertices, hover preview). */
 
 import { state, subscribe } from './store.js';
-import { PIECES, TOOLS, HITBOX_RADIUS } from './pieces.js';
-import { rad, centerOf, vertexOf, vertsOf, pieceHalfExtents, worldFromScreen, snapPiece } from './geometry.js';
+import { PIECES, TOOLS, HITBOX_RADIUS, VARIANT_COLORS } from './pieces.js';
+import { rad, rot, centerOf, vertexOf, vertsOf, pieceHalfExtents, worldFromScreen, snapPiece } from './geometry.js';
 import { imageFor } from './assets.js';
 import { drawPieceArt } from './art.js';
 import * as input from './input.js';
@@ -65,6 +65,8 @@ function render() {
     drawVertices(pv, sn);
   }
 
+  drawLinks(); /* disjunction arcs under the selection layer */
+  drawDrops(); /* welded level changes: dashed rings at the joint */
   drawSelection();
   if (input.dragActive()) for (const p of state.selection) drawVertices(p, input.dragSnapped());
   drawRubberBand();
@@ -98,21 +100,10 @@ function drawGrid() {
 function drawPiece(p, alpha) {
   const def = PIECES[p.name];
   const img = imageFor(p.name, p.c);
-  const z = p.z || 0;
   ctx.save();
-  /* elevation shadow + semi-transparency over lower track: the crossover
-   * experience depends on seeing what you bridge over (docs/design §5) */
+  /* semi-transparency over lower track: the crossover experience depends
+   * on seeing what you bridge over (docs/design §5) */
   ctx.globalAlpha = alpha * (p._over ? 0.8 : 1);
-  if (z > 0) {
-    /* world-frame offset: the shadow falls one way regardless of piece angle */
-    const o = Math.min(12, z * 0.15);
-    ctx.translate(p.x + o, p.y + o);
-    ctx.rotate(rad(p.a));
-    ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.fillRect(-def.w / 2, -def.h / 2, def.w, def.h);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.translate(state.view.x, state.view.y); ctx.scale(state.view.scale, state.view.scale);
-  }
   ctx.translate(p.x, p.y);
   ctx.rotate(rad(p.a));
   if (img && img.complete && img.naturalWidth) {
@@ -126,6 +117,99 @@ function drawPiece(p, alpha) {
     ctx.setLineDash([5, 4]);
     ctx.strokeRect(-def.w / 2, -def.h / 2, def.w, def.h);
     ctx.setLineDash([]);
+  }
+  ctx.restore();
+  drawElevation(p);
+}
+
+/* Disjunctions (owner rule): unwelded but facing open ends within jump
+ * range — dashed info-blue flight arc, never an error. */
+function drawLinks() {
+  if (!state.links.length) return;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(125,211,252,.75)';
+  ctx.fillStyle = 'rgba(125,211,252,.9)';
+  ctx.lineWidth = 1.5 / state.view.scale;
+  ctx.setLineDash([6 / state.view.scale, 4 / state.view.scale]);
+  for (const l of state.links) {
+    const a = vertexOf(l.a, l.ai), b = vertexOf(l.b, l.bi);
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const d = Math.hypot(b.x - a.x, b.y - a.y);
+    const nx = -(b.y - a.y) / (d || 1), ny = (b.x - a.x) / (d || 1);
+    const bow = Math.min(10, d * 0.22); /* flight-path bulge */
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.quadraticCurveTo(mx + nx * bow, my + ny * bow, b.x, b.y);
+    ctx.stroke();
+    for (const v of [a, b]) {
+      ctx.beginPath();
+      ctx.arc(v.x, v.y, 3 / state.view.scale + 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+/* Connected jumps/drops (owner rule): welded joints whose levels differ —
+ * dashed blue ring at the joint point; the piece level numbers explain. */
+function drawDrops() {
+  if (!state.drops.length) return;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(125,211,252,.8)';
+  ctx.lineWidth = 1.5 / state.view.scale;
+  ctx.setLineDash([4 / state.view.scale, 3 / state.view.scale]);
+  for (const d of state.drops) {
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 5 / state.view.scale + 2, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+const luminance = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255;
+};
+
+/* Always-on elevation readouts (owner rule): every piece not at floor level
+ * shows its level; ramps/banks of the slope kind get an amber chevron at
+ * their high end (which side is up is intrinsic — no travel direction). */
+function drawElevation(p) {
+  const z = p.z || 0;
+  const def = PIECES[p.name];
+  let hi = -1;
+  for (let i = 0; i < def.verts.length; i++) if ((def.verts[i][2] || 0) > 0) hi = i;
+  if (!z && hi < 0) return;
+  ctx.save();
+  if (z) { /* level readout centered in a lane, ink contrasting the variant */
+    const halfLane = def.h / def.lanes / 2;
+    const o = def.lanes % 2 === 0 ? rot(0, halfLane, p.a) : { x: 0, y: 0 }; /* even lane counts: the center is a wall */
+    const col = VARIANT_COLORS[p.c % VARIANT_COLORS.length];
+    const lum = luminance(col);
+    ctx.font = `bold ${13 / state.view.scale}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 2.5 / state.view.scale;
+    ctx.strokeStyle = lum > 0.5 ? 'rgba(255,255,255,.85)' : 'rgba(0,0,0,.6)';
+    ctx.fillStyle = lum > 0.5 ? '#1b1e24' : '#ffffff';
+    ctx.strokeText(`${z}mm`, p.x + o.x, p.y + o.y);
+    ctx.fillText(`${z}mm`, p.x + o.x, p.y + o.y);
+  }
+  if (hi >= 0) { /* amber chevron pointing at the high vertex */
+    const v = vertexOf(p, hi), c = centerOf(p);
+    const ang = Math.atan2(v.y - c.y, v.x - c.x);
+    const mx = c.x + (v.x - c.x) * 0.55, my = c.y + (v.y - c.y) * 0.55;
+    const s = 7 / state.view.scale + 2;
+    ctx.translate(mx, my);
+    ctx.rotate(ang);
+    ctx.fillStyle = '#e5b84b';
+    ctx.strokeStyle = '#1b1e24';
+    ctx.lineWidth = 1.5 / state.view.scale;
+    ctx.beginPath();
+    ctx.moveTo(s, 0); ctx.lineTo(-s * 0.7, -s * 0.7); ctx.lineTo(-s * 0.7, s * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
   ctx.restore();
 }
@@ -143,15 +227,6 @@ function drawSelection() {
     ctx.rect(p.x - hx - 2, p.y - hy - 2, 2 * hx + 4, 2 * hy + 4);
     ctx.fill();
     ctx.stroke();
-    if (p.z) { /* elevation badge on selected raised pieces */
-      ctx.setLineDash([]);
-      ctx.fillStyle = '#7dd3fc';
-      ctx.font = `${12 / state.view.scale}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillText(`${p.z}mm`, p.x, p.y - hy - 6 / state.view.scale);
-      ctx.setLineDash([6 / state.view.scale, 4 / state.view.scale]);
-      ctx.fillStyle = 'rgba(255,209,102,.08)';
-    }
   }
   ctx.restore();
 }
@@ -185,7 +260,7 @@ function drawVertices(p, snapped) {
 }
 
 function drawHitboxesIfTool() {
-  if (!['Move', 'Delete', 'Color'].includes(state.tool)) return;
+  if (!['Move', 'Delete', 'Color', 'Complete'].includes(state.tool)) return;
   ctx.save();
   ctx.setLineDash([5 / state.view.scale]);
   ctx.lineWidth = 1.4 / state.view.scale;

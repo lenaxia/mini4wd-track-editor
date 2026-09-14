@@ -268,24 +268,58 @@ test('rotate pivots a connected piece about the joint (joint survives)', async (
   expect(Math.hypot(vx - jx, vy - jy)).toBeLessThan(1e-6);
 });
 
-test('manual elevation: PageUp raises the armed piece, persists through reload', async ({ page }) => {
+test('manual elevation: PageUp raises a piece above the floor, persists through reload', async ({ page }) => {
+  /* an isolated raised piece IS the floor (normalizes to 0) — manual levels
+   * only mean something above other pieces */
   await page.locator('.chip').first().click();
-  await page.keyboard.press('PageUp'); await page.keyboard.press('PageUp'); await page.keyboard.press('PageUp');
   await clickCanvas(page, 0.5, 0.5);
-  const p = (await st(page)).sprites[0];
-  expect(p.z).toBe(30);
+  const base = (await st(page)).sprites[0];
+  await page.locator('.chip').first().click();
+  const pt = await toScreen(page, base.x + 50, base.y);
+  await page.mouse.click(pt.x, pt.y);
+  const s = await st(page);
+  expect(s.sprites[1].z).toBe(0); /* chained at floor level */
+
+  await page.keyboard.press('PageUp'); /* selection = the new piece */
+  await page.keyboard.press('PageUp');
+  await page.keyboard.press('PageUp');
+  const raised = (await st(page)).sprites[1];
+  expect(raised.z).toBe(30);
+  expect((await st(page)).sprites[0].z).toBe(0); /* floor unchanged */
   await page.waitForTimeout(500); /* autosave debounce */
 
   await page.reload();
-  const s = await st(page);
-  expect(s.sprites[0].z).toBe(30);
+  const s2 = await st(page);
+  expect(s2.sprites[1].z).toBe(30);
+  expect(s2.sprites[0].z).toBe(0);
 });
 
-test('level buttons work (touch parity for elevation)', async ({ page }) => {
-  await page.locator('#btnLvlUp').click();
+test('level buttons work (touch parity for elevation); 0 mm is a stop point', async ({ page }) => {
   await page.locator('.chip').first().click();
   await clickCanvas(page, 0.5, 0.5);
-  expect((await st(page)).sprites[0].z).toBe(10);
+  const base = (await st(page)).sprites[0];
+  await page.locator('.chip').first().click();
+  const pt = await toScreen(page, base.x + 50, base.y);
+  await page.mouse.click(pt.x, pt.y);
+  let s = await st(page);
+  await page.locator('#btnLvlUp').click(); /* +10 on the selected top piece */
+  s = await st(page);
+  expect(s.sprites[1].z).toBe(10);
+
+  /* 75 -> 65 -> ... -> 5 -> 0: steps that would cross 0 land on it */
+  await page.evaluate(() => {
+    const s2 = window.__m4wd.state;
+    s2.sprites[1].z = 75; /* arrange a 5-away-from-floor level via the hook */
+    s2.selection.clear();
+    s2.selection.add(s2.sprites[1]);
+  });
+  for (let i = 0; i < 7; i++) await page.locator('#btnLvlDown').click();
+  s = await st(page);
+  expect(s.sprites[1].z).toBe(5);
+  await page.locator('#btnLvlDown').click();
+  s = await st(page);
+  expect(s.sprites[1].z).toBe(0); /* stopped at 0, floor piece untouched */
+  expect(s.sprites[0].z).toBe(0);
 });
 
 test('drag perf smoke: 60-move drag on a 500-piece track stays interactive', async ({ page }) => {
@@ -582,4 +616,65 @@ test('real rucdoc sprites load: SVGs serve for real-data pieces', async ({ page 
   expect(resolves).not.toBeNull();
   expect(resolves.src).toBe('R2Ramp.svg');
   expect(resolves.loaded).toBe(true);
+});
+
+test('Space arms Pan; Z with a piece armed rotates the ghost, not the placed piece', async ({ page }) => {
+  await page.locator('.chip').first().click(); /* Str1 */
+  await clickCanvas(page, 0.5, 0.5);
+  const placed = (await st(page)).sprites[0];
+  expect(placed.a).toBe(0);
+
+  /* re-arm the same piece; the placed piece is still selected */
+  await page.locator('.chip').first().click();
+  await page.keyboard.press('z'); /* ghost rotation only */
+  const s = await st(page);
+  expect(s.angle).toBe(315);
+  expect(s.sprites[0].a).toBe(0); /* untouched */
+
+  await page.keyboard.press(' '); /* spacebar arms Pan */
+  expect((await st(page)).tool).toBe('Pan');
+});
+
+test('menu closes with the X button and Escape', async ({ page }) => {
+  await page.locator('#btnMenu').click();
+  await expect(page.locator('#menuDialog')).toBeVisible();
+  await page.locator('#btnCloseMenu').click();
+  await expect(page.locator('#menuDialog')).not.toBeVisible();
+
+  await page.locator('#btnMenu').click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#menuDialog')).not.toBeVisible();
+
+  await page.locator('#btnMenu').click();
+  await expect(page.locator('#btnDeleteAll')).toBeVisible(); /* moved here from the toolbar */
+});
+
+test('slope chain adopts level; floor normalization keeps the lowest at 0', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.locator('.chip').nth(5).click(); /* Bri1 slope */
+  await clickCanvas(page, 0.4, 0.5);
+  const slope = (await st(page)).sprites[0];
+  expect(slope.z).toBe(0);
+
+  /* chain a straight onto the slope's high end: level adopted (z = 75) */
+  await page.locator('.chip').first().click(); /* Str1 */
+  const pt = await toScreen(page, slope.x + 50, slope.y + 3);
+  await page.mouse.click(pt.x, pt.y);
+  const s = await st(page);
+  expect(s.sprites).toHaveLength(2);
+  const top = s.sprites[1];
+  expect(top.z).toBe(75); /* adopted the slope's high level */
+
+  /* lowering the floor piece renormalizes instead of going negative */
+  await page.evaluate(() => {
+    const s = window.__m4wd.state;
+    s.selection.clear();
+    s.selection.add(s.sprites[0]);
+  });
+  await page.keyboard.press('PageDown'); /* floor piece to -10 -> shifts up */
+  const s2 = await st(page);
+  expect(s2.sprites[0].z).toBe(0);
+  expect(s2.sprites[1].z).toBe(85);
+  expect(errors).toEqual([]); /* render loop happy with badges + chevron */
 });

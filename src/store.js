@@ -4,7 +4,7 @@
  * store is unit-testable under plain node. */
 
 import { PIECES, PALETTE, TOOLS, CLEARANCE_MM } from './pieces.js';
-import { rot, centerOf, snapPiece, groupSnap, externalJoint, worldFromScreen, clampScale, computeFit, vertsOf, vertexOf, levelAt, outwardTangent, inwardTangent, pieceHalfExtents } from './geometry.js';
+import { rot, centerOf, snapPiece, groupSnap, externalJoint, worldFromScreen, clampScale, computeFit, vertsOf, vertexOf, levelAt, outwardTangent, inwardTangent, pieceHalfExtents, openLinks } from './geometry.js';
 import * as storage from './storage.js';
 
 export const state = {
@@ -13,6 +13,8 @@ export const state = {
   angle: 0,
   zArm: 0,              // armed elevation (mm) for the next placement
   sprites: [],           // placed pieces: {name,x,y,a,c,z}
+  links: [],             // cached open-vert disjunctions (jumps, near misses)
+  drops: [],             // cached welded level changes (connected jumps)
   selection: new Set(),  // pieces selected with the Move tool
   view: { x: 0, y: 0, scale: 0.62 },
   history: [],
@@ -24,7 +26,18 @@ export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
 function notify() { for (const fn of subs) fn(); }
 
 /* Discrete change: notify + autosave + refresh cached joint/overlap flags. */
-function emit() { refreshFlags(); notify(); storage.autosave(state); }
+function emit() { normalizeLevels(); refreshFlags(); notify(); storage.autosave(state); }
+
+/* Elevation baseline (owner rule): the lowest piece is ALWAYS floor level
+ * (0 mm) — bidirectional. Building downward shifts the track up; deleting
+ * the bottom piece (e.g. a down ramp) shifts it back down. */
+function normalizeLevels() {
+  let min = Infinity;
+  for (const p of state.sprites) min = Math.min(min, p.z || 0);
+  if (Number.isFinite(min) && min !== 0) {
+    for (const p of state.sprites) p.z = (p.z || 0) - min;
+  }
+}
 
 /* Transient change (drag/pan/pinch frames): notify only. */
 export function updateLight(mut) { mut(state); notify(); }
@@ -110,10 +123,13 @@ export function clearAll() {
 
 /* Rotate the armed angle and (when present) the selection. With exactly one
  * external joint the selection pivots about it (the connection survives);
- * otherwise it spins around the visual-center centroid (docs/design §4). */
+ * otherwise it spins around the visual-center centroid (docs/design §4).
+ * While a piece tool is armed, ONLY the armed angle moves — Z/X during
+ * placement must turn the ghost, not the last placed piece. */
 export function rotate(delta) {
   state.angle = (state.angle + delta + 360) % 360;
-  if (state.selection.size) {
+  const pieceArmed = !TOOLS.includes(state.tool);
+  if (state.selection.size && !pieceArmed) {
     pushHistory();
     const joint = externalJoint(state.selection, state.sprites);
     let cx, cy;
@@ -136,17 +152,25 @@ export function rotate(delta) {
 }
 
 /* Elevation: +-10 mm steps on the armed piece or the selection
- * (clamped +-300 mm). Manual z is a power tool — touch users get levels
- * via ramp chaining (snap adoption). */
+ * (clamped +-300 mm). 0 mm is a stop point: a step that would cross it
+ * lands exactly on it (5 -> 0, never -5) — otherwise the floor
+ * normalization would silently rebase the whole track. Manual z is a
+ * power tool — touch users get levels via ramp chaining (snap adoption). */
+const stepLevel = (z, dz) => {
+  const nz = z + dz;
+  if ((z > 0 && nz < 0) || (z < 0 && nz > 0)) return 0;
+  return nz;
+};
+
 export function bumpLevel(steps) {
   const dz = steps * 10;
   if (state.selection.size) {
     pushHistory();
-    for (const p of state.selection) p.z = Math.max(-300, Math.min(300, (p.z || 0) + dz));
+    for (const p of state.selection) p.z = Math.max(-300, Math.min(300, stepLevel(p.z || 0, dz)));
     emit();
     return 'selection';
   }
-  state.zArm = Math.max(-300, Math.min(300, state.zArm + dz));
+  state.zArm = Math.max(-300, Math.min(300, stepLevel(state.zArm, dz)));
   emit();
   return 'armed';
 }
@@ -158,7 +182,9 @@ const JOINT_EPS = 1e-6;
 
 function refreshFlags() {
   const sprites = state.sprites;
+  state.links = openLinks(sprites); /* disjunctions: jumps/near-misses, informational */
   for (const p of sprites) { p._over = false; p._warn = false; p._bad = false; }
+  state.drops = [];
   for (let i = 0; i < sprites.length; i++) {
     for (let j = i + 1; j < sprites.length; j++) {
       const a = sprites[i], b = sprites[j];
@@ -182,7 +208,11 @@ function refreshFlags() {
           const b = vertexOf(g, gi);
           if (Math.hypot(a.x - b.x, a.y - b.y) > JOINT_EPS) continue;
           const dT = Math.abs(((outwardTangent(s, si) - inwardTangent(g, gi) + 540) % 360) - 180);
-          if (dT > 0.05 || levelAt(s, si) !== levelAt(g, gi)) { s._bad = true; g._bad = true; }
+          if (dT > 0.05) { s._bad = true; g._bad = true; } /* kinked joint: error */
+          else if (levelAt(s, si) !== levelAt(g, gi) && i < j) {
+            /* welded level change — a connected jump/drop: informational */
+            state.drops.push({ x: a.x, y: a.y, dz: levelAt(g, gi) - levelAt(s, si) });
+          }
         }
       }
     }
@@ -205,6 +235,29 @@ export function loadSprites(sprites) {
   pushHistory();
   state.sprites = sprites;
   state.selection.clear();
+  emit();
+}
+
+/* Bulk-add pre-computed pieces (solver output): one history step, the run
+ * ends up selected so it can be dragged/re-colored as a section. */
+export function addPieces(list) {
+  if (!list || !list.length) return;
+  pushHistory();
+  for (const p of list) state.sprites.push(p);
+  state.selection.clear();
+  for (const p of list) state.selection.add(p);
+  emit();
+}
+
+/* Step-back solution (solver closeLoopStepping): remove + insert in ONE
+ * history step so a single undo restores the whole track. */
+export function applySolution(removed, added) {
+  pushHistory();
+  const rm = new Set(removed || []);
+  state.sprites = state.sprites.filter((p) => !rm.has(p));
+  for (const p of added || []) state.sprites.push(p);
+  state.selection.clear();
+  for (const p of added || []) state.selection.add(p);
   emit();
 }
 
