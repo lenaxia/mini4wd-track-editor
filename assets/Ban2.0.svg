@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="54" height="60" viewBox="-27.0 -30.0 54 60">
-  <path d="M -27.00 -28.75 H 27.00 V 28.75 H -27.00 Z" fill="url(#bedg_Ban2_0_svg)"/>
+  <defs><linearGradient id="bedg_Ban2_0_svg" gradientUnits="userSpaceOnUse" x1="-27.00" y1="0" x2="27.00" y2="0" spreadMethod="pad"><stop offset="0.00" stop-color="#d8a860"/><stop offset="0.50" stop-color="#e0c090"/><stop offset="1.00" stop-color="#d8a860"/></linearGradient></defs><path d="M -27.00 -28.75 H 27.00 V 28.75 H -27.00 Z" fill="url(#bedg_Ban2_0_svg)"/>
   <path d="M -27.00 -28.75 H 27.00 V -17.25 H -27.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
   <path d="M -27.00 -17.25 H 27.00 V -5.75 H -27.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>
   <path d="M -27.00 -5.75 H 27.00 V 5.75 H -27.00 Z" fill="none" stroke="#5d5a57" stroke-width="1.2"/>

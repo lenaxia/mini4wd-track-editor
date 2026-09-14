@@ -474,8 +474,9 @@ def emit(defn, rail, rip=None):
         # draws sprites at def.w x def.h)
         body = [f'<clipPath id="vb"><rect x="{-w/2}" y="{-h/2}" width="{w}" height="{h}"/></clipPath>',
                 '<g clip-path="url(#vb)">'] + body + ['</g>']
+    defs = BED_DEFS.replace('{X1}', f'{-w/2:.2f}').replace('{X2}', f'{w/2:.2f}')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
-            f'viewBox="{-w/2} {-h/2} {w} {h}">\n  ' + '\n  '.join(body) + '\n</svg>\n')
+            f'viewBox="{-w/2} {-h/2} {w} {h}">\n  ' + defs + '\n  '.join(body) + '\n</svg>\n')
 
 
 def main():
