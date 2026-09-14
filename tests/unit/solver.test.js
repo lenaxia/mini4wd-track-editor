@@ -198,3 +198,66 @@ test('same-plan pieces at >=75 mm level difference are a bridge, not a clash', (
   assert.equal(piecesCollide(mk('Str1', 100, 100, 0, 0), mk('Str1', 100, 120, 0, 75)), false);
   assert.equal(piecesCollide(mk('Str1', 100, 100, 0, 0), mk('Str1', 100, 120, 0, 40)), true);
 });
+
+test('off-grid ends with corner-chain heading drift still flex-weld', () => {
+  /* A is a corner: its exit tangent is the catalog's 44.976 deg, not exactly
+   * 45. B is a hand-placed straight at exactly 45 deg with its entry vert
+   * 6.5 cm off the reachable lattice — the "nearest fit 6.5 cm / 0 deg off"
+   * toast case. The flex weld must absorb both, not give up. */
+  const A = mk('Cor1', 100, 100);
+  const exit = vertexOf(A, 1);
+  const dir = (deg) => ({ x: Math.cos(deg * Math.PI / 180), y: Math.sin(deg * Math.PI / 180) });
+  const d45 = dir(45), perp = dir(135);
+  const goal = { x: exit.x + 108 * d45.x + 6.5 * perp.x, y: exit.y + 108 * d45.y + 6.5 * perp.y };
+  const B = mk('Str1', goal.x - 27 * d45.x, goal.y - 27 * d45.y, 45);
+  const sprites = [A, B];
+  const res = closeLoop(sprites, A, B);
+  assert.equal(res.ok, true);
+  assert.equal(res.flex, true);
+  assert.ok(Math.abs(res.gap - 6.5) < 1.5, `gap ~6.5, got ${res.gap}`);
+  const last = res.pieces[res.pieces.length - 1];
+  const lv = vertexOf(last, 1), bv = vertexOf(B, 0);
+  assert.ok(Math.hypot(lv.x - bv.x, lv.y - bv.y) <= 1e-6); /* welded onto B */
+});
+
+test('7-corner ring: the missing 8th corner is placed exactly (chain drift)', () => {
+  /* App-welded chains drift ~0.01 cm per piece — the ring's ends sit ~0.08 cm
+   * apart, so joints must be exempt at connection range and the landing
+   * tolerance must absorb the drift (the "41.3 cm / 45 deg off" case). */
+  const sprites = [mk('Cor1', 0, 0)];
+  let cur = sprites[0];
+  for (let k = 1; k < 7; k++) cur = weldOn(sprites, 'Cor1', cur, 1, 0);
+  const first = sprites[0], last = sprites[6];
+  const res = closeLoop(sprites, last, first);
+  assert.equal(res.ok, true);
+  assert.equal(res.flex, false);
+  assert.equal(res.pieces.length, 1);
+  assert.equal(res.pieces[0].name, 'Cor1');
+  /* welded arrival vertex sits exactly on first's v0 */
+  const lv = vertexOf(res.pieces[0], 1), bv = vertexOf(first, 0);
+  assert.ok(Math.hypot(lv.x - bv.x, lv.y - bv.y) <= 1e-6);
+  assert.equal(noCollisions(sprites.concat(res.pieces)), null);
+});
+
+test('oval missing one straight: 54 cm gap refilled exactly (chain drift)', () => {
+  /* Str1 - Cor - Cor - [gap] - Cor - Cor - Str1 oval; the pulled straight's
+   * slot lands ~0.1 cm off the welded chain ends (the "54 cm / 0 deg off"
+   * case) and must still refill with exactly one Str1. */
+  const sprites = [mk('Str1', 0, 0)];
+  let cur = sprites[0];
+  for (let k = 0; k < 2; k++) cur = weldOn(sprites, 'Cor1', cur, 1, 0);
+  const mid = weldOn(sprites, 'Str1', cur, 1, 0); /* the piece we pull */
+  const B = weldOn(sprites, 'Cor1', mid, 1, 0);
+  weldOn(sprites, 'Cor1', B, 1, 0);
+  weldOn(sprites, 'Str1', sprites[sprites.length - 1], 1, 0);
+  sprites.splice(sprites.indexOf(mid), 1);
+  const A = sprites[2]; /* second corner: its exit vert faces the gap */
+  const res = closeLoop(sprites, A, B);
+  assert.equal(res.ok, true);
+  assert.equal(res.flex, false);
+  assert.equal(res.pieces.length, 1);
+  assert.equal(res.pieces[0].name, 'Str1');
+  const lv = vertexOf(res.pieces[0], 1), bv = vertexOf(B, 0);
+  assert.ok(Math.hypot(lv.x - bv.x, lv.y - bv.y) <= 1e-6);
+  assert.equal(noCollisions(sprites.concat(res.pieces)), null);
+});

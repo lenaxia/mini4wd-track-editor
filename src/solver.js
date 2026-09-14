@@ -16,16 +16,23 @@
 import { PIECES, CLEARANCE_MM, SNAP_RADIUS } from './pieces.js';
 import {
   rad, rot, solveGeo, vertsOf, vertexOf, levelAt,
-  inwardTangent, outwardTangent, snapPiece,
+  inwardTangent, outwardTangent,
 } from './geometry.js';
 
 export const SOLVER_SET = ['Str1', 'Cor1', 'Lan1'];
 
 const OPEN_EPS = 2;       // cm — a vertex with another this close is connected
-const JOINT_EPS = 1e-6;   // exact vertex coincidence (store.refreshFlags value)
 const INSET = 1;          // cm adjacency margin (mirrors store.bboxOverlap)
-const GOAL_EPS = 0.01;    // cm — exact-lattice landing tolerance
-const TURN_EPS = 0.05;    // deg (refreshFlags tangent tolerance)
+/* Joint exemption width: the app's own chained welds drift ~0.01 cm per
+ * piece (orientAngle/rot floats), so a hand-built ring's ends sit ~0.1 cm
+ * apart — joints must be exempt at connection range, not at 1e-6, or every
+ * long-chain closure reads as a collision with its own neighbor. */
+const JOINT_WELD_EPS = OPEN_EPS;
+const GOAL_EPS = 0.5;     // cm — exact landing (float-drifted chains land ~0.1)
+const TURN_EPS = 0.05;    // deg (refreshFlags tangent tolerance) — diagnostics only
+const FLEX_TURN_EPS = 1.5; // deg — flex weld re-orients onto the target, so a
+                           // small heading mismatch (catalog corners carry
+                           // ~0.024 deg each) becomes a sub-cm kink, not a flaw
 const FLEX_SLACK = 0.05;  // m — A* may keep searching past a flex find by this
 
 const norm360 = (deg) => ((deg % 360) + 360) % 360;
@@ -144,7 +151,7 @@ function collideData(dA, dB) {
   if (Math.max(dA.zr[0] - dB.zr[1], dB.zr[0] - dA.zr[1]) >= CLEARANCE_MM) return false; /* bridge */
   for (const va of dA.verts) {
     for (const vb of dB.verts) {
-      if (Math.hypot(va.x - vb.x, va.y - vb.y) <= JOINT_EPS) return false; /* joint */
+      if (Math.hypot(va.x - vb.x, va.y - vb.y) <= JOINT_WELD_EPS) return false; /* joint */
     }
   }
   const ra = dA.road, rb = dB.road;
@@ -253,7 +260,7 @@ function collideAny(data, obstacles, ancestor) {
 
 /* One A* run from (start,h0,z0) to (goal,hGoal,zGoal). Updates ctx
  * { exact, flex, missD, missDh } — returns nothing. */
-function astar(start, h0, z0, goal, hGoal, zGoal, obstacles, trans, opts, ctx) {
+function astar(start, h0, z0, goal, hGoal, zGoal, vb, obstacles, trans, opts, ctx) {
   const seen = new Map();
   const open = new Heap();
   let ser = 0, expansions = 0;
@@ -277,11 +284,11 @@ function astar(start, h0, z0, goal, hGoal, zGoal, obstacles, trans, opts, ctx) {
     const d = Math.hypot(node.x - goal.x, node.y - goal.y);
     const dh = angDist(node.h, hGoal);
     if (node.z === zGoal && d + 0.2 * dh < ctx.missD + 0.2 * ctx.missDh) { ctx.missD = d; ctx.missDh = dh; }
-    if (node.z === zGoal && dh <= TURN_EPS) {
-      if (d <= GOAL_EPS) { ctx.exact = node; return; } /* first pop = optimal */
+    if (node.z === zGoal && dh <= FLEX_TURN_EPS) {
+      if (d <= GOAL_EPS) { ctx.exact = node; ctx.goal = goal; ctx.goalVb = vb; return; } /* first pop = optimal */
       if (d <= SNAP_RADIUS) {
         const key = node.g + 0.001 * d;
-        if (!ctx.flex || key < ctx.flexCost) { ctx.flex = node; ctx.flexCost = key; ctx.flexGoal = goal; }
+        if (!ctx.flex || key < ctx.flexCost) { ctx.flex = node; ctx.flexCost = key; ctx.flexGoal = goal; ctx.flexVb = vb; }
       }
     }
     if (ctx.flex && node.f > ctx.flexCost + FLEX_SLACK) return; /* nothing better remains */
@@ -309,6 +316,27 @@ function chainOf(node) {
   const out = [];
   for (let n = node; n && n.piece; n = n.parent) out.unshift(n.piece);
   return out;
+}
+
+/* Rotate + translate the run's last piece so its arrival vertex sits exactly
+ * on b's vertex vb with tangents aligned (the weld snapPiece applies, but
+ * aimed at the chosen goal — snapPiece itself would re-weld the run's own
+ * internal joint on short paths). The run's previous joint absorbs the
+ * remainder: sub-mm for exact landings, the reported bend for flex. */
+function weldToEnd(piece, b, vb) {
+  const goal = vertexOf(b, vb);
+  let j = 0, best = Infinity;
+  for (let i = 0; i < vertsOf(piece).length; i++) {
+    const v = vertexOf(piece, i);
+    const dd = Math.hypot(v.x - goal.x, v.y - goal.y);
+    if (dd < best) { best = dd; j = i; }
+  }
+  const tmpl = { name: piece.name, x: 0, y: 0, a: 0, c: 0, z: 0 };
+  piece.a = norm360(inwardTangent(b, vb) - outwardTangent(tmpl, j));
+  const v = vertexOf(piece, j);
+  piece.x += goal.x - v.x;
+  piece.y += goal.y - v.y;
+  piece.z = levelAt(b, vb) - (vertsOf(piece)[j][2] || 0);
 }
 
 const lengthOf = (pieces) => pieces.reduce((m, p) => m + PIECES[p.name].l, 0);
@@ -348,24 +376,20 @@ export function closeLoop(sprites, a, b, opts = {}) {
     /* detour budget: 8x the crow flight + 10 m slack (overridable) */
     const per = { ...searchOpts, maxCost: opts.maxCost ?? 10 + (8 * c.d) / 100, budget };
     astar(vertexOf(a, c.va), outwardTangent(a, c.va), z0,
-      vertexOf(b, c.vb), inwardTangent(b, c.vb), zGoal,
+      vertexOf(b, c.vb), inwardTangent(b, c.vb), zGoal, c.vb,
       obstacles, trans, per, ctx);
     if (ctx.exact || budget.left <= 0) break;
   }
 
   if (ctx.exact) {
     const pieces = chainOf(ctx.exact);
+    weldToEnd(pieces[pieces.length - 1], b, ctx.goalVb);
     return { ok: true, pieces, cost: ctx.exact.g, length: lengthOf(pieces), flex: false };
   }
   if (ctx.flex) {
     const pieces = chainOf(ctx.flex);
     const gap = Math.hypot(ctx.flex.x - ctx.flexGoal.x, ctx.flex.y - ctx.flexGoal.y);
-    /* weld the last piece onto B exactly (app snap semantics: the previous
-     * joint absorbs the off-grid remainder) */
-    const last = pieces[pieces.length - 1];
-    const prev = pieces[pieces.length - 2];
-    const cands = sprites.concat(pieces.slice(0, -1)).filter((p) => p !== prev);
-    snapPiece(last, cands);
+    weldToEnd(pieces[pieces.length - 1], b, ctx.flexVb);
     return { ok: true, pieces, cost: ctx.flex.g, length: lengthOf(pieces), flex: true, gap };
   }
   if (allLevelMiss) return { ok: false, reason: 'level' };

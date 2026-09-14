@@ -123,7 +123,7 @@ export function closeLoopAction() {
   if (!res.ok) {
     if (res.reason === 'no-open') toast('One end has no free connection point');
     else if (res.reason === 'level') toast('Ends are at different levels — link them with a slope first');
-    else if (Number.isFinite(res.miss?.d)) toast(`Could not close (nearest fit ${res.miss.d.toFixed(1)} cm / ${res.miss.dh.toFixed(0)}\u00B0 off)`);
+    else if (Number.isFinite(res.miss?.d)) toast(`Could not close — ends are off-grid: nearest fit is ${res.miss.d.toFixed(1)} cm / ${res.miss.dh.toFixed(1)}\u00B0 away. Drag one end nearer or link manually.`);
     else toast('Could not close the loop from these ends');
     return;
   }
