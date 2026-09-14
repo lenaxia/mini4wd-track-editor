@@ -152,17 +152,25 @@ export function rotate(delta) {
 }
 
 /* Elevation: +-10 mm steps on the armed piece or the selection
- * (clamped +-300 mm). Manual z is a power tool — touch users get levels
- * via ramp chaining (snap adoption). */
+ * (clamped +-300 mm). 0 mm is a stop point: a step that would cross it
+ * lands exactly on it (5 -> 0, never -5) — otherwise the floor
+ * normalization would silently rebase the whole track. Manual z is a
+ * power tool — touch users get levels via ramp chaining (snap adoption). */
+const stepLevel = (z, dz) => {
+  const nz = z + dz;
+  if ((z > 0 && nz < 0) || (z < 0 && nz > 0)) return 0;
+  return nz;
+};
+
 export function bumpLevel(steps) {
   const dz = steps * 10;
   if (state.selection.size) {
     pushHistory();
-    for (const p of state.selection) p.z = Math.max(-300, Math.min(300, (p.z || 0) + dz));
+    for (const p of state.selection) p.z = Math.max(-300, Math.min(300, stepLevel(p.z || 0, dz)));
     emit();
     return 'selection';
   }
-  state.zArm = Math.max(-300, Math.min(300, state.zArm + dz));
+  state.zArm = Math.max(-300, Math.min(300, stepLevel(state.zArm, dz)));
   emit();
   return 'armed';
 }

@@ -338,3 +338,23 @@ test('floor baseline recomputes on delete (down ramp removed -> back to 0)', () 
   removePiece(ramp); /* delete the bottom: everything settles back down */
   assert.equal(a.z, 0);
 });
+
+test('bumpLevel treats 0 mm as a stop point (5 -> 0, never -5)', () => {
+  const floorPc = { name: 'Str1', x: 300, y: 300, a: 0, c: 0, z: 0 };
+  const p = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 5 };
+  state.sprites.push(floorPc, p);
+  state.selection.add(p);
+  assert.equal(bumpLevel(-1), 'selection');
+  assert.equal(p.z, 0); /* crossed 0: landed on it */
+  assert.equal(bumpLevel(1), 'selection');
+  assert.equal(p.z, 10);
+  p.z = 75;
+  for (let i = 0; i < 7; i++) bumpLevel(-1);
+  assert.equal(p.z, 5); /* 75 -> ... -> 5 */
+  assert.equal(bumpLevel(-1), 'selection');
+  assert.equal(p.z, 0);
+  state.selection.clear();
+  state.zArm = 5;
+  bumpLevel(-1);
+  assert.equal(state.zArm, 0); /* armed path too */
+});
