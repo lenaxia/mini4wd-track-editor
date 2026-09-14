@@ -137,7 +137,11 @@ def rect_family(defn, rail):
         # Catalog h = band height + amplitude, so the humped outline
         # exactly fills the viewBox (the verts entry y and the negative
         # catalog center y encode the same shift).
-        band = LANE_W * lanes                  # regulation lane width
+        # chi matches the straights (owner: straights are the
+        # reference): road 36 tall = the canvas' own 12-pitch, walls
+        # stroked AT the band edges like the straight family's rect
+        # stroke, dividers on the straights' centered +/-5.75 grid
+        band = 12 * lanes
         # the band rides a centerline through the verts: flat runs at
         # the verts' y (3 for Chi1, 6 for Chi2 — the road center the
         # editor connects on), mid-span at -verts_y (the catalog's
@@ -177,8 +181,8 @@ def rect_family(defn, rail):
         parts.append(f'<path d="{" ".join(rail_loop)} Z" fill="none" stroke="{rail}" stroke-width="1.0" stroke-linejoin="round"/>')
         # walls: open polylines — their butt ends form the wall cross
         # sections visible on the end caps
-        parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + WALL / 2))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
-        parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + band - WALL / 2))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
+        parts.append(f'<path d="{" ".join(pts(lambda x: e(x)))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
+        parts.append(f'<path d="{" ".join(pts(lambda x: e(x) + band))}" fill="none" stroke="{OUTLINE}" stroke-width="{WALL}"/>')
         # dividers on the CENTERED grid (c - LANE_W*lanes/2 + LANE_W*i)
         # so chi's lanes match the straights'/weaves' exactly at the
         # joint — anchoring at the top wall (e + WALL/2) shifts the
