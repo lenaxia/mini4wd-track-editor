@@ -162,7 +162,8 @@ def rect_family(defn, rail):
             c = vy * (2 * math.cos(math.pi * t) ** 2 - 1)   # +vy ends, -vy mid
             return c - band / 2
 
-        WALL = 1.2                             # walls/dividers read 1-2 px in the rips
+        WALL = 0.8                              # straight-family styling (reference):
+                                               # 0.8 walls, 0.7 dashed dividers
 
         def pts(fn, xx=None):
             xx = xs if xx is None else xx
@@ -171,7 +172,7 @@ def rect_family(defn, rail):
         # bed: closed humped band, unstroked (strokes are drawn separately
         # so the piece ends can stay open — the rips cap them with the
         # rail color, not the outline)
-        edge = pts(lambda x: e(x) + WALL / 2) + [f'L {x:.2f} {e(x) + band - WALL / 2:.2f}' for x in reversed(xs)]
+        edge = pts(lambda x: e(x)) + [f'L {x:.2f} {e(x) + band:.2f}' for x in reversed(xs)]
         parts = [f'<path d="{" ".join(edge)} Z" fill="{BED}"/>']
         # variant rails: a closed loop hugging the walls and wrapping
         # around both ends (1 cm strip in the rips); inset 0.5 so the
@@ -188,7 +189,7 @@ def rect_family(defn, rail):
         # joint — anchoring at the top wall (e + WALL/2) shifts the
         # grid half a stroke and makes the last lane run 10.9
         for i in range(1, lanes):
-            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: e(x) + band / 2 - LANE_W * lanes / 2 + LANE_W * i))}" fill="none" stroke="{DASH}" stroke-width="{WALL}"/>')
+            parts.append(f'<path d="{" ".join(pts(lambda x, i=i: e(x) + band / 2 - LANE_W * lanes / 2 + LANE_W * i))}" fill="none" stroke="{DASH}" stroke-width="0.7" stroke-dasharray="2.4,1.8"/>')
         return parts
     elif kind == 'changer':
         for i in range(lanes + 1):
