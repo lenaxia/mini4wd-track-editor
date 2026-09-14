@@ -112,7 +112,7 @@ def main():
         # variant-colored beds read as dark runs and poison the
         # centroid probe — golden diff covers them
         body = open(os.path.join(ASSETS, f)).read()
-        colored = 'url(#g_' in body or 'url(#bank' in body
+        colored = 'linearGradient' in body
         if not f.startswith(('Cor', 'Lan', 'Chi')) and not colored:
             check_lanes(f, png, failures)
         check_silhouette(f, png, failures)
