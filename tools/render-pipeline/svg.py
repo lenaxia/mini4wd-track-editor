@@ -537,27 +537,6 @@ def arc_family(defn, rail):
     cx, cy = geo['cx'], geo['cy']
     a1, sweep = geo['a1'], geo['sweep']
     R = geo['R']
-    if defn['kind'] == 'corner' and defn['w'] == defn['h'] and defn['R'] == defn['w']:
-        # owner: square-footprint corners are true 90-degree pieces —
-        # force orthogonal end caps. solveGeo derives the sweep from
-        # the chord (Cor5's verts sit band/2 inside the corners, giving
-        # 74.6 deg at R=210); re-derive center/R for a quarter circle
-        # through the verts instead.
-        (ax, ay), (bx, by) = defn['verts'][0], defn['verts'][-1]
-        mx, my = (ax + bx) / 2, (ay + by) / 2
-        dx, dy = bx - ax, by - ay
-        L = math.hypot(dx, dy)
-        ux, uy = -dy / L, dx / L           # perpendicular
-        # pick the side solveGeo's center sits on
-        side = 1 if (ux * (geo['cx'] - mx) + uy * (geo['cy'] - my)) >= 0 else -1
-        # quadrant through the verts: R = chord/sqrt(2), center sits
-        # chord/2 from the midpoint on solveGeo's side (Cor5:
-        # R=180, center (-105,105), caps at -90deg and 0deg)
-        off = L / 2
-        cx, cy = mx + side * ux * off, my + side * uy * off
-        R = L / math.sqrt(2)
-        a1 = math.atan2(ay - cy, ax - cx)
-        sweep = side * math.pi / 2
     P = lambda r, a: (cx + r * math.cos(a), cy + r * math.sin(a))
     half = LANE_W * lanes / 2
     large = 1 if abs(sweep) > math.pi else 0
