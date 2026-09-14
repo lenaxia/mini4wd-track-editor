@@ -537,7 +537,7 @@ def arc_family(defn, rail):
     cx, cy = geo['cx'], geo['cy']
     a1, sweep = geo['a1'], geo['sweep']
     R = geo['R']
-    if defn['kind'] == 'corner' and defn['w'] == defn['h']:
+    if defn['kind'] == 'corner' and defn['w'] == defn['h'] and defn['R'] == defn['w']:
         # owner: square-footprint corners are true 90-degree pieces —
         # force orthogonal end caps. solveGeo derives the sweep from
         # the chord (Cor5's verts sit band/2 inside the corners, giving
