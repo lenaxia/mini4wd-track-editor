@@ -352,6 +352,8 @@ def arc_family(defn, rail):
     R = geo['R']
     P = lambda r, a: (cx + r * math.cos(a), cy + r * math.sin(a))
     half = LANE_W * lanes / 2
+    large = 1 if abs(sweep) > math.pi else 0
+    sflag = 1 if sweep > 0 else 0
     def band_path(r0, r1):
         x1, y1 = P(r0, a1); x2, y2 = P(r0, a1 + sweep)
         x3, y3 = P(r1, a1 + sweep); x4, y4 = P(r1, a1)
