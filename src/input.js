@@ -8,7 +8,7 @@ import {
 } from './store.js';
 import { TOOLS } from './pieces.js';
 import { topPieceAt, isHit, snapPiece, groupSnap, worldFromScreen, clampScale, pieceHalfExtents } from './geometry.js';
-import { toast } from './ui.js';
+import { toast, closeLoopAction } from './ui.js';
 
 const pointers = new Map();
 let pinch = null;   // {d, cx, cy, scale, vx, vy}
@@ -238,6 +238,7 @@ function onKeyDown(e) {
     }
   } else if (k === 'q') setTool('Move');
   else if (k === 'h') setTool('Pan');
+  else if (k === 'l') closeLoopAction();
   else if (k === 'w') setTool('Delete');
   else if (k === 'e') setTool('Color');
   else if (k === 'z') rotateFeedback(rotate(-45));

@@ -3,12 +3,13 @@
  * of render/input — keeps the module graph acyclic). */
 
 import {
-  state, subscribe, setTool, setMode, undo, clearAll, loadSprites, rotate, bumpLevel, zoomAt, fitView,
+  state, subscribe, setTool, setMode, undo, clearAll, loadSprites, rotate, bumpLevel, zoomAt, fitView, addPieces,
 } from './store.js';
 import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { drawPieceArt } from './art.js';
+import { closeLoop } from './solver.js';
 
 const $ = (id) => document.getElementById(id);
 let ioMode = 'import'; /* or 'share' */
@@ -110,6 +111,29 @@ function importText(text) {
   toast(`Imported ${sprites.length} pieces`);
 }
 
+/* ---------- close the loop (solver) ---------- */
+
+/* Fill the gap between exactly two selected pieces with the shortest run of
+ * 3-lane straights/corners/lane-changers that clears every placed piece
+ * (75 mm level differences bridge over). Shared by the menu button and L. */
+export function closeLoopAction() {
+  const sel = [...state.selection];
+  if (sel.length !== 2) { toast('Select exactly two pieces (Move tool), then Close loop'); return; }
+  const res = closeLoop(state.sprites, sel[0], sel[1]);
+  if (!res.ok) {
+    if (res.reason === 'no-open') toast('One end has no free connection point');
+    else if (res.reason === 'level') toast('Ends are at different levels — link them with a slope first');
+    else if (Number.isFinite(res.miss?.d)) toast(`Could not close (nearest fit ${res.miss.d.toFixed(1)} cm / ${res.miss.dh.toFixed(0)}\u00B0 off)`);
+    else toast('Could not close the loop from these ends');
+    return;
+  }
+  addPieces(res.pieces);
+  closeDialog($('menuDialog'));
+  toast(res.flex
+    ? `Loop closed \u00B7 ${res.pieces.length} pcs \u00B7 ${res.length.toFixed(2)} m \u00B7 ${res.gap.toFixed(1)} cm bend (ends off-grid)`
+    : `Loop closed \u00B7 ${res.pieces.length} pcs \u00B7 ${res.length.toFixed(2)} m`);
+}
+
 /* ---------- init ---------- */
 
 export function init(dimsGetter) {
@@ -166,6 +190,8 @@ export function init(dimsGetter) {
     toast('Copied to clipboard');
   });
   $('ioClose').addEventListener('click', () => closeDialog($('ioDialog')));
+
+  $('btnLoop').addEventListener('click', () => { closeDialog($('menuDialog')); closeLoopAction(); });
 
   $('btnHelp').addEventListener('click', () => { closeDialog($('menuDialog')); openDialog($('helpDialog')); });
   $('helpClose').addEventListener('click', () => closeDialog($('helpDialog')));

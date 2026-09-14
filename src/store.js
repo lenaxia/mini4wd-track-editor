@@ -208,6 +208,17 @@ export function loadSprites(sprites) {
   emit();
 }
 
+/* Bulk-add pre-computed pieces (solver output): one history step, the run
+ * ends up selected so it can be dragged/re-colored as a section. */
+export function addPieces(list) {
+  if (!list || !list.length) return;
+  pushHistory();
+  for (const p of list) state.sprites.push(p);
+  state.selection.clear();
+  for (const p of list) state.selection.add(p);
+  emit();
+}
+
 /* ---------- camera ---------- */
 
 export function setView(v) { state.view = v; notify(); }

@@ -58,6 +58,7 @@
       <button id="btnExport" type="button">⬇ Export track file</button>
       <label class="file-label">⬆ Import track file<input type="file" id="fileImport" accept=".txt,.m4t,text/plain"></label>
       <button id="btnImportText" type="button">📋 Paste / import code</button>
+      <button id="btnLoop" type="button">🔁 Close loop (2 selected pieces)</button>
       <button id="btnHelp" type="button">❓ Help &amp; shortcuts</button>
       <button id="btnCloseMenu" type="button" class="secondary">Close</button>
     </div>
@@ -91,12 +92,13 @@
       <li><b>⟲ / ⟳</b> rotate the armed piece (or the selection) by 45°.</li>
       <li><b>✥</b> drag on empty space to rubber-band select · <b>ctrl/cmd+click</b> a piece to add/remove it · drag a selected piece to move the whole group (it snaps) · <b>⟲/⟳</b> rotate the selection.</li>
       <li><b>⌫</b> tap a piece to delete it. <b>◐</b> tap to cycle its color.</li>
+      <li><b>Close the loop</b> (☰ or <kbd>L</kbd>): select exactly two pieces with <b>✥</b> and the gap between their free ends is filled with the shortest run of 3-lane straights / 45° corners / lane changers that misses every placed piece. Ends 75 mm apart in level bridge straight over; smaller gaps and same-level overlaps are avoided. Ends that are slightly off-grid get one small bend, reported in the toast.</li>
       <li>Scale: 1 px = 1 cm, one grid square = 1 m (same as original).</li>
     </ul>
     <h3>Keyboard (desktop)</h3>
     <ul class="help-list">
       <li><kbd>1</kbd>–<kbd>9</kbd> pieces · <kbd>H</kbd> pan · <kbd>Q</kbd>/<kbd>W</kbd>/<kbd>E</kbd> select/delete/color</li>
-      <li><kbd>Z</kbd>/<kbd>X</kbd> rotate · <kbd>R</kbd> undo · <kbd>F</kbd> fit · <kbd>+/−</kbd> zoom · <kbd>Shift+drag</kbd> pan</li>
+      <li><kbd>Z</kbd>/<kbd>X</kbd> rotate · <kbd>R</kbd> undo · <kbd>F</kbd> fit · <kbd>+/−</kbd> zoom · <kbd>Shift+drag</kbd> pan · <kbd>L</kbd> close loop</li>
       <li><kbd>PageUp</kbd>/<kbd>PageDown</kbd> (or <b>▲▼</b>) raise/lower the armed piece or selection by 10 mm — or just chain off a slope and the level is adopted automatically</li>
       <li><kbd>Del</kbd> delete selection · <kbd>Esc</kbd> pan tool (dismisses armed piece / selection)</li>
     </ul>
@@ -105,6 +107,6 @@
 
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=22"></script>
+  <script type="module" src="src/main.js?v=23"></script>
 </body>
 </html>

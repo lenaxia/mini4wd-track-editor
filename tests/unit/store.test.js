@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   state, place, undo, pushHistory, snapshot, pushSnapshot,
   setTool, setMode, rotate, bumpLevel, deleteSelected, removePiece, cycleColor,
-  clearAll, loadSprites, subscribe,
+  clearAll, loadSprites, subscribe, addPieces,
 } from '../../src/store.js';
 import { vertexOf } from '../../src/geometry.js';
 import { parseTrack } from '../../src/track.js';
@@ -243,4 +243,21 @@ test('setMode supports the rucdoc drawer (re-arm semantics)', () => {
   setTool('Pan'); /* tool-tools survive mode switches */
   setMode('rucdoc');
   assert.equal(state.tool, 'Pan');
+});
+
+test('addPieces bulk-inserts solver output, selects it, and is undoable', () => {
+  state.sprites.push({ name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 });
+  const run = [
+    { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 0 },
+    { name: 'Str1', x: 208, y: 100, a: 0, c: 0, z: 0 },
+  ];
+  addPieces(run);
+  assert.equal(state.sprites.length, 3);
+  assert.equal(state.selection.size, 2);
+  assert.ok(state.selection.has(run[0]) && state.selection.has(run[1]));
+  assert.equal(run[0]._bad, false); /* flags refreshed by emit */
+  assert.equal(undo(), true);
+  assert.equal(state.sprites.length, 1);
+  assert.equal(state.selection.size, 0);
+  assert.deepEqual(addPieces([]), undefined); /* no-op guard */
 });
