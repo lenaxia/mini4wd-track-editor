@@ -352,40 +352,6 @@ def arc_family(defn, rail):
     R = geo['R']
     P = lambda r, a: (cx + r * math.cos(a), cy + r * math.sin(a))
     half = LANE_W * lanes / 2
-    if kind == 'wave':
-        # Chicane = Bri2.0's vocabulary riding the confirmed hump:
-        # closed stroked lane rectangles (1.2, miter joins) on the
-        # regulation grid, per-lane bed fills, nothing else. The
-        # centerline runs through the verts (+vy flat, -vy mid) so
-        # joints align with the straights.
-        band = LANE_W * lanes
-        vy = defn['verts'][0][1]
-        if defn['verts'][1][1] != vy or vy + band / 2 + 0.6 > h / 2:
-            raise ValueError(f'{defn.get("label", "wave")}: hump does not fit')
-        n = int(round(w))
-        xs = [-w / 2 + w * i / n for i in range(n + 1)]
-
-        def c(x):
-            t = (x + w / 2) / w
-            return vy * (2 * math.cos(math.pi * t) ** 2 - 1)
-
-        def lane_path(i):
-            top = lambda x: c(x) - band / 2 + LANE_W * i
-            d = ' '.join(f'{"M" if k == 0 else "L"} {xs[k]:.2f} {top(xs[k]):.2f}' for k in range(n + 1))
-            d += ' ' + ' '.join(f'L {x:.2f} {top(x) + LANE_W:.2f}' for x in reversed(xs))
-            return d + ' Z'
-
-        # bed: whole humped band
-        bed = ' '.join(f'{"M" if k == 0 else "L"} {xs[k]:.2f} {c(xs[k]) - band / 2:.2f}' for k in range(n + 1))
-        bed += ' ' + ' '.join(f'L {x:.2f} {c(x) + band / 2:.2f}' for x in reversed(xs))
-        parts = [f'<path d="{bed} Z" fill="{BED}"/>']
-        for i in range(lanes):
-            parts.append(f'<path d="{lane_path(i)}" fill="none" stroke="{OUTLINE}" stroke-width="1.2"/>')
-            return parts
-
-    large = 1 if abs(sweep) > math.pi else 0
-    sflag = 1 if sweep > 0 else 0
-
     def band_path(r0, r1):
         x1, y1 = P(r0, a1); x2, y2 = P(r0, a1 + sweep)
         x3, y3 = P(r1, a1 + sweep); x4, y4 = P(r1, a1)
