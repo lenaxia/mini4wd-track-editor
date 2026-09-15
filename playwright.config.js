@@ -11,14 +11,18 @@ export default defineConfig({
   timeout: 30_000,
   retries: 0,
   reporter: 'list',
+  /* PW_PORT lets parallel checkouts (git worktrees) test without fighting
+   * over :3000 — defaults to the shared preview port. */
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: `http://localhost:${process.env.PW_PORT || 3000}`,
   },
   webServer: {
     /* manifest first so e2e runs the production cache mode (?h= URLs);
-     * webserver.mjs sets STORE=memory cross-platform — hermetic per run */
-    command: 'node tools/gen-manifest.js && node tests/e2e/webserver.mjs',
-    url: 'http://localhost:3000',
+     * webserver.mjs sets STORE=memory cross-platform — hermetic per run.
+     * PW_PORT lets parallel checkouts (git worktrees) run e2e without
+     * fighting over the shared :3000 preview. */
+    command: `node tools/gen-manifest.js && PORT=${process.env.PW_PORT || 3000} node tests/e2e/webserver.mjs`,
+    url: `http://localhost:${process.env.PW_PORT || 3000}`,
     reuseExistingServer: true,
   },
 });

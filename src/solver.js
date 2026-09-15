@@ -56,6 +56,10 @@ const INSET = 1;          // cm adjacency margin (mirrors store.bboxOverlap)
  * apart — joints must be exempt at connection range, not at 1e-6, or every
  * long-chain closure reads as a collision with its own neighbor. */
 const JOINT_WELD_EPS = OPEN_EPS;
+/* A genuine joint also needs the travel directions to align through the
+ * shared vertex — proximity alone would exempt real crossings (a run whose
+ * end happens to land near another piece's end while the roads cross). */
+const JOINT_TANGENT_EPS = 10; // deg
 const GOAL_EPS = 0.5;     // cm — exact landing (float-drifted chains land ~0.1)
 const TURN_EPS = 0.05;    // deg (refreshFlags tangent tolerance) — diagnostics only
 const FLEX_TURN_EPS = 1.5; // deg — flex weld re-orients onto the target, so a
@@ -179,7 +183,11 @@ function collideData(dA, dB) {
   if (Math.max(dA.zr[0] - dB.zr[1], dB.zr[0] - dA.zr[1]) >= CLEARANCE_MM) return false; /* bridge */
   for (const va of dA.verts) {
     for (const vb of dB.verts) {
-      if (Math.hypot(va.x - vb.x, va.y - vb.y) <= JOINT_WELD_EPS) return false; /* joint */
+      if (Math.hypot(va.x - vb.x, va.y - vb.y) <= JOINT_WELD_EPS) {
+        const flowAB = angDist(outwardTangent(a, dA.verts.indexOf(va)), inwardTangent(b, dB.verts.indexOf(vb)));
+        const flowBA = angDist(outwardTangent(b, dB.verts.indexOf(vb)), inwardTangent(a, dA.verts.indexOf(va)));
+        if (flowAB <= JOINT_TANGENT_EPS || flowBA <= JOINT_TANGENT_EPS) return false; /* joint */
+      }
     }
   }
   const ra = dA.road, rb = dB.road;

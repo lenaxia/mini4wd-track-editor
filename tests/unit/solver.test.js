@@ -421,3 +421,15 @@ test('endPieceIssue: bridges, jumps, banks, hairpins rejected as ends', () => {
     assert.equal(endPieceIssue(chain, chain[1]), 'kind', `${name} should be rejected`);
   }
 });
+
+test('vertex proximity alone is not a joint: crossing roads still collide', () => {
+  /* Regression (owner report): a closing run's straight crossed the track's
+   * bottom row perpendicularly, but its end vertex landed 0.3 cm from the
+   * row piece's end vertex — the old proximity-only exemption let it
+   * through. A joint needs aligned travel directions. */
+  const row = mk('Str1', 272.019, 343.845, 179.98);      /* end vert ~ (299.02,343.85) */
+  const crosser = mk('Str1', 298.8, 317.0, 270);          /* end vert ~ (298.8,344) */
+  assert.equal(piecesCollide(row, crosser), true);         /* perpendicular: crossing */
+  const chained = mk('Str1', 272.019 + 54, 343.845, 179.98); /* aligned continuation */
+  assert.equal(piecesCollide(row, chained), false);        /* genuine joint */
+});
