@@ -73,13 +73,16 @@ export async function cachedSpriteUrl(file, buster) {
         const blob = await hit.blob();
         if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want))
           return URL.createObjectURL(blob);
-        cache.delete(url).catch(() => {});   /* corrupt: evict + refetch */
+        /* corrupt: evict (awaited — a late delete must not evict the fresh entry), refetch */
+        await cache.delete(url).catch(() => {});
       }
       const res = await fetch(url);
       if (res.ok) {
         const blob = await res.blob();
         if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
-          cache.put(url, new Response(blob, { headers: { 'Content-Type': 'image/svg+xml' } })).catch(() => {});
+          cache.put(url, new Response(blob, {
+            headers: { 'Content-Type': res.headers.get('Content-Type') || 'image/svg+xml' },
+          })).catch(() => {});
           return URL.createObjectURL(blob);
         }
       }

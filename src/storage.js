@@ -10,6 +10,32 @@ const KEY = 'm4wd.autosave';
 const ID_KEY = 'm4wd.trackId';
 let autosaveTimer = null;
 let syncTimer = null;
+let syncGen = 0;   /* a newer edit's sync abandons older retry chains */
+
+/* Retry ONLY on network failure / 5xx / 429 — permanent 4xx (static-only
+ * server, validation, size caps) can never succeed and would just
+ * multiply pointless PUTs. A superseded generation stops retrying so a
+ * slow old chain can never overwrite a newer edit's snapshot. */
+const RETRYABLE = (status) => status === 429 || status >= 500;
+
+function syncToServer(id, snapshot) {
+  const gen = ++syncGen;
+  const put = (attempt) => {
+    if (gen !== syncGen) return;   /* superseded: no further fetches, period */
+    return fetch(`/api/tracks/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Untitled', data: snapshot }),
+  }).then((r) => {
+    if (gen === syncGen && !r.ok && RETRYABLE(r.status) && attempt < 3)
+      setTimeout(() => put(attempt + 1), 2000 * (attempt + 1));
+  }).catch(() => {
+    if (gen === syncGen && attempt < 3)
+      setTimeout(() => put(attempt + 1), 2000 * (attempt + 1));
+  });
+  };
+  put(0);
+}
 
 function trackId() {
   let id = null;
@@ -31,21 +57,10 @@ export function autosave(state) {
       };
       localStorage.setItem(KEY, JSON.stringify(snapshot));
     } catch (_) { /* private mode etc. */ }
-    /* best-effort server mirror, debounced independently; retries with
-     * backoff so a transient failure (busy server, flaky mobile network)
-     * never silently drops the sync until the next edit */
+    /* best-effort server mirror, debounced independently */
     if (snapshot) {
       clearTimeout(syncTimer);
-      const id = trackId();
-      syncTimer = setTimeout(() => {
-        const put = (attempt) => fetch(`/api/tracks/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: 'Untitled', data: snapshot }),
-        }).then(r => { if (!r.ok && attempt < 3) setTimeout(() => put(attempt + 1), 2000 * (attempt + 1)); })
-          .catch(() => { if (attempt < 3) setTimeout(() => put(attempt + 1), 2000 * (attempt + 1)); });
-        put(0);
-      }, 1500);
+      syncTimer = setTimeout(() => syncToServer(trackId(), snapshot), 1500);
     }
   }, 350);
 }
