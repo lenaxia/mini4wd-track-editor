@@ -30,6 +30,13 @@ deterministic tie-break. No hysteresis: the orientation-flap case cannot
 occur in the current catalog (min vertex separation 30 cm > 2×SNAP_RADIUS).
 Revisit when 3-vertex pieces (splits) land.
 
+**Decision (lane identity — owner ruling 2026-09-15):** single welds,
+centerline-only. Joints carry no lane identity; users are assumed to stick
+to one lane type per track section. Mixed-lane-count welds (e.g. a 1-lane
+rucdoc piece onto a 2-lane piece) center the narrow road on the wide road's
+centerline — accepted behavior, not a bug. Revisit as lane bundles if
+mixed-lane welding is ever requested (the 3-lane bridge example).
+
 ## 2. Catalog schema v2
 
 - `verts: [[x, y, zOff], …]` replaces `v1`/`v2` (mechanical migration of
@@ -136,6 +143,7 @@ to its origin with matching level, `open` otherwise. Full validation
 | Palette/keyboard redesign for 100+ parametric pieces | rucdoc catalog ingestion |
 | Lazy sprite loading | when asset count ~doubles |
 | Hysteresis for pair choice | first 3-vertex piece (splits) |
+| Lane identity at joints (lane bundles; per-vert laneRange) | owner requests mixed-lane-count welding |
 | solveGeo sweep-range coverage test | rucdoc corner parameters land |
 | Flow roles on splits | splits land |
 | Full clearance validation + 75 mm constant promotion | first crossover track saved |
