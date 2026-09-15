@@ -39,57 +39,134 @@ export function staleKeys(keys, manifest) {
 let cache = null;
 let manifest = null;
 
-/* Resolve the boot cache. Safe to call repeatedly; failures degrade to
- * fallback mode (cache stays null). */
+/* per-boot bound for every CacheStorage interaction: corrupted
+ * entries/caches can HANG reads (interrupted-write failure mode) — no
+ * read may stall the loader. Generous because all ~75 sprite loads
+ * start together and share one wall-clock window on slow devices; a
+ * bound that tight would evict the slow (healthy) tail every boot. */
+const CACHE_BOUND_MS = 2500;
+
+/* Resolve the boot cache. Safe to call repeatedly; failures — including
+ * a HANG anywhere (a corrupted cache can hang keys()/delete() reads,
+ * which would stall every sprite behind initCache) — degrade to
+ * fallback mode (cache stays null, sprites load from plain URLs). */
 export async function initCache() {
   try {
+    /* hard refresh (owner rule): the server tags hard-reloaded documents
+     * via Set-Cookie (browsers send Cache-Control: no-cache on hard
+     * reload; soft reload sends max-age=0). Wipe the asset cache so a
+     * hard refresh is a reliable recovery tool, then boot network-only;
+     * the next soft refresh repopulates. */
+    if (/(?:^|;\s*)m4wd_hard=1(?:;|$)/.test(document.cookie)) {
+      document.cookie = 'm4wd_hard=; Max-Age=0; Path=/';
+      let wipe = null;
+      await Promise.race([
+        caches.delete(CACHE_NAME).then((v) => { if (wipe !== null) clearTimeout(wipe); return v; }),
+        new Promise((resolve) => { wipe = setTimeout(resolve, CACHE_BOUND_MS); }),
+      ]);
+      cache = null;
+      return false;
+    }
     if (typeof caches === 'undefined') return false;
     const res = await fetch('assets/manifest.json', { cache: 'no-store' });
     if (!res.ok) return false;
     manifest = await res.json();
-    cache = await caches.open(CACHE_NAME);
-    const keys = (await cache.keys()).map(r => r.url);
-    for (const url of staleKeys(keys, manifest)) await cache.delete(url);
-    return true;
+    /* the whole cache interaction is bounded: a hung open/keys/delete
+     * must never block preload — race it and fall back to no-cache. The
+     * handle is published only while the race is live; a late assignment
+     * must not resurrect a zombie cache next to the fallback decision. */
+    const race = { live: true };
+    let timer = null;
+    const ok = await Promise.race([
+      (async () => {
+        const c = await caches.open(CACHE_NAME);
+        const keys = (await c.keys()).map(r => r.url);
+        for (const url of staleKeys(keys, manifest)) await c.delete(url);
+        if (!race.live) return false;   /* lost: publish nothing */
+        cache = c;
+        return true;
+      })(),
+      new Promise((resolve) => { timer = setTimeout(() => { race.live = false; resolve(false); }, CACHE_BOUND_MS); }),
+    ]);
+    clearTimeout(timer);
+    return ok;
   } catch {
     cache = null; manifest = null;
     return false;
   }
 }
 
-/* Load a sprite as an image-ready URL. Cache hit -> object URL from the
- * stored bytes, VERIFIED against the manifest hash — a corrupt/truncated
- * entry (interrupted put, engine quirk) is deleted and re-fetched instead
- * of permanently shadowing the asset. Miss -> fetch, verify, bank into
- * the CacheStorage, and return an object URL; on any failure fall back to
- * the plain network URL (immutable, HTTP cache serves repeats). */
+/* Load a sprite as an image-ready URL. The cache path is fully bounded:
+ * a corrupt entry whose body READ HANGS (an interrupted-write failure
+ * mode — observed live: manifest fetched, zero sprite requests, sprites
+ * stuck as procedural fallbacks) cannot stall the loader; the race
+ * evicts it and the image falls back to the plain network URL. Verified
+ * hits return object URLs; verified fetches are banked. */
 export async function cachedSpriteUrl(file, buster) {
   const url = spriteUrl(file, manifest, buster);
   try {
     if (cache && manifest && manifest[file]) {
       const want = manifest[file];
-      const hit = await cache.match(url);
-      if (hit && hit.ok) {
-        const blob = await hit.blob();
-        if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want))
-          return URL.createObjectURL(blob);
-        /* corrupt: evict (awaited — a late delete must not evict the fresh entry), refetch */
-        await cache.delete(url).catch(() => {});
-      }
-      const res = await fetch(url);
-      if (res.ok) {
-        const blob = await res.blob();
-        if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
-          cache.put(url, new Response(blob, {
-            headers: { 'Content-Type': res.headers.get('Content-Type') || 'image/svg+xml' },
-          })).catch(() => {});
-          return URL.createObjectURL(blob);
-        }
-      }
+      const race = { live: true };   /* lets the losing path revoke its URL */
+      let timer = null;
+      const hit = await Promise.race([
+        verifiedHit(url, want, race),
+        new Promise((resolve) => { timer = setTimeout(() => { race.live = false; resolve(null); }, CACHE_BOUND_MS); }),
+      ]);
+      clearTimeout(timer);
+      /* verified bytes, or null for corrupt-but-readable / clean miss —
+       * either way the img loads the plain URL and banking runs detached */
+      if (race.live) { if (!hit) bank(url, want); return hit ?? url; }
+      if (hit) URL.revokeObjectURL(hit);  /* lost the race: don't leak */
+      cache.delete(url).catch(() => {});  /* hung: best-effort eviction */
+      return url;
     }
   } catch { /* fall through to network */ }
   return url;
 }
+
+/* Verified cache hit -> object URL. NEVER falls through to a foreground
+ * fetch: some proxies (observed: the safespaces preview) answer fetch()
+ * with EMPTY 200 bodies while serving <img> loads correctly — a
+ * foreground fetch-verify would fail forever and cost a wasted request
+ * per sprite per boot (HAR evidence in worklog 0011). The image element
+ * loads the plain URL natively instead; banking runs in the background
+ * where fetch works. */
+async function verifiedHit(url, want, race) {
+  const hit = await cache.match(url);
+  if (!hit || !hit.ok) return null;
+  const blob = await hit.blob();
+  if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
+    const objUrl = URL.createObjectURL(blob);
+    if (!race.live) { URL.revokeObjectURL(objUrl); return null; }
+    return objUrl;
+  }
+  await cache.delete(url).catch(() => {});   /* corrupt/empty: evict + bank fresh below */
+  bank(url, want);
+  return null;
+}
+
+/* Background banking: fetch + verify + store. Detached by design — where
+ * fetch is broken (proxy) it silently no-ops and boots use the HTTP
+ * cache; where it works, the next boot serves from CacheStorage. */
+function bank(url, want) {
+  if (banking.has(url)) return;
+  banking.add(url);
+  (async () => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
+        await cache.put(url, new Response(blob, {
+          headers: { 'Content-Type': res.headers.get('Content-Type') || 'image/svg+xml' },
+        }));
+      }
+    } catch { /* banking is opportunistic */ }
+    finally { banking.delete(url); }
+  })();
+}
+const banking = new Set();
 
 /* sha-256 of a blob, hex — for hit verification (self-healing cache).
  * Absent crypto.subtle (insecure context) the caller skips verifying. */
