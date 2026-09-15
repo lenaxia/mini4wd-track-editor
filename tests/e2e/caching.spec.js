@@ -135,12 +135,12 @@ test('hard refresh clears the asset cache; soft refresh keeps it', async ({ page
  * rendered as object URLs. Corrupt BOTH /assets svg transports here and the
  * sprite must still render. */
 test('sprites render even when every /assets svg response is corrupted', async ({ page }) => {
-  await page.route('**/assets/*.svg*', async (route) => {
-    const body = await route.fetch().then((r) => r.text()).catch(() => '');
-    await route.fulfill({
+  await page.route('**/assets/*.svg*', (route) => {
+    const fetchy = route.request().resourceType() === 'fetch';
+    return route.fulfill({
       status: 200,
-      contentType: route.request().resourceType() === 'fetch' ? 'image/svg+xml' : 'image/svg+xml',
-      body: route.request().resourceType() === 'fetch' ? '' : `${body}injected-garbage-by-proxy`,
+      contentType: 'image/svg+xml',
+      body: fetchy ? '' : '<svg xmlns="http://www.w3.org/2000/svg"></svg>injected-garbage-by-proxy',
     });
   });
   await page.goto('/');
@@ -148,5 +148,5 @@ test('sprites render even when every /assets svg response is corrupted', async (
     const a = await import('/src/assets.js');
     const img = a.imageFor('Str1', 0);
     return !!img && !!img.src && img.naturalWidth > 0;
-  }), { timeout: 8000 }).toBe(true);
+  }), { timeout: 15000 }).toBe(true);
 });

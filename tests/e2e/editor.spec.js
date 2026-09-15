@@ -601,7 +601,7 @@ test('mobile top bar: the mode control collapses to one cycling button', async (
 
 test('real rucdoc sprites load: SVGs serve for real-data pieces', async ({ page }) => {
   const got = new Set();
-  page.on('response', (r) => { if (r.url().includes('assets/R')) got.add(r.url().split('/').pop().split('?')[0]); });
+  page.on('response', (r) => { if (/\/(?:assets|sprites)\/R/.test(new URL(r.url()).pathname)) got.add(r.url().split('/').pop().split('?')[0]); });
   await page.goto('/');
   /* wait for the sprites themselves — a fixed timeout missed slow boots
    * under parallel workers. expect.poll + one-shot evaluates: rAF-polled
