@@ -4,3 +4,4 @@ playwright-report/
 __pycache__/
 *.pyc
 assets/manifest.json
+data/

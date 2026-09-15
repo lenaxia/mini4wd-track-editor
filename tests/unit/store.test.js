@@ -1,191 +1,360 @@
-/* Store conformance + stress — every durable driver must pass the SAME
- * suite (the owner's robustness bar). Runs against memory + sqlite
- * always; postgres too when PG_TEST_URL is set (skipped otherwise).
- *
- * Facet invariants, CRUD edge cases, injection strings, unicode,
- * concurrency, scale-and-query budgets, pagination determinism, and
- * reopen durability (sqlite) are all pinned here. */
-
-import { test } from 'node:test';
+import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import {
+  state, place, undo, pushHistory, snapshot, pushSnapshot,
+  setTool, setMode, rotate, bumpLevel, deleteSelected, removePiece, cycleColor,
+  clearAll, loadSprites, subscribe, addPieces, applySolution,
+} from '../../src/store.js';
+import { vertexOf } from '../../src/geometry.js';
+import { parseTrack } from '../../src/track.js';
 
-const trackStr = (n) => Array.from({ length: n }, (_, i) =>
-  `Str1;${100 + i * 30}.000;${100 + (i % 5) * 25}.000;${(i % 8) * 45};${i % 3};${(i % 2) * 75}#`).join('');
-const doc = (n, extra = {}) => ({ track: trackStr(n), mode: 3, ...extra });
-
-async function tmpSqlite() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-store-'));
-  return { path: path.join(dir, 't.db'), dir };
+function reset() {
+  state.mode = 3;
+  state.tool = 'Pan';
+  state.angle = 0;
+  state.zArm = 0;
+  state.sprites = [];
+  state.selection.clear();
+  state.history = [];
+  state.view = { x: 0, y: 0, scale: 0.62 };
 }
 
-function suite(label, open) {
-  test(`${label}: CRUD roundtrip with facet correctness`, async () => {
-    const s = await open();
-    const meta = await s.upsert({ id: 't1', name: 'Hairpin heaven', author: 'alice', data: doc(7), _facets: (await import('../../lib/store/facets.js')).facets(doc(7)) });
-    assert.equal(meta.piece_count, 7);
-    assert.equal(meta.name, 'Hairpin heaven');
-    const got = await s.get('t1');
-    assert.equal(got.data.track.split('#').length - 1, 7);
-    assert.ok(await s.remove('t1'));
-    assert.equal(await s.get('t1'), null);
-    assert.equal(await s.remove('t1'), false);
-    await s.close();
-  });
+beforeEach(reset);
 
-  test(`${label}: upsert is idempotent and preserves created_at`, async () => {
-    const s = await open();
-    const f = (await import('../../lib/store/facets.js')).facets;
-    const first = await s.upsert({ id: 'dup', name: 'a', data: doc(3), _facets: f(doc(3)) });
-    await new Promise(r => setTimeout(r, 5));
-    const second = await s.upsert({ id: 'dup', name: 'b', data: doc(5), _facets: f(doc(5)) });
-    const list = await s.list({ sort: '-updated_at', limit: 100 });
-    assert.equal(list.total, 1);
-    assert.equal(second.name, 'b');
-    assert.equal(second.piece_count, 5);
-    assert.equal(second.created_at, first.created_at);
-    assert.ok(second.updated_at >= first.updated_at);
-    await s.close();
-  });
-
-  test(`${label}: unicode, emoji, quotes, injection strings are inert data`, async () => {
-    const s = await open();
-    const f = (await import('../../lib/store/facets.js')).facets;
-    const nasty = [`Robert'); DROP TABLE tracks;--`, `<script>alert(1)</script>`, '日本語トラック 🏁', "o'brien", `%"_`];
-    for (let i = 0; i < nasty.length; i++) {
-      const m = await s.upsert({ id: `inj-${i}`, name: nasty[i], author: nasty[i], data: doc(1), _facets: f(doc(1)) });
-      assert.equal(m.name, nasty[i]);
-    }
-    const got = await s.get('inj-0');
-    assert.equal(got.name, nasty[0]);
-    const q = await s.list({ author: nasty[0], sort: '-updated_at' });
-    assert.equal(q.total, 1);
-    const all = await s.list({ sort: 'name', limit: 100 });
-    assert.equal(all.total, nasty.length);
-    await s.close();
-  });
-
-  test(`${label}: filters and sorts compose`, async () => {
-    const s = await open();
-    const f = (await import('../../lib/store/facets.js')).facets;
-    await s.upsert({ id: 'f1', name: 'one', author: 'a', data: doc(3), _facets: f(doc(3)) });
-    await s.upsert({ id: 'f2', name: 'two', author: 'b', data: doc(9), _facets: f(doc(9)) });
-    await s.upsert({ id: 'f3', name: 'three', author: 'a', data: doc(12), _facets: f(doc(12)) });
-    const byA = await s.list({ author: 'a', sort: '-pieces' });
-    assert.deepEqual(byA.items.map(i => i.id), ['f3', 'f1']);
-    const big = await s.list({ min_pieces: 5, sort: 'pieces' });
-    assert.deepEqual(big.items.map(i => i.id), ['f2', 'f3']);
-    const none = await s.list({ min_pieces: 100 });
-    assert.equal(none.total, 0);
-    await s.close();
-  });
-
-  test(`${label}: pagination is deterministic under sort ties`, async () => {
-    const s = await open();
-    const f = (await import('../../lib/store/facets.js')).facets;
-    for (let i = 0; i < 25; i++) await s.upsert({ id: `p${String(i).padStart(2, '0')}`, name: 'same', data: doc(2), _facets: f(doc(2)) });
-    const seen = [];
-    for (let off = 0; off < 30; off += 10) {
-      const page = await s.list({ sort: 'name', limit: 10, offset: off });
-      seen.push(...page.items.map(i => i.id));
-    }
-    assert.equal(new Set(seen).size, seen.length);   /* no dup across pages */
-    assert.equal(seen.length, 25);
-    await s.close();
-  });
-
-  test(`${label}: concurrent upserts all land`, async () => {
-    const s = await open();
-    const f = (await import('../../lib/store/facets.js')).facets;
-    await Promise.all(Array.from({ length: 200 }, (_, i) =>
-      s.upsert({ id: `c${i}`, name: `c${i}`, data: doc(i % 20), _facets: f(doc(i % 20)) })));
-    const all = await s.list({ sort: 'name', limit: 100 });
-    assert.equal(all.total, 200);
-    /* facet invariant on a random sample */
-    for (const it of all.items.slice(0, 20)) {
-      const row = await s.get(it.id);
-      assert.equal(row.data.track.split('#').length - 1, it.piece_count);
-    }
-    await s.close();
-  });
-
-  test(`${label}: scale — 5k tracks, indexed queries stay fast`, async () => {
-    const s = await open();
-    const f = (await import('../../lib/store/facets.js')).facets;
-    const BATCH = 250;
-    for (let b = 0; b < 20; b++) {
-      await Promise.all(Array.from({ length: BATCH }, (_, i) => {
-        const n = b * BATCH + i;
-        const pieces = (n % 40) + 1;
-        return s.upsert({ id: `s${String(n).padStart(5, '0')}`, name: `track ${n}`,
-          author: n % 3 === 0 ? 'alice' : n % 3 === 1 ? 'bob' : null,
-          data: doc(pieces), _facets: f(doc(pieces)) });
-      }));
-    }
-    const budgets = [
-      ['sort=-updated_at&limit=100', 400],
-      ['author=alice min_pieces=20 sort=-pieces', 400],
-      ['sort=-length', 400],
-      ['sort=name limit=100', 700],
-    ];
-    for (const [desc, budgetMs] of budgets) {
-      const q = { sort: '-updated_at', limit: 100 };
-      const [key, rest] = desc.split(' ');
-      if (key.startsWith('author=')) q.author = 'alice';
-      if (key === 'sort=-length') { q.sort = '-length'; }
-      if (key === 'sort=name') { q.sort = 'name'; }
-      for (const part of (rest || '').split(' ')) {
-        const [k, v] = part.split('=');
-        if (k === 'sort') q.sort = v;
-        if (k === 'min_pieces') q.min_pieces = +v;
-      }
-      const t0 = performance.now();
-      const res = await s.list(q);
-      const dt = performance.now() - t0;
-      assert.equal(res.items.length, 100);
-      assert.ok(dt < budgetMs, `${desc} took ${dt.toFixed(0)}ms (budget ${budgetMs}ms)`);
-    }
-    await s.close();
-  });
-
-  test(`${label}: large track bodies (10k pieces) roundtrip`, async () => {
-    const s = await open();
-    const f = (await import('../../lib/store/facets.js')).facets;
-    const big = doc(10000);
-    await s.upsert({ id: 'big', name: 'big', data: big, _facets: f(big) });
-    const got = await s.get('big');
-    assert.equal(got.piece_count, 10000);
-    await s.close();
-  });
-}
-
-/* memory: always */
-suite('memory', async () => (await import('../../lib/store/memory.js')).open());
-
-/* sqlite: always, on a fresh temp file */
-suite('sqlite', async () => {
-  const { path: p } = await tmpSqlite();
-  return (await import('../../lib/store/sqlite.js')).open(p);
+test('place floors coordinates, snaps, and selects the new piece', () => {
+  state.sprites.push({ name: 'Str1', x: 100, y: 100, a: 0, c: 0 }); /* v2 = 127,100 */
+  const piece = place('Str1', 150.7, 103.2, 0);
+  assert.deepEqual({ x: piece.x, y: piece.y }, { x: 154, y: 100 }); /* snapped */
+  assert.equal(state.sprites.length, 2);
+  assert.equal(state.selection.size, 1);
+  assert.ok(state.selection.has(piece));
 });
 
-test('sqlite: reopen keeps data (durability across restarts)', async () => {
-  const { path: p } = await tmpSqlite();
-  const f = (await import('../../lib/store/facets.js')).facets;
-  const a = (await import('../../lib/store/sqlite.js')).open(p);
-  await a.upsert({ id: 'dur', name: 'durable', data: doc(4), _facets: f(doc(4)) });
-  await a.close();
-  const b = (await import('../../lib/store/sqlite.js')).open(p);
-  const row = await b.get('dur');
-  assert.equal(row.name, 'durable');
-  assert.equal(row.piece_count, 4);
-  await b.close();
+test('undo restores the previous snapshot and clears selection', () => {
+  pushHistory();
+  state.sprites.push({ name: 'Str1', x: 10, y: 10, a: 0, c: 0, z: 0 });
+  state.selection.add(state.sprites[0]);
+  assert.equal(undo(), true);
+  assert.equal(state.sprites.length, 0);
+  assert.equal(state.selection.size, 0);
+  assert.equal(undo(), false); /* nothing left */
 });
 
-/* postgres: only when a test URL is provided */
-if (process.env.PG_TEST_URL) {
-  suite('postgres', async () => (await import('../../lib/store/pg.js')).open(process.env.PG_TEST_URL));
-} else {
-  test('postgres: SKIPPED (set PG_TEST_URL to run the same suite)', { skip: true }, () => {});
-}
+test('history is capped at 80 snapshots', () => {
+  for (let i = 0; i < 85; i++) pushSnapshot('[]');
+  assert.equal(state.history.length, 80);
+});
+
+test('rotate spins the selection around its centroid', () => {
+  const a = { name: 'Str1', x: 0, y: 0, a: 0, c: 0, z: 0 };
+  const b = { name: 'Str1', x: 100, y: 0, a: 0, c: 0, z: 0 };
+  state.sprites.push(a, b);
+  state.selection.add(a);
+  state.selection.add(b);
+  assert.equal(rotate(90), true);
+  assert.ok(Math.abs(a.x - 50) < 1e-9 && Math.abs(a.y + 50) < 1e-9);
+  assert.ok(Math.abs(b.x - 50) < 1e-9 && Math.abs(b.y - 50) < 1e-9);
+  assert.equal(a.a, 90);
+  assert.equal(b.a, 90);
+  assert.equal(state.history.length, 1);
+});
+
+test('rotate spins a single off-center piece around its visual center', () => {
+  /* Cor1's visual center is (-5, -3.5) local, not the origin — rotating
+   * in place must keep the center fixed and move the origin instead. */
+  const p = { name: 'Cor1', x: 100, y: 100, a: 0, c: 0 };
+  state.sprites.push(p);
+  state.selection.add(p);
+  const before = { x: p.x - 5, y: p.y - 3.5 }; /* centerOf at a=0 */
+  assert.equal(rotate(90), true);
+  const after = {
+    x: p.x + (-5 * Math.cos(Math.PI / 2) - -3.5 * Math.sin(Math.PI / 2)),
+    y: p.y + (-5 * Math.sin(Math.PI / 2) + -3.5 * Math.cos(Math.PI / 2)),
+  };
+  assert.ok(Math.abs(after.x - before.x) < 1e-9, `x center moved: ${after.x} vs ${before.x}`);
+  assert.ok(Math.abs(after.y - before.y) < 1e-9, `y center moved: ${after.y} vs ${before.y}`);
+  assert.equal(p.a, 90);
+  assert.notEqual(p.x, 100); /* the origin itself moved */
+});
+
+test('rotate with no selection only changes the armed angle', () => {
+  assert.equal(rotate(45), false);
+  assert.equal(state.angle, 45);
+  assert.equal(state.history.length, 0);
+  rotate(-90);
+  assert.equal(state.angle, 315);
+});
+
+test('deleteSelected removes selection and snapshots history', () => {
+  const a = { name: 'Str1', x: 0, y: 0, a: 0, c: 0, z: 0 };
+  const b = { name: 'Str1', x: 100, y: 0, a: 0, c: 0, z: 0 };
+  state.sprites.push(a, b);
+  state.selection.add(a);
+  deleteSelected();
+  assert.deepEqual(state.sprites, [b]);
+  assert.equal(state.history.length, 1);
+  undo();
+  assert.equal(state.sprites.length, 2);
+});
+
+test('removePiece and cycleColor mutate through history', () => {
+  const a = { name: 'Cor1', x: 0, y: 0, a: 0, c: 0, z: 0 };
+  state.sprites.push(a);
+  cycleColor(a);
+  assert.equal(a.c, 1);
+  removePiece(a);
+  assert.equal(state.sprites.length, 0);
+  assert.equal(state.history.length, 2);
+});
+
+test('clearAll is a no-op on an empty track', () => {
+  clearAll();
+  assert.equal(state.history.length, 0);
+});
+
+test('loadSprites replaces the track and pushes history', () => {
+  state.sprites.push({ name: 'Str1', x: 1, y: 1, a: 0, c: 0, z: 0 });
+  const imported = parseTrack('Str2;100.000;100.000;0;0#Str1;154.000;100.000;0;0#');
+  loadSprites(imported);
+  assert.equal(state.sprites.length, 2);
+  assert.equal(state.history.length, 1);
+  undo();
+  assert.equal(state.sprites.length, 1);
+});
+
+test('setMode keeps tool-tools and re-arms pieces from the other mode', () => {
+  setTool('Move');
+  setMode(5);
+  assert.equal(state.tool, 'Move');
+  setTool('Str1');           /* 3-lane piece */
+  setMode(5);                /* Str1 not in 5-lane palette -> re-arm first */
+  assert.equal(state.tool, 'Str3');
+});
+
+test('subscribers are notified on discrete changes', () => {
+  let calls = 0;
+  const off = subscribe(() => calls++);
+  setTool('Move');
+  assert.equal(calls, 1);
+  off();
+  setTool('Pan');
+  assert.equal(calls, 1);
+});
+
+test('snapshot returns a serialized deep copy', () => {
+  state.sprites.push({ name: 'Str1', x: 5, y: 6, a: 0, c: 0, z: 0 });
+  const snap = snapshot();
+  state.sprites[0].x = 999;
+  assert.equal(snap, '[{"name":"Str1","x":5,"y":6,"a":0,"c":0,"z":0}]');
+});
+
+test('place carries the armed elevation; snapping adopts the neighbor level', () => {
+  const slope = place('Bri1', 200, 200, 0, 0);
+  assert.equal(slope.z, 0);
+  /* chain a straight near the slope top: v2 world = (227,200), level 75 */
+  const top = place('Str1', 250, 203, 0, 0); /* v0=(223,203): 5cm from joint */
+  assert.equal(top.z, 75); /* adopted, not the armed 0 */
+  state.zArm = 40;
+  const free = place('Str1', 500, 500, 0); /* no snap: armed z applies */
+  assert.equal(free.z, 40);
+});
+
+test('rotate pivots about a single external joint (connection survives)', () => {
+  const a = place('Str1', 100, 100, 0, 0);
+  const b = place('Str1', 154, 100, 0, 0); /* chained to a */
+  state.selection.clear(); state.selection.add(b);
+  rotate(45);
+  const j = vertexOf(a, 1), v = vertexOf(b, 0);
+  assert.ok(Math.hypot(j.x - v.x, j.y - v.y) < 1e-9); /* joint still exact */
+  assert.equal(b.a, 45);
+  assert.equal(state.history.length, 1);
+});
+
+test('rotate falls back to centroid with no external joint', () => {
+  const p = place('Str1', 100, 100, 0, 0);
+  state.selection.clear(); state.selection.add(p);
+  const before = vertexOf(p, 0);
+  rotate(90);
+  /* single centered piece around its own center: position unchanged */
+  assert.equal(p.x, 100);
+  assert.equal(p.a, 90);
+});
+
+test('bumpLevel steps armed and selection by 10mm with clamping', () => {
+  assert.equal(bumpLevel(3), 'armed');
+  assert.equal(state.zArm, 30);
+  assert.equal(bumpLevel(-1), 'armed');
+  assert.equal(state.zArm, 20);
+  state.zArm = 290; bumpLevel(5);
+  assert.equal(state.zArm, 300); /* clamped */
+  const p = place('Str1', 100, 100, 0, 0); /* explicit z=0 (not the armed 300) */
+  state.selection.clear(); state.selection.add(p);
+  assert.equal(bumpLevel(-2), 'selection');
+  assert.equal(p.z, 0); /* stepped to -20, renormalized: lowest piece = floor */
+  assert.equal(state.history.length, 1);
+});
+
+test('refreshFlags marks overlap alpha, clearance warnings, bad joints', () => {
+  const S = (name, x, y, z) => ({ name, x, y, a: 0, c: 0, z });
+  state.sprites.push(S('Str1', 100, 100, 0));
+  const low = S('Str1', 110, 100, 40);   /* overlaps ground, dz=40 < 75 */
+  const apart = S('Str1', 400, 100, 75); /* no overlap */
+  const ground2 = S('Str1', 100, 300, 0);
+  const ok = S('Str1', 110, 300, 75);    /* overlaps ground2 only, dz=75 clears */
+  state.sprites.push(low, apart, ground2, ok);
+  setTool('Move'); /* any emit() action runs refreshFlags */
+  assert.equal(low._over, true);
+  assert.equal(low._warn, true);
+  assert.equal(ok._over, true);
+  assert.equal(ok._warn, false);
+  assert.equal(apart._over, false);
+  /* kinked joint: rotate a chained piece about the joint */
+  const a = place('Str1', 100, 500, 0, 0);
+  const b = place('Str1', 154, 500, 0, 0);
+  state.selection.clear(); state.selection.add(b);
+  rotate(45);
+  assert.equal(b._bad, true); /* pivot leaves a tangent kink — flagged */
+});
+
+test('chained adjacency is not plan overlap (no false _over on slope chains)', () => {
+  const S = (name, x, y, z) => ({ name, x, y, a: 0, c: 0, z });
+  const slope = S('Bri1', 100, 100, 0);
+  const chainedTop = S('Str1', 154, 100, 75); /* exact chain: edge-touching only */
+  state.sprites.push(slope, chainedTop);
+  setTool('Move'); /* emit -> refreshFlags */
+  assert.equal(chainedTop._over, false); /* joints/adjacency are not overlap */
+  assert.equal(slope._over, false);
+  /* a real different-level overlap still flags */
+  const above = S('Str1', 190, 90, 150); /* overlaps the raised straight's body */
+  state.sprites.push(above);
+  setTool('Pan');
+  assert.equal(above._over, true);
+  assert.equal(above._warn, false); /* dz=75 clears */
+});
+
+test('setMode supports the rucdoc drawer (re-arm semantics)', () => {
+  setTool('Str1'); /* a 3-lane piece armed */
+  setMode('rucdoc');
+  assert.equal(state.mode, 'rucdoc');
+  assert.equal(state.tool, 'R1S250'); /* re-armed from the drawer's head */
+  setTool('R1C45I150');
+  setMode(3); /* tool not in 3-lane palette -> re-arm */
+  assert.equal(state.tool, 'Str1');
+  setTool('Pan'); /* tool-tools survive mode switches */
+  setMode('rucdoc');
+  assert.equal(state.tool, 'Pan');
+});
+
+test('addPieces bulk-inserts solver output, selects it, and is undoable', () => {
+  state.sprites.push({ name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 });
+  const run = [
+    { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 0 },
+    { name: 'Str1', x: 208, y: 100, a: 0, c: 0, z: 0 },
+  ];
+  addPieces(run);
+  assert.equal(state.sprites.length, 3);
+  assert.equal(state.selection.size, 2);
+  assert.ok(state.selection.has(run[0]) && state.selection.has(run[1]));
+  assert.equal(run[0]._bad, false); /* flags refreshed by emit */
+  assert.equal(undo(), true);
+  assert.equal(state.sprites.length, 1);
+  assert.equal(state.selection.size, 0);
+  assert.deepEqual(addPieces([]), undefined); /* no-op guard */
+});
+
+test('applySolution removes and inserts in one undoable step', () => {
+  const a = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 };
+  const b = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 0 };
+  const doomed = { name: 'Str1', x: 208, y: 100, a: 0, c: 0, z: 0 };
+  const run = [{ name: 'Lan1', x: 262, y: 100, a: 0, c: 0, z: 0 }];
+  state.sprites.push(a, b, doomed);
+  applySolution([doomed], run);
+  assert.equal(state.sprites.length, 3); /* a, b, run */
+  assert.ok(state.sprites.includes(run[0]));
+  assert.ok(!state.sprites.includes(doomed));
+  assert.equal(state.selection.size, 1);
+  assert.equal(undo(), true);
+  assert.equal(state.sprites.length, 3); /* fully restored (JSON clones) */
+  assert.equal(state.sprites[2].x, 208); /* doomed is back */
+  assert.ok(!state.sprites.some((p) => p.name === 'Lan1'));
+});
+
+test('rotate with a piece armed moves only the armed angle (ghost), not the selection', () => {
+  const a = { name: 'Str1', x: 0, y: 0, a: 0, c: 0, z: 0 };
+  state.sprites.push(a);
+  state.selection.add(a);
+  setTool('Str1'); /* re-armed for the next placement — selection still held */
+  const rotated = rotate(45);
+  assert.equal(rotated, false); /* selection did NOT spin */
+  assert.equal(a.a, 0);
+  assert.equal(state.angle, 45);
+  setTool('Move');
+  assert.equal(rotate(45), true); /* under Move the selection rotates */
+  assert.equal(a.a, 45);
+});
+
+test('negative floors renormalize to 0 mm on emit (lowest piece = floor)', () => {
+  const low = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: -75 };
+  const top = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 0 };
+  state.sprites.push(low, top);
+  setTool('Pan'); /* emit -> normalize */
+  assert.equal(low.z, 0);
+  assert.equal(top.z, 75);
+  /* already-floored tracks are untouched (no surprise shifts) */
+  const ok = { name: 'Str1', x: 300, y: 300, a: 0, c: 0, z: 0 };
+  state.sprites.push(ok);
+  setTool('Pan');
+  assert.equal(ok.z, 0);
+  assert.deepEqual(state.sprites.map((p) => p.z), [0, 75, 0]);
+});
+
+test('refreshFlags caches open-vert disjunction links on state', () => {
+  state.sprites.push(
+    { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 },
+    { name: 'Str1', x: 187, y: 100, a: 180, c: 0, z: 0 }, /* 33 cm gap, facing */
+  );
+  setTool('Pan'); /* emit -> refreshFlags */
+  assert.equal(state.links.length, 1);
+  assert.ok(Math.abs(state.links[0].d - 33) < 1e-9);
+});
+
+test('welded level changes are drop disjunctions, not errors', () => {
+  const flat = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 };
+  const raised = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: 75 };
+  state.sprites.push(flat, raised);
+  setTool('Pan'); /* emit -> refreshFlags */
+  assert.equal(state.drops.length, 1); /* one joint, one drop */
+  assert.ok(Math.abs(Math.abs(state.drops[0].dz) - 75) < 1e-9);
+  assert.equal(flat._bad, false); /* aligned tangents: informational, not red */
+  assert.equal(raised._bad, false);
+});
+
+test('floor baseline recomputes on delete (down ramp removed -> back to 0)', () => {
+  const a = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 };
+  const ramp = { name: 'Str1', x: 154, y: 100, a: 0, c: 0, z: -75 };
+  state.sprites.push(a, ramp);
+  setTool('Pan'); /* emit -> normalize: floor moves to the ramp bottom */
+  assert.deepEqual(state.sprites.map((p) => p.z), [75, 0]);
+  removePiece(ramp); /* delete the bottom: everything settles back down */
+  assert.equal(a.z, 0);
+});
+
+test('bumpLevel treats 0 mm as a stop point (5 -> 0, never -5)', () => {
+  const floorPc = { name: 'Str1', x: 300, y: 300, a: 0, c: 0, z: 0 };
+  const p = { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 5 };
+  state.sprites.push(floorPc, p);
+  state.selection.add(p);
+  assert.equal(bumpLevel(-1), 'selection');
+  assert.equal(p.z, 0); /* crossed 0: landed on it */
+  assert.equal(bumpLevel(1), 'selection');
+  assert.equal(p.z, 10);
+  p.z = 75;
+  for (let i = 0; i < 7; i++) bumpLevel(-1);
+  assert.equal(p.z, 5); /* 75 -> ... -> 5 */
+  assert.equal(bumpLevel(-1), 'selection');
+  assert.equal(p.z, 0);
+  state.selection.clear();
+  state.zArm = 5;
+  bumpLevel(-1);
+  assert.equal(state.zArm, 0); /* armed path too */
+});

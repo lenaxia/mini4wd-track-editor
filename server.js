@@ -24,6 +24,11 @@ const json = (res, code, body) => {
   res.end(JSON.stringify(body));
 };
 
+/* Validation errors → 400 with a useful message; anything else → 500
+ * generic (driver internals never leak into responses). */
+class ValidationError extends Error {}
+const bad = (msg) => { throw new ValidationError(msg); };
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
@@ -37,14 +42,14 @@ function readBody(req) {
  * Strict types: a present-but-wrong-typed field is a 400, never a
  * silent coercion — silent coercions are how junk accumulates. */
 function normalize({ id, name, author, data }) {
-  if (id !== undefined && !ID_RE.test(id)) throw new Error('bad id (want [A-Za-z0-9_-]{1,64})');
-  if (data == null || typeof data !== 'object' || Array.isArray(data)) throw new Error('data must be an object');
-  if (data.track !== undefined && typeof data.track !== 'string') throw new Error('data.track must be a string');
-  if (name !== undefined && name !== null && typeof name !== 'string') throw new Error('name must be a string');
-  if (author !== undefined && author !== null && typeof author !== 'string') throw new Error('author must be a string');
+  if (id !== undefined && !ID_RE.test(id)) bad('bad id (want [A-Za-z0-9_-]{1,64})');
+  if (data == null || typeof data !== 'object' || Array.isArray(data)) bad('data must be an object');
+  if (data.track !== undefined && typeof data.track !== 'string') bad('data.track must be a string');
+  if (name !== undefined && name !== null && typeof name !== 'string') bad('name must be a string');
+  if (author !== undefined && author !== null && typeof author !== 'string') bad('author must be a string');
   if (data.mode !== undefined && typeof data.mode !== 'number' && typeof data.mode !== 'string')
-    throw new Error('data.mode must be a number or the string "rucdoc"');
-  if (data.angle !== undefined && typeof data.angle !== 'number') throw new Error('data.angle must be a number');
+    bad('data.mode must be a number or a string');
+  if (data.angle !== undefined && typeof data.angle !== 'number') bad('data.angle must be a number');
   const raw = typeof data.track === 'string' ? data.track : '';
   if (raw.length > MAX_TRACK_BYTES_EXPORTED) throw new Error('data.track too large (max 512 KiB)');
   const t = {
@@ -68,8 +73,8 @@ function parseListQuery(u) {
     offset: Math.max(0, Math.round(num(q.offset) ?? 0)),
   };
   for (const v of [out.min_pieces, out.max_pieces, out.min_length, q.limit !== undefined ? out.limit : 0, q.offset !== undefined ? out.offset : 0])
-    if (Number.isNaN(v)) throw new Error('non-numeric query value');
-  if (!/^-?(updated_at|created_at|name|pieces|length)$/.test(out.sort)) throw new Error('bad sort');
+    if (Number.isNaN(v)) bad('non-numeric query value');
+  if (!/^-?(updated_at|created_at|name|pieces|length)$/.test(out.sort)) bad('bad sort');
   return out;
 }
 
@@ -82,10 +87,15 @@ async function main() {
     const onError = (e) => { try { json(res, 500, { error: 'internal' }); } catch (_) {} console.error('api error:', e.message); };
     const log = () => console.log(`${new Date().toISOString()} ${req.method} ${req.url} -> ${res.statusCode !== 200 && res.statusCode !== 304 ? res.statusCode : 'ok'} [${req.headers['user-agent'] ? req.headers['user-agent'].slice(0, 40) : '?'}]`);
     res.on('finish', log);
+    req.on('error', () => {}); res.on('error', () => {});
 
     const u = req.url.split('?')[0];
     if (!u.startsWith('/api/')) {
-      if (!static_(req, res)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('404'); }
+      /* static dispatch can throw (e.g. malformed URI encoding) — a 400,
+       * never a hung socket */
+      try {
+        if (!static_(req, res)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('404'); }
+      } catch { res.writeHead(400, { 'Content-Type': 'text/plain' }); res.end('400'); }
       return;
     }
     try {
@@ -96,9 +106,12 @@ async function main() {
         const q = parseListQuery(req.url);
         return json(res, 200, { ...await store.list(q), limit: q.limit, offset: q.offset });
       }
-      if (u === '/api/tracks' && (req.method === 'POST' || req.method === 'PUT')) {
+      if (u === '/api/tracks' && req.method === 'POST') {
         const t = normalize(JSON.parse(await readBody(req) || '{}'));
         return json(res, 201, await store.upsert(t));
+      }
+      if (u === '/api/tracks' && req.method === 'PUT') {
+        return json(res, 405, { error: 'PUT to /api/tracks/:id; POST creates' });
       }
       if (m && req.method === 'GET') {
         const row = await store.get(decodeURIComponent(m[1]));
@@ -106,7 +119,7 @@ async function main() {
       }
       if (m && req.method === 'PUT') {
         const body = JSON.parse(await readBody(req) || '{}');
-        if (!ID_RE.test(decodeURIComponent(m[1]))) throw new Error('bad id');
+        if (!ID_RE.test(decodeURIComponent(m[1]))) bad('bad id');
         const t = normalize({ ...body, id: decodeURIComponent(m[1]) });
         return json(res, 200, await store.upsert(t));
       }
@@ -117,7 +130,11 @@ async function main() {
       }
       return json(res, 404, { error: 'no such route' });
     } catch (e) {
-      return json(res, e.message.includes('too large') ? 413 : 400, { error: e.message });
+      if (e instanceof ValidationError) return json(res, 400, { error: e.message });
+      if (typeof e.message === 'string' && e.message.includes('too large')) return json(res, 413, { error: e.message });
+      if (e instanceof SyntaxError) return json(res, 400, { error: 'invalid JSON body' });
+      console.error('api error:', e.message);
+      return json(res, 500, { error: 'internal' });
     }
   });
   server.on('clientError', (_, s) => s.end('HTTP/1.1 400 bad request\r\n\r\n'));

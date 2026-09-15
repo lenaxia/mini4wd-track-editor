@@ -72,7 +72,9 @@ src/
   input.js            Pointer Events gesture machine + keyboard
   ui.js               DOM shell: palette, toolbar, dialogs, stats
   main.js             boot/wiring (+ window.__m4wd test hook)
-serve.js              zero-dependency dev server (no caching)
+serve.js              zero-dependency static server (no API)
+server.js             full server: static + /api/tracks storage
+lib/                  static serving + storage drivers (sqlite/pg/memory)
 tests/
   unit/               node --test (track codec, geometry, pieces, store)
   e2e/                Playwright specs (see TESTPLAN.md)
@@ -99,12 +101,28 @@ See [TESTPLAN.md](TESTPLAN.md). Two automated layers:
 ## Run it
 
 ```sh
-node serve.js              # or: npm run serve  (port 3000)
+node serve.js              # static only (port 3000) — no API, no state
+node server.js             # or: npm run server — adds /api/tracks storage
 npm test                   # unit tests (node --test)
 npx playwright install chromium   # once
-npm run test:e2e           # e2e (auto-starts/reuses serve.js)
+npm run test:e2e           # e2e (auto-starts server.js with a memory store)
 # open http://localhost:3000 (works great in Chrome DevTools device mode)
 ```
+
+### Track storage (server.js)
+
+`server.js` serves the editor plus a small track library API
+(`GET/POST/PUT/DELETE /api/tracks`, `GET /api/health`). The schema is a
+relational shell around a document core: the track body is one JSON
+document; searchable facets (author, piece count, lanes, length, bbox)
+are indexed columns derived server-side from the catalog. Drivers:
+`STORE=sqlite` (default; `node:sqlite`, zero dependencies, WAL at
+`SQLITE_PATH` or `./data/tracks.db`), `STORE=postgres` (requires
+`DATABASE_URL`; imports the sole runtime dependency `pg` lazily), and
+`STORE=memory` (tests). The editor keeps localStorage as the source of
+truth and mirrors saves best-effort — serve it statically and storage
+simply no-ops. Docker: `docker compose up` (sqlite volume) or the
+postgres profile (see docker-compose.yml).
 
 ## Attribution & credits
 

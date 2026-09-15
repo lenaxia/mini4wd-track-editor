@@ -1,14 +1,18 @@
 # Packaging examples:
-#   docker compose up                  -> app with local sqlite volume
-#   docker compose --profile postgres  -> app + postgres, STORE=postgres
+#   docker compose up                                      -> app + local sqlite volume
+#   STORE=postgres DATABASE_URL=postgres://mini4wd:mini4wd@db:5432/mini4wd \
+#     docker compose --profile postgres up                 -> app + postgres
+# (the app reads STORE / DATABASE_URL from the environment; unset means
+# the sqlite default, so plain `up` never needs the db service)
 services:
   app:
     build: .
     ports: ["3000:3000"]
     volumes: ["track-data:/data"]
     environment:
-      STORE: sqlite
+      STORE: ${STORE:-sqlite}
       SQLITE_PATH: /data/tracks.db
+      DATABASE_URL: ${DATABASE_URL:-}
   db:
     image: postgres:16-alpine
     profiles: [postgres]
