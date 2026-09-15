@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="-12.5 -12.5 25 25">
+  <defs><linearGradient id="ramp_R2R250_0_0" gradientUnits="userSpaceOnUse" x1="-12.50" y1="0" x2="12.50" y2="0" spreadMethod="pad"><stop offset="0.00" stop-color="#f7f2ed"/><stop offset="0.50" stop-color="#c8c4c0"/><stop offset="1.00" stop-color="#c8c4c0"/></linearGradient></defs><defs><linearGradient id="ramp_R2R250_0_1" gradientUnits="userSpaceOnUse" x1="-12.50" y1="0" x2="12.50" y2="0" spreadMethod="pad"><stop offset="0.00" stop-color="#f7f2ed"/><stop offset="0.50" stop-color="#c8c4c0"/><stop offset="1.00" stop-color="#c8c4c0"/></linearGradient></defs><path d="M -12.50 -11.50 H 12.50 V 0.00 H -12.50 Z" fill="url(#ramp_R2R250_0_0)" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -12.50 0.00 H 12.50 V 11.50 H -12.50 Z" fill="url(#ramp_R2R250_0_1)" stroke="#5d5a57" stroke-width="1.2"/>
+</svg>
