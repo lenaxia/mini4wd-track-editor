@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 /* Cache policy contract (serve.js):
- * - ?v= URLs are immutable for a year (safe: busters change the URL)
+ * - assets//src/ ?v=/?h= URLs are immutable for a year (content-addressed
+ *   manifest hashes or rule-5 busters); hand-bumped root files are NOT
  * - unversioned /assets/* get a short cache
  * - html and src modules always revalidate (ETag makes it a 304) */
 

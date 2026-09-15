@@ -9,9 +9,13 @@ package time, graceful no-cache fallback), then Docker packaging.
 
 ## Three cache layers
 
-1. **HTTP policy (serve.js)**: `?v=` URLs → `immutable, max-age=1y`;
-   `/assets/manifest.json` → `no-cache` (it IS the invalidation signal);
-   other `/assets/*` → 5 min; html/src → `no-cache` + ETag (304s).
+1. **HTTP policy (serve.js)**: `assets/`/`src/` `?v=`/`?h=` URLs →
+   `immutable, max-age=1y` (content-addressed by manifest hash or
+   rule-5 buster — root files like `style.css?v=N` are hand-bumped and
+   keep `no-cache` + ETag so a forgotten bump can never pin stale
+   content); `/assets/manifest.json` → `no-cache` (it IS the
+   invalidation signal); other `/assets/*` → 5 min; html/src →
+   `no-cache` + ETag (304s).
 2. **Content-hash manifest**: `tools/gen-manifest.js` writes
    `assets/manifest.json` = `{sprite: sha256}` (75 entries; generated at
    package time — Dockerfile `RUN`, `npm run manifest`, and the playwright

@@ -1,10 +1,11 @@
 /* Tiny zero-dependency dev server — serves the editor with cache-aware
  * headers:
- *   - ?v= / ?h= URLs -> immutable, 1 year (buster- or content-addressed)
- *   - /assets/* -> 5 min + ETag revalidation (unversioned sprite fetches)
- *   - html/src  -> no-cache + ETag (always revalidate; 304s keep it cheap)
- * The cache busters (index.html main.js ?v=N, assets.js sprites ?v=N)
- * make the immutable rule safe: bumping the version changes the URL. */
+ *   - assets/ + src/ ?v=/?h= URLs -> immutable, 1 year (content-addressed
+ *     by manifest hash or rule-5 buster); root files like style.css?v=N
+ *     are hand-bumped and keep no-cache + ETag (see inline comment)
+ *   - /assets/manifest.json -> no-cache (it IS the invalidation signal)
+ *   - other /assets/* -> 5 min + ETag revalidation
+ *   - html/root + unversioned src -> no-cache + ETag (cheap 304s) */
 'use strict';
 import http from 'node:http';
 import fs from 'node:fs';
