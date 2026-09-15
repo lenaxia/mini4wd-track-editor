@@ -24,6 +24,34 @@ jobs:
       - name: Unit (node --test)
         run: npm test
 
+  # The store conformance suite against a real postgres — the sqlite/memory
+  # runs happen in `test`; this job is the only live exercise of
+  # lib/store/pg.js (int8 handling, upserts, indexes).
+  store-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mini4wd
+          POSTGRES_PASSWORD: mini4wd
+          POSTGRES_DB: mini4wd
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mini4wd"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Store conformance (postgres driver)
+        env:
+          PG_TEST_URL: postgres://mini4wd:mini4wd@localhost:5432/mini4wd
+        run: node --test tests/unit/server-store.test.js
+
       - name: Syntax check over the module graph
         run: for f in src/*.js serve.js; do node --check "$f"; done
 

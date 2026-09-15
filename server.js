@@ -84,7 +84,6 @@ async function main() {
   console.log(`mini4wd-editor server on http://localhost:${PORT} (store: ${store.driver})`);
 
   const server = http.createServer(async (req, res) => {
-    const onError = (e) => { try { json(res, 500, { error: 'internal' }); } catch (_) {} console.error('api error:', e.message); };
     const log = () => console.log(`${new Date().toISOString()} ${req.method} ${req.url} -> ${res.statusCode !== 200 && res.statusCode !== 304 ? res.statusCode : 'ok'} [${req.headers['user-agent'] ? req.headers['user-agent'].slice(0, 40) : '?'}]`);
     res.on('finish', log);
     req.on('error', () => {}); res.on('error', () => {});
@@ -131,6 +130,7 @@ async function main() {
       return json(res, 404, { error: 'no such route' });
     } catch (e) {
       if (e instanceof ValidationError) return json(res, 400, { error: e.message });
+      if (e instanceof URIError) return json(res, 400, { error: 'bad encoding' });
       if (typeof e.message === 'string' && e.message.includes('too large')) return json(res, 413, { error: e.message });
       if (e instanceof SyntaxError) return json(res, 400, { error: 'invalid JSON body' });
       console.error('api error:', e.message);
