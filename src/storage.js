@@ -31,16 +31,20 @@ export function autosave(state) {
       };
       localStorage.setItem(KEY, JSON.stringify(snapshot));
     } catch (_) { /* private mode etc. */ }
-    /* best-effort server mirror, debounced independently */
+    /* best-effort server mirror, debounced independently; retries with
+     * backoff so a transient failure (busy server, flaky mobile network)
+     * never silently drops the sync until the next edit */
     if (snapshot) {
       clearTimeout(syncTimer);
       const id = trackId();
       syncTimer = setTimeout(() => {
-        fetch(`/api/tracks/${id}`, {
+        const put = (attempt) => fetch(`/api/tracks/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: 'Untitled', data: snapshot }),
-        }).catch(() => {});
+        }).then(r => { if (!r.ok && attempt < 3) setTimeout(() => put(attempt + 1), 2000 * (attempt + 1)); })
+          .catch(() => { if (attempt < 3) setTimeout(() => put(attempt + 1), 2000 * (attempt + 1)); });
+        put(0);
       }, 1500);
     }
   }, 350);

@@ -63,3 +63,26 @@ test('booted page populates the cache under per-file hash keys', async ({ page }
     return reqs.length >= 75 && reqs.every(r => /[?&]h=[0-9a-f]{64}/.test(r.url));
   }), { timeout: 15_000 }).toBe(true);
 });
+
+test('corrupt cached entries self-heal on the next boot', async ({ page, request }) => {
+  await page.goto('/');
+  const manifest = await (await request.get('/assets/manifest.json')).json();
+  const key = `assets/Str1.0.svg?h=${manifest['Str1.0.svg']}`;
+  /* poison one entry with a truncated body */
+  await expect.poll(async () => await page.evaluate(async (u) => {
+    const keys = await caches.keys();
+    if (!keys.length) return false;
+    const c = await caches.open(keys[0]);
+    await c.put(u, new Response('truncated garbage'));
+    return true;
+  }, key), { timeout: 15_000 }).toBe(true);
+  await page.reload();
+  /* the corrupt entry must be replaced by verified bytes (hash-checked on
+   * hit: mismatch -> evict + refetch + re-store) */
+  await expect.poll(async () => await page.evaluate(async (u) => {
+    const keys = await caches.keys();
+    const c = await caches.open(keys[0]);
+    const hit = await c.match(u);
+    return hit ? (await hit.text()).startsWith('<svg') : false;
+  }, key), { timeout: 15_000 }).toBe(true);
+});
