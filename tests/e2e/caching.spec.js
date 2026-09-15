@@ -48,11 +48,13 @@ test('manifest serves no-cache with a hash for every sprite on disk', async ({ r
 
 test('booted page populates the cache under per-file hash keys', async ({ page }) => {
   await page.goto('/');
-  await page.waitForFunction(async () => {
+  /* expect.poll + one-shot evaluates: the async-predicate waitForFunction
+   * pattern is unreliable under parallel load (see worklog 0009) */
+  await expect.poll(async () => await page.evaluate(async () => {
     const keys = await caches.keys();
-    if (!keys.length) return false;
+    if (!keys.length) return { n: 0, ok: false };
     const c = await caches.open(keys[0]);
     const reqs = await c.keys();
-    return reqs.length >= 75 && reqs.every(r => /[?&]h=[0-9a-f]{64}/.test(r.url));
-  }, null, { timeout: 15_000 });
+    return { n: reqs.length, ok: reqs.length >= 75 && reqs.every(r => /[?&]h=[0-9a-f]{64}/.test(r.url)) };
+  }), { timeout: 15_000 }).toEqual({ n: 75, ok: true });
 });

@@ -36,6 +36,18 @@ test('staleKeys: current hashes are kept, old hashes evicted', () => {
   ]);
 });
 
+test('staleKeys: subpath deployments evict exactly like root ones', () => {
+  const keys = [
+    `https://host/repo/assets/Str1.0.svg?h=${H}`,   // current -> keep
+    `https://host/repo/assets/Str1.0.svg?h=${H2}`,  // updated -> stale
+    `https://host/repo/assets/Gone.0.svg?h=${H}`,   // deleted -> stale
+  ];
+  assert.deepEqual(staleKeys(keys, manifest), [
+    `https://host/repo/assets/Str1.0.svg?h=${H2}`,
+    'https://host/repo/assets/Gone.0.svg?h=' + H,
+  ]);
+});
+
 test('staleKeys: everything is stale when the manifest failed to load', () => {
   const keys = [`https://host/assets/Str1.0.svg?h=${H}`];
   assert.deepEqual(staleKeys(keys, null), keys);

@@ -4,6 +4,7 @@ test-results
 playwright-report
 tests
 tools
+!tools/gen-manifest.js
 docs
 data
 *.md

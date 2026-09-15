@@ -20,7 +20,7 @@ const MIME = {
   '.gif': 'image/gif',
   '.svg': 'image/svg+xml',
   '.json': 'application/json',
-  '.txt': 'text/plain',
+  '.txt': 'text/plain; charset=utf-8',
 };
 
 http.createServer((req, res) => {

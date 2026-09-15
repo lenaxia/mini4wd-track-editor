@@ -22,12 +22,16 @@ export function spriteUrl(file, manifest, buster) {
 
 /* Which cached request keys are stale given the current manifest:
  * anything whose file is gone, or whose ?h= no longer matches. Keys with
- * no ?h= (legacy entries) are stale by definition. */
+ * no ?h= (legacy entries) are stale by definition. Pathnames are parsed
+ * so subpath deployments (…/repo/assets/…) work like root ones. */
 export function staleKeys(keys, manifest) {
   const out = [];
   for (const url of keys) {
-    const m = /^(?:https?:\/\/[^/]+)?\/?assets\/([^?]+)\?h=([0-9a-f]+)$/.exec(url);
-    if (!m || !manifest || manifest[m[1]] !== m[2]) out.push(url);
+    let u;
+    try { u = new URL(url); } catch { out.push(url); continue; }
+    const m = /^(?:.*\/)?assets\/([^/?]+)$/.exec(u.pathname);
+    const h = /[?&]h=([0-9a-f]+)/.exec(u.search);
+    if (!m || !h || !manifest || manifest[m[1]] !== h[1]) out.push(url);
   }
   return out;
 }
@@ -37,7 +41,7 @@ let manifest = null;
 
 /* Resolve the boot cache. Safe to call repeatedly; failures degrade to
  * fallback mode (cache stays null). */
-export async function initCache(busterVersion) {
+export async function initCache() {
   try {
     if (typeof caches === 'undefined') return false;
     const res = await fetch('assets/manifest.json', { cache: 'no-store' });
