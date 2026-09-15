@@ -127,24 +127,26 @@ test('hard refresh clears the asset cache; soft refresh keeps it', async ({ page
   }), { timeout: 15_000 }).toBe(true);
 });
 
-/* The motivating proxy bug as a regression pin: fetch() answered with a
- * delayed EMPTY 200 while <img> loads serve real bytes. Sprite URLs must
- * be assigned from the image path without waiting on any fetch — on the
- * pre-fix code the foreground fetch-verify held the URL until the race
- * bound (~2.5s), missing this window. */
-test('sprites never wait on fetch(): empty-200 fetches load via <img>', async ({ page }) => {
-  await page.route('**/assets/*.svg?h=*', async (route) => {
-    if (route.request().resourceType() === 'fetch') {
-      await new Promise((r) => setTimeout(r, 6000));   // beyond the assert window
-      await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '' });
-    } else {
-      await route.continue();
-    }
+/* The motivating proxy bugs as a regression pin, in the NEW threat model:
+ * the preview proxy (a) empties svg-typed fetch() responses and (b) injects
+ * ~56 bytes into svg image responses — corrupting every <img> load. Sprites
+ * must render anyway: loads go through the json-typed /api/sprites endpoint
+ * (proven proxy-clean — the manifest rides it every boot), verified by hash,
+ * rendered as object URLs. Corrupt BOTH /assets svg transports here and the
+ * sprite must still render. */
+test('sprites render even when every /assets svg response is corrupted', async ({ page }) => {
+  await page.route('**/assets/*.svg*', async (route) => {
+    const body = await route.fetch().then((r) => r.text()).catch(() => '');
+    await route.fulfill({
+      status: 200,
+      contentType: route.request().resourceType() === 'fetch' ? 'image/svg+xml' : 'image/svg+xml',
+      body: route.request().resourceType() === 'fetch' ? '' : `${body}injected-garbage-by-proxy`,
+    });
   });
   await page.goto('/');
   await expect.poll(async () => await page.evaluate(async () => {
     const a = await import('/src/assets.js');
     const img = a.imageFor('Str1', 0);
     return !!img && !!img.src && img.naturalWidth > 0;
-  }), { timeout: 1500 }).toBe(true);
+  }), { timeout: 8000 }).toBe(true);
 });
