@@ -86,3 +86,43 @@ test('corrupt cached entries self-heal on the next boot', async ({ page, request
     return hit ? (await hit.text()).startsWith('<svg') : false;
   }, key), { timeout: 15_000 }).toBe(true);
 });
+
+/* Hard refresh wipes the client cache; soft refresh keeps it (owner rule).
+ * The hard-reload signature is Cache-Control: no-cache on the document. */
+test('hard refresh clears the asset cache; soft refresh keeps it', async ({ page, request }) => {
+  await page.goto('/');
+  await expect.poll(async () => await page.evaluate(async () => {
+    const keys = await caches.keys();
+    if (!keys.length) return 0;
+    return (await (await caches.open(keys[0])).keys()).length;
+  }), { timeout: 15_000 }).toBeGreaterThanOrEqual(75);
+
+  /* soft reload: no no-cache header on the document -> cache untouched */
+  await page.reload();
+  await expect.poll(async () => await page.evaluate(async () => {
+    const keys = await caches.keys();
+    return keys.length && (await (await caches.open(keys[0])).keys()).length;
+  }), { timeout: 15_000 }).toBeGreaterThanOrEqual(75);
+
+  /* simulate the hard reload: document fetched with no-cache gets the
+   * wipe cookie; the next boot empties the cache and boots network-only */
+  const hard = await request.get('/', { headers: { 'cache-control': 'no-cache' } });
+  expect(hard.headers()['set-cookie']).toContain('m4wd_hard=1');
+  await page.context().addCookies([{ name: 'm4wd_hard', value: '1', url: 'http://localhost:3000' }]);
+  await page.reload();
+  await expect.poll(async () => await page.evaluate(async () => {
+    if (!document.cookie.includes('m4wd_hard=1')) return true;   /* cookie consumed */
+    return false;
+  }), { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => await page.evaluate(async () => {
+    const keys = await caches.keys();
+    if (!keys.length) return 0;
+    return (await (await caches.open(keys[0])).keys()).length;
+  }), { timeout: 15_000 }).toBe(0);
+  /* and the page still renders sprites (network fallback boot) */
+  await expect.poll(async () => await page.evaluate(async () => {
+    const a = await import('/src/assets.js');
+    const img = a.imageFor('Str1', 0);
+    return !!img && !!img.src && img.naturalWidth > 0;
+  }), { timeout: 15_000 }).toBe(true);
+});

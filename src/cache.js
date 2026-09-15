@@ -39,10 +39,12 @@ export function staleKeys(keys, manifest) {
 let cache = null;
 let manifest = null;
 
-/* per-operation bound for every CacheStorage interaction: corrupted
+/* per-boot bound for every CacheStorage interaction: corrupted
  * entries/caches can HANG reads (interrupted-write failure mode) — no
- * read may stall the loader */
-const CACHE_BOUND_MS = 1200;
+ * read may stall the loader. Generous because all ~75 sprite loads
+ * start together and share one wall-clock window on slow devices; a
+ * bound that tight would evict the slow (healthy) tail every boot. */
+const CACHE_BOUND_MS = 2500;
 
 /* Resolve the boot cache. Safe to call repeatedly; failures — including
  * a HANG anywhere (a corrupted cache can hang keys()/delete() reads,
@@ -50,6 +52,20 @@ const CACHE_BOUND_MS = 1200;
  * fallback mode (cache stays null, sprites load from plain URLs). */
 export async function initCache() {
   try {
+    /* hard refresh (owner rule): the server tags hard-reloaded documents
+     * via Set-Cookie (browsers send Cache-Control: no-cache on hard
+     * reload; soft reload sends max-age=0). Wipe the asset cache so a
+     * hard refresh is a reliable recovery tool, then boot network-only;
+     * the next soft refresh repopulates. */
+    if (/(?:^|;\s*)m4wd_hard=1(?:;|$)/.test(document.cookie)) {
+      document.cookie = 'm4wd_hard=; Max-Age=0; Path=/';
+      await Promise.race([
+        caches.delete(CACHE_NAME),
+        new Promise((resolve) => setTimeout(resolve, CACHE_BOUND_MS)),
+      ]);
+      cache = null;
+      return false;
+    }
     if (typeof caches === 'undefined') return false;
     const res = await fetch('assets/manifest.json', { cache: 'no-store' });
     if (!res.ok) return false;
@@ -84,24 +100,34 @@ export async function cachedSpriteUrl(file, buster) {
   try {
     if (cache && manifest && manifest[file]) {
       const want = manifest[file];
+      const race = { live: true };   /* lets the losing path revoke its URL */
+      let timer = null;
       const loaded = await Promise.race([
-        loadVerified(url, want),
-        new Promise((resolve) => setTimeout(() => resolve(null), CACHE_BOUND_MS)),
+        loadVerified(url, want, race),
+        new Promise((resolve) => { timer = setTimeout(() => { race.live = false; resolve(null); }, CACHE_BOUND_MS); }),
       ]);
-      if (loaded) return loaded;
-      /* hung or unverifiable: evict so the next boot starts clean */
+      clearTimeout(timer);
+      /* won: a URL, or null for corrupt-but-readable (already evicted
+       * inside loadVerified) — the plain network URL covers the latter */
+      if (race.live) return loaded ?? url;
+      if (loaded) URL.revokeObjectURL(loaded);   /* lost the race: don't leak */
+      /* hung or unverifiable: evict (best-effort — the same corruption
+       * may hang the delete too) so the next boot may start clean */
       cache.delete(url).catch(() => {});
     }
   } catch { /* fall through to network */ }
   return url;
 }
 
-async function loadVerified(url, want) {
+async function loadVerified(url, want, race) {
   const hit = await cache.match(url);
   if (hit && hit.ok) {
     const blob = await hit.blob();
-    if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want))
-      return URL.createObjectURL(blob);
+    if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
+      const objUrl = URL.createObjectURL(blob);
+      if (!race.live) { URL.revokeObjectURL(objUrl); return null; }
+      return objUrl;
+    }
     await cache.delete(url).catch(() => {});   /* corrupt: evict (awaited — a late delete must not evict the fresh entry) + refetch */
   }
   const res = await fetch(url);
@@ -111,7 +137,9 @@ async function loadVerified(url, want) {
       cache.put(url, new Response(blob, {
         headers: { 'Content-Type': res.headers.get('Content-Type') || 'image/svg+xml' },
       })).catch(() => {});
-      return URL.createObjectURL(blob);
+      const objUrl = URL.createObjectURL(blob);
+      if (!race.live) { URL.revokeObjectURL(objUrl); return null; }
+      return objUrl;
     }
   }
   return null;
