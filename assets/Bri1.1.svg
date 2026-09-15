@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="54" height="36" viewBox="-27.0 -18.0 54 36">
-  <path d="M -27.00 -17.25 H 27.00 V -5.75 H -27.00 Z" fill="#efeae5" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -27.00 -5.75 H 27.00 V 5.75 H -27.00 Z" fill="#efeae5" stroke="#5d5a57" stroke-width="1.2"/>
-  <path d="M -27.00 5.75 H 27.00 V 17.25 H -27.00 Z" fill="#efeae5" stroke="#5d5a57" stroke-width="1.2"/>
+  <defs><linearGradient id="ramp_Bri1_1_0" gradientUnits="userSpaceOnUse" x1="-27.00" y1="0" x2="27.00" y2="0" spreadMethod="pad"><stop offset="0.00" stop-color="#f7f2ed"/><stop offset="0.50" stop-color="#c8c4c0"/><stop offset="1.00" stop-color="#c8c4c0"/></linearGradient></defs><defs><linearGradient id="ramp_Bri1_1_1" gradientUnits="userSpaceOnUse" x1="-27.00" y1="0" x2="27.00" y2="0" spreadMethod="pad"><stop offset="0.00" stop-color="#f7f2ed"/><stop offset="0.50" stop-color="#c8c4c0"/><stop offset="1.00" stop-color="#c8c4c0"/></linearGradient></defs><defs><linearGradient id="ramp_Bri1_1_2" gradientUnits="userSpaceOnUse" x1="-27.00" y1="0" x2="27.00" y2="0" spreadMethod="pad"><stop offset="0.00" stop-color="#f7f2ed"/><stop offset="0.50" stop-color="#c8c4c0"/><stop offset="1.00" stop-color="#c8c4c0"/></linearGradient></defs><path d="M -27.00 -17.25 H 27.00 V -5.75 H -27.00 Z" fill="url(#ramp_Bri1_1_0)" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -27.00 -5.75 H 27.00 V 5.75 H -27.00 Z" fill="url(#ramp_Bri1_1_1)" stroke="#5d5a57" stroke-width="1.2"/>
+  <path d="M -27.00 5.75 H 27.00 V 17.25 H -27.00 Z" fill="url(#ramp_Bri1_1_2)" stroke="#5d5a57" stroke-width="1.2"/>
 </svg>
