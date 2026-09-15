@@ -7,7 +7,7 @@ Ctx carries the per-file render state that svg.py kept in globals.
 """
 import math
 
-from svg_globals import (LANE_W, BED, OUTLINE, DASH, BANK_GRAY, CHEVRON,
+from svg_globals import (LANE_W, BED, OUTLINE, DASH, BANK_GRAY,
                          BANK_GRAD, rr, line)
 
 

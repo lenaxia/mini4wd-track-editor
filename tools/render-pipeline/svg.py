@@ -453,7 +453,7 @@ BANK_GRAD = {
     'Ban2.0': ['#d0a060', '#e0c090', '#e0d0c0'],
 }
 FNAME = ''   # current output filename (banks key gradients by it)
-shapes.BANK_GRAD = BANK_GRAD   # current output filename (banks key gradients by it)
+shapes.BANK_GRAD = BANK_GRAD   # inject the real bank palettes into shapes
 
 
 def emit(defn, rail, rip=None):
