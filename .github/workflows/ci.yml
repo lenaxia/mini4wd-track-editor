@@ -1,6 +1,6 @@
-# CI — both test layers on every PR (see TESTPLAN.md).
-# Dev tooling only: nothing here ships to the app (no build step, no
-# runtime deps — README-LLM hard rule 1).
+# CI — both test layers on every PR (see TESTPLAN.md), plus the store
+# conformance suite against a real postgres. Dev tooling only: nothing
+# here ships to the app (the editor stays zero-dep; pg is server-only).
 name: ci
 
 on:
@@ -23,6 +23,15 @@ jobs:
 
       - name: Unit (node --test)
         run: npm test
+
+      - name: Syntax check over the module graph
+        run: for f in src/*.js serve.js server.js; do node --check "$f"; done
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install chromium --with-deps
+
+      - name: E2E (Playwright)
+        run: npm run test:e2e
 
   # The store conformance suite against a real postgres — the sqlite/memory
   # runs happen in `test`; this job is the only live exercise of
@@ -51,12 +60,3 @@ jobs:
         env:
           PG_TEST_URL: postgres://mini4wd:mini4wd@localhost:5432/mini4wd
         run: node --test tests/unit/server-store.test.js
-
-      - name: Syntax check over the module graph
-        run: for f in src/*.js serve.js; do node --check "$f"; done
-
-      - name: Install Chromium for Playwright
-        run: npx playwright install chromium --with-deps
-
-      - name: E2E (Playwright)
-        run: npm run test:e2e
