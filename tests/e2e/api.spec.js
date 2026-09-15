@@ -1,0 +1,121 @@
+import { test, expect } from '@playwright/test';
+
+/* Track storage API contract (server.js). Tests own their rows: unique
+ * id namespace + afterAll cleanup — safe against a shared live server. */
+
+const PREFIX = `e2e-${Date.now()}`;
+const ids = [];
+const mk = (n, extra = {}) => ({
+  name: `e2e ${n}`,
+  author: 'playwright',
+  data: { track: `Str1;100.000;100.000;0;0;0#Cor1;130.000;100.000;45;1;0#`.repeat(1) + (extra.tail || ''), mode: 3 },
+});
+
+test.afterAll(async ({ request }) => {
+  for (const id of ids) {
+    await request.delete(`/api/tracks/${id}`).catch(() => {});
+  }
+});
+
+test('health reports a driver', async ({ request }) => {
+  const r = await request.get('/api/health');
+  expect(r.status()).toBe(200);
+  const body = await r.json();
+  expect(body.ok).toBe(true);
+  expect(['memory', 'sqlite', 'postgres']).toContain(body.driver);
+});
+
+test('PUT upserts with derived facets; GET returns the document', async ({ request }) => {
+  const id = `${PREFIX}-roundtrip`; ids.push(id);
+  const put = await request.put(`/api/tracks/${id}`, { data: mk('roundtrip') });
+  expect(put.status()).toBe(200);
+  const meta = await put.json();
+  expect(meta.piece_count).toBe(2);
+  expect(meta.author).toBe('playwright');
+  expect(meta.bbox_w_cm).toBeGreaterThan(0);
+
+  const got = await request.get(`/api/tracks/${id}`);
+  expect(got.status()).toBe(200);
+  const row = await got.json();
+  expect(row.data.track).toContain('Str1;100.000');
+
+  /* update: piece count changes, created_at survives */
+  const bigger = mk('roundtrip', { tail: 'Str1;200.000;100.000;0;0;0#' });
+  const put2 = await request.put(`/api/tracks/${id}`, { data: bigger });
+  const meta2 = await put2.json();
+  expect(meta2.piece_count).toBe(3);
+  expect(meta2.created_at).toBe(meta.created_at);
+});
+
+test('POST creates with a server id when none given', async ({ request }) => {
+  const r = await request.post('/api/tracks', { data: mk('post') });
+  expect(r.status()).toBe(201);
+  const meta = await r.json();
+  expect(meta.id).toBeTruthy();
+  ids.push(meta.id);
+});
+
+test('list filters, sorts, and paginates', async ({ request }) => {
+  for (let i = 0; i < 3; i++) {
+    const id = `${PREFIX}-list${i}`; ids.push(id);
+    const r = await request.put(`/api/tracks/${id}`, { data: mk(`list${i}`) });
+    expect(r.status()).toBe(200);
+  }
+  const q = await request.get(`/api/tracks?author=playwright&sort=-updated_at&limit=2`);
+  expect(q.status()).toBe(200);
+  const page = await q.json();
+  expect(page.items.length).toBeLessThanOrEqual(2);
+  expect(page.total).toBeGreaterThanOrEqual(3);
+  expect(page.items.every(i => i.author === 'playwright')).toBe(true);
+  /* no data bodies in list responses — metadata only */
+  expect(page.items.every(i => i.data === undefined)).toBe(true);
+});
+
+test('validation rejects garbage without crashing the server', async ({ request }) => {
+  const bad = [
+    ['/api/tracks/has space!', mk('bad id'), 'put'],
+    [`/api/tracks/${PREFIX}-ok`, { name: 42, data: mk('ok').data }, 'put'],
+    [`/api/tracks/${PREFIX}-ok`, { data: { track: 7 } }, 'put'],
+    [`/api/tracks/${PREFIX}-ok`, { data: { track: 'x'.repeat(600 * 1024) } }, 'put'],
+    ['/api/tracks?min_pieces=banana', null, 'get'],
+  ];
+  for (const [url, body, method] of bad) {
+    const r = method === 'get'
+      ? await request.get(url)
+      : await request.put(url, body ? { data: body } : undefined);
+    expect([400, 413]).toContain(r.status());
+  }
+  const inj = await request.put(`/api/tracks/${PREFIX}-inj`, { data: mk(`inj'; DROP TABLE tracks;--`) });
+  expect(inj.status()).toBe(200);
+  ids.push(`${PREFIX}-inj`);
+  const alive = await request.get('/api/health');
+  expect(alive.status()).toBe(200);
+});
+
+test('DELETE removes; unknown ids 404', async ({ request }) => {
+  const id = `${PREFIX}-gone`; ids.push(id);
+  await request.put(`/api/tracks/${id}`, { data: mk('gone') });
+  const del = await request.delete(`/api/tracks/${id}`);
+  expect(del.status()).toBe(204);
+  expect((await request.get(`/api/tracks/${id}`)).status()).toBe(404);
+  expect((await request.delete(`/api/tracks/${id}`)).status()).toBe(404);
+});
+
+test('autosave mirrors to the server (client sync)', async ({ page, request }) => {
+  await page.goto('/');
+  await page.locator('.chip').first().click();   /* Str1 */
+  await page.click('canvas', { position: { x: 200, y: 200 } });
+  await expect.poll(async () => await page.evaluate(() =>
+    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(1);
+  /* sync fires 350ms after the change, then a 1500ms debounce — on fast
+   * runners the piece poll can pass BEFORE the debounced autosave wrote
+   * m4wd.trackId; await its existence instead of reading it once */
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('m4wd.trackId')),
+    { timeout: 10_000 }).toBeTruthy();
+  const id = await page.evaluate(() => localStorage.getItem('m4wd.trackId'));
+  await expect.poll(async () => (await request.get(`/api/tracks/${id}`)).status(),
+    { timeout: 10_000 }).toBe(200);
+  ids.push(id);
+  const row = await (await request.get(`/api/tracks/${id}`)).json();
+  expect(row.piece_count).toBe(1);
+});

@@ -15,9 +15,9 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
   },
   webServer: {
-    /* generate the asset manifest first so e2e runs the production
-     * cache mode (per-file ?h= URLs), not just the buster fallback */
-    command: 'node tools/gen-manifest.js && node serve.js',
+    /* manifest first so e2e runs the production cache mode (?h= URLs);
+     * webserver.mjs sets STORE=memory cross-platform — hermetic per run */
+    command: 'node tools/gen-manifest.js && node tests/e2e/webserver.mjs',
     url: 'http://localhost:3000',
     reuseExistingServer: true,
   },

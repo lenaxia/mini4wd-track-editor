@@ -8,10 +8,11 @@ referenced by `.github/prompts/` (lenaxia/ai-workflows consumer).
 A touch-first, **zero-runtime-dependency, no-build static web app** for
 designing Tamiya Mini4WD race tracks — a mobile-friendly fork of the Mini4WD
 Online Track Editor by Pimentoso. Vanilla ES modules served statically; see
-the module map in README.md. `package.json` exists for **dev tooling only**
-(test runners); the app itself must run from a plain static file server with
-zero installs. ES modules require http — `file://` does not work; use
-`serve.js`.
+the module map in README.md. `package.json` holds dev tooling (test runners)
+plus the server-only `pg` dependency for `STORE=postgres` — the editor app's
+import graph stays zero-dependency and must run from a plain static file
+server with zero installs. ES modules require http — `file://` does not
+work; use `serve.js` (static) or `server.js` (adds track storage).
 
 ## Hard rules
 
