@@ -5,9 +5,13 @@
   "description": "Touch-first Mini4WD track editor — zero-dependency static app. package.json exists for dev tooling only (test runners); the app itself has no runtime dependencies and no build step.",
   "scripts": {
     "serve": "node serve.js",
+    "server": "node server.js",
     "test": "node --test",
     "test:e2e": "playwright test",
     "manifest": "node tools/gen-manifest.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0"

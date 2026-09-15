@@ -16,8 +16,9 @@ export default defineConfig({
   },
   webServer: {
     /* generate the asset manifest first so e2e runs the production
-     * cache mode (per-file ?h= URLs), not just the buster fallback */
-    command: 'node tools/gen-manifest.js && node serve.js',
+     * cache mode (per-file ?h= URLs), not just the buster fallback.
+     * memory store: hermetic per run — no disk state, no stray data */
+    command: 'node tools/gen-manifest.js && STORE=memory node server.js',
     url: 'http://localhost:3000',
     reuseExistingServer: true,
   },
