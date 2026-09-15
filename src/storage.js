@@ -10,29 +10,37 @@ const KEY = 'm4wd.autosave';
 const ID_KEY = 'm4wd.trackId';
 let autosaveTimer = null;
 let syncTimer = null;
-let syncGen = 0;   /* a newer edit's sync abandons older retry chains */
+let syncGen = 0;
+
+/* globalThis.setTimeout explicitly: ESM resolves bare timer builtins at
+ * link time, which node:test mock.timers cannot intercept — the global
+ * property lookup keeps the timers mockable in tests (same runtime). */
+const later = (fn, ms) => globalThis.setTimeout(fn, ms);
+const cancelLater = (id) => globalThis.clearTimeout(id);   /* a newer edit's sync abandons older retry chains */
 
 /* Retry ONLY on network failure / 5xx / 429 — permanent 4xx (static-only
  * server, validation, size caps) can never succeed and would just
- * multiply pointless PUTs. A superseded generation stops retrying so a
- * slow old chain can never overwrite a newer edit's snapshot. */
+ * multiply pointless PUTs. A superseded generation issues no further
+ * requests at all. */
 const RETRYABLE = (status) => status === 429 || status >= 500;
 
 function syncToServer(id, snapshot) {
   const gen = ++syncGen;
   const put = (attempt) => {
-    if (gen !== syncGen) return;   /* superseded: no further fetches, period */
-    return fetch(`/api/tracks/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Untitled', data: snapshot }),
-  }).then((r) => {
-    if (gen === syncGen && !r.ok && RETRYABLE(r.status) && attempt < 3)
-      setTimeout(() => put(attempt + 1), 2000 * (attempt + 1));
-  }).catch(() => {
-    if (gen === syncGen && attempt < 3)
-      setTimeout(() => put(attempt + 1), 2000 * (attempt + 1));
-  });
+    /* superseded: no further requests are issued (an in-flight PUT cannot
+     * be cancelled — the exposure window is one request duration) */
+    if (gen !== syncGen) return;
+    fetch(`/api/tracks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Untitled', data: snapshot }),
+    }).then((r) => {
+      if (gen === syncGen && !r.ok && RETRYABLE(r.status) && attempt < 3)
+        later(() => put(attempt + 1), 2000 * (attempt + 1));
+    }).catch(() => {
+      if (gen === syncGen && attempt < 3)
+        later(() => put(attempt + 1), 2000 * (attempt + 1));
+    });
   };
   put(0);
 }
@@ -48,8 +56,8 @@ function trackId() {
 }
 
 export function autosave(state) {
-  clearTimeout(autosaveTimer);
-  autosaveTimer = setTimeout(() => {
+  cancelLater(autosaveTimer);
+  autosaveTimer = later(() => {
     let snapshot = null;
     try {
       snapshot = {
@@ -59,8 +67,8 @@ export function autosave(state) {
     } catch (_) { /* private mode etc. */ }
     /* best-effort server mirror, debounced independently */
     if (snapshot) {
-      clearTimeout(syncTimer);
-      syncTimer = setTimeout(() => syncToServer(trackId(), snapshot), 1500);
+      cancelLater(syncTimer);
+      syncTimer = later(() => syncToServer(trackId(), snapshot), 1500);
     }
   }, 350);
 }

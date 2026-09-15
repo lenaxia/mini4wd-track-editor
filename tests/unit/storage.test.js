@@ -73,61 +73,84 @@ test('restore tolerates malformed saved data', () => {
   assert.deepEqual(state.sprites, []);
 });
 
-/* ---------- server mirror: retry semantics (fake timers) ---------- */
+/* ---------- server mirror: retry semantics (mock timers) ---------- */
+import { mock } from 'node:test';
 
-const realSetTimeout = globalThis.setTimeout;
 function deferredFetch(handler) {
   const calls = [];
   globalThis.fetch = (...a) => { calls.push(a); return handler(a, calls.length); };
   return calls;
 }
-const flush = (ms) => new Promise((r) => realSetTimeout(r, ms));
+/* advance in 50ms steps with microtask flushes: a timer scheduled DURING a
+ * tick does not fire until the next tick call, and the debounce chain
+ * schedules nested timers */
+const fire = async (ms) => {
+  for (let done = 0; done < ms; done += 50) {
+    mock.timers.tick(Math.min(50, ms - done));
+    await Promise.resolve(); await Promise.resolve();
+  }
+};
 
 test('mirror: permanent 4xx is never retried (static-only server = one PUT)', async () => {
-  const calls = deferredFetch(() => Promise.resolve({ ok: false, status: 404 }));
-  autosave(makeState());
-  await flush(350 + 1500 + 100);          /* debounce chain + slack */
-  await flush(14000);                     /* would cover all retries if any */
-  assert.equal(calls.length, 1);
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    const calls = deferredFetch(() => Promise.resolve({ ok: false, status: 404 }));
+    autosave(makeState());
+    await fire(350 + 1500);
+    assert.equal(calls.length, 1);
+    mock.timers.tick(30000);           /* would cover every retry if any */
+    assert.equal(calls.length, 1);
+  } finally { mock.timers.reset(); }
 });
 
 test('mirror: network failure retries with backoff, then gives up at 4 attempts', async () => {
-  const calls = deferredFetch(() => Promise.reject(new Error('offline')));
-  autosave(makeState());
-  await flush(350 + 1500 + 100);
-  assert.equal(calls.length, 1);          /* attempt 0 fired; retries pending */
-  await flush(2000 + 50);                 /* +2s backoff -> attempt 1 */
-  assert.equal(calls.length, 2);
-  await flush(4000 + 6000 + 100);         /* attempts 2 and 3 */
-  assert.equal(calls.length, 4);
-  await flush(20000);
-  assert.equal(calls.length, 4);          /* gave up: no 5th attempt */
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    const calls = deferredFetch(() => Promise.reject(new Error('offline')));
+    autosave(makeState());
+    await fire(350 + 1500);
+    assert.equal(calls.length, 1);
+    await fire(2000);
+    assert.equal(calls.length, 2);
+    await fire(4000);
+    assert.equal(calls.length, 3);
+    await fire(6000);
+    assert.equal(calls.length, 4);
+    mock.timers.tick(30000);
+    assert.equal(calls.length, 4);     /* gave up: no 5th attempt */
+  } finally { mock.timers.reset(); }
 });
 
 test('mirror: 5xx retries, 2xx stops, and a newer edit abandons an old chain', async () => {
-  let mode = 500;
-  const calls = deferredFetch(() => Promise.resolve({ ok: mode < 400, status: mode }));
-  autosave(makeState());
-  await flush(350 + 1500 + 100);
-  assert.equal(calls.length, 1);          /* chain A attempt 0 (500) */
-  autosave(makeState());
-  await flush(350 + 1500 + 100);
-  assert.equal(calls.length, 2);          /* chain B attempt 0 (500) */
-  mode = 200;
-  await flush(2000 + 100);                /* chain B retry lands 200 -> stops */
-  assert.equal(calls.length, 3);
-  await flush(10000);                     /* chain A's pending retry fires but
-                                             is generation-stale: no fetch */
-  assert.equal(calls.length, 3);
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    let mode = 500;
+    const calls = deferredFetch(() => Promise.resolve({ ok: mode < 400, status: mode }));
+    autosave(makeState());
+    await fire(350 + 1500);
+    assert.equal(calls.length, 1);     /* chain A attempt 0 (500) */
+    autosave(makeState());             /* chain B supersedes A mid-backoff */
+    await fire(350 + 1500);
+    assert.equal(calls.length, 2);     /* chain B attempt 0 (500) */
+    mode = 200;
+    await fire(2000);
+    assert.equal(calls.length, 3);     /* chain B retry lands 200 -> stops */
+    mock.timers.tick(30000);           /* chain A's pending retry is stale:
+                                         guard at fetch time -> no call */
+    assert.equal(calls.length, 3);
+  } finally { mock.timers.reset(); }
 });
 
 test('mirror: body carries the snapshot under the stable track id', async () => {
-  const calls = deferredFetch(() => Promise.resolve({ ok: true, status: 200 }));
-  autosave(makeState());
-  await flush(350 + 1500 + 100);
-  const [url, init] = calls[0];
-  assert.match(url, /^\/api\/tracks\/[0-9a-f-]{6,}$/);
-  const body = JSON.parse(init.body);
-  assert.equal(body.name, 'Untitled');
-  assert.ok(body.data.track.includes('Str2;'));
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    const calls = deferredFetch(() => Promise.resolve({ ok: true, status: 200 }));
+    autosave(makeState());
+    await fire(350 + 1500);
+    const [url, init] = calls[0];
+    assert.match(url, /^\/api\/tracks\/[0-9a-f-]{6,}$/);
+    const body = JSON.parse(init.body);
+    assert.equal(body.name, 'Untitled');
+    assert.ok(body.data.track.includes('Str2;'));
+  } finally { mock.timers.reset(); }
 });
