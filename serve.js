@@ -1,6 +1,6 @@
 /* Tiny zero-dependency dev server — serves the editor with cache-aware
  * headers:
- *   - ?v= URLs  -> immutable, 1 year (content-addressed by the buster)
+ *   - ?v= / ?h= URLs -> immutable, 1 year (buster- or content-addressed)
  *   - /assets/* -> 5 min + ETag revalidation (unversioned sprite fetches)
  *   - html/src  -> no-cache + ETag (always revalidate; 304s keep it cheap)
  * The cache busters (index.html main.js ?v=N, assets.js sprites ?v=N)
@@ -29,7 +29,7 @@ http.createServer((req, res) => {
   req.on('error', onError);
   const log = () => console.log(`${new Date().toISOString()} ${req.method} ${req.url} -> ${res.statusCode !== 200 && res.statusCode !== 304 ? res.statusCode : 'ok'} [${req.headers['user-agent'] ? req.headers['user-agent'].slice(0, 40) : '?'}]`);
   const url = decodeURIComponent(req.url.split('?')[0]);
-  const versioned = /[?&]v=[^&]/.test(req.url);
+  const versioned = /[?&][vh]=[^&]/.test(req.url); /* ?v= busters and ?h= content hashes */
   let file = path.normalize(path.join(ROOT, url === '/' ? 'index.html' : url));
   if (!file.startsWith(ROOT)) { res.writeHead(403); res.end('forbidden'); return log(); }
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');

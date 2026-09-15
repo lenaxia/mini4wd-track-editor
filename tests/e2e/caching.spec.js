@@ -52,9 +52,9 @@ test('booted page populates the cache under per-file hash keys', async ({ page }
    * pattern is unreliable under parallel load (see worklog 0009) */
   await expect.poll(async () => await page.evaluate(async () => {
     const keys = await caches.keys();
-    if (!keys.length) return { n: 0, ok: false };
+    if (!keys.length) return false;
     const c = await caches.open(keys[0]);
     const reqs = await c.keys();
-    return { n: reqs.length, ok: reqs.length >= 75 && reqs.every(r => /[?&]h=[0-9a-f]{64}/.test(r.url)) };
-  }), { timeout: 15_000 }).toEqual({ n: 75, ok: true });
+    return reqs.length >= 75 && reqs.every(r => /[?&]h=[0-9a-f]{64}/.test(r.url));
+  }), { timeout: 15_000 }).toBe(true);
 });

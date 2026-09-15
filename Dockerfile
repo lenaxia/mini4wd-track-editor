@@ -4,7 +4,7 @@ ENV PORT=3000
 
 # The editor is a zero-dependency static app — no npm install required.
 COPY package.json ./
-COPY index.html serve.js ./
+COPY index.html style.css serve.js ./
 COPY src/ src/
 COPY assets/ assets/
 COPY tools/gen-manifest.js tools/gen-manifest.js

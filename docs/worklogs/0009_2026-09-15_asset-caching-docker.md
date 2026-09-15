@@ -51,6 +51,6 @@ flagged for the reviewer; the image is a static-file server on :3000.
 
 ## Results
 
-- npm test: 116 pass / 0 fail (5 new cache-helper units)
+- npm test: 117 pass / 0 fail (6 new cache-helper units)
 - e2e: 43 passed, twice consecutively (6 new caching/manifest specs)
 - boot probe: manifest mode ~514 ms to all-sprites vs ~553 ms fallback
