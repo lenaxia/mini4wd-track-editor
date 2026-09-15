@@ -1,0 +1,58 @@
+import { test, expect } from '@playwright/test';
+
+/* Cache policy contract (serve.js):
+ * - ?v= URLs are immutable for a year (safe: busters change the URL)
+ * - unversioned /assets/* get a short cache
+ * - html and src modules always revalidate (ETag makes it a 304) */
+
+test('versioned assets are immutable for a year', async ({ request }) => {
+  const r = await request.get('/assets/Str1.0.svg?v=27');
+  expect(r.status()).toBe(200);
+  expect(r.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
+});
+
+test('unversioned assets get the short cache', async ({ request }) => {
+  const r = await request.get('/assets/Str1.0.svg');
+  expect(r.status()).toBe(200);
+  expect(r.headers()['cache-control']).toBe('public, max-age=300');
+});
+
+test('html and src modules always revalidate', async ({ request }) => {
+  for (const p of ['/', '/src/main.js', '/style.css']) {
+    const r = await request.get(p);
+    expect(r.status()).toBe(200);
+    expect(r.headers()['cache-control']).toBe('no-cache');
+    expect(r.headers()['etag']).toBeTruthy();
+  }
+});
+
+test('ETag revalidation returns 304 with empty body', async ({ request }) => {
+  const r1 = await request.get('/src/main.js');
+  const etag = r1.headers()['etag'];
+  const r2 = await request.get('/src/main.js', { headers: { 'if-none-match': etag } });
+  expect(r2.status()).toBe(304);
+  expect(await r2.text()).toBe('');
+});
+
+/* Manifest mode (production cache): the manifest is the first asset down,
+ * always fresh, and the client caches sprites under per-file ?h= keys. */
+test('manifest serves no-cache with a hash for every sprite on disk', async ({ request }) => {
+  const r = await request.get('/assets/manifest.json');
+  expect(r.status()).toBe(200);
+  expect(r.headers()['cache-control']).toBe('no-cache');
+  const manifest = await r.json();
+  const sprites = Object.keys(manifest).filter(k => k.endsWith('.svg'));
+  expect(sprites.length).toBeGreaterThanOrEqual(75);
+  for (const v of Object.values(manifest)) expect(v).toMatch(/^[0-9a-f]{64}$/);
+});
+
+test('booted page populates the cache under per-file hash keys', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(async () => {
+    const keys = await caches.keys();
+    if (!keys.length) return false;
+    const c = await caches.open(keys[0]);
+    const reqs = await c.keys();
+    return reqs.length >= 75 && reqs.every(r => /[?&]h=[0-9a-f]{64}/.test(r.url));
+  }, null, { timeout: 15_000 });
+});
