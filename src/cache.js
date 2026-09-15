@@ -39,18 +39,34 @@ export function staleKeys(keys, manifest) {
 let cache = null;
 let manifest = null;
 
-/* Resolve the boot cache. Safe to call repeatedly; failures degrade to
- * fallback mode (cache stays null). */
+/* per-operation bound for every CacheStorage interaction: corrupted
+ * entries/caches can HANG reads (interrupted-write failure mode) — no
+ * read may stall the loader */
+const CACHE_BOUND_MS = 1200;
+
+/* Resolve the boot cache. Safe to call repeatedly; failures — including
+ * a HANG anywhere (a corrupted cache can hang keys()/delete() reads,
+ * which would stall every sprite behind initCache) — degrade to
+ * fallback mode (cache stays null, sprites load from plain URLs). */
 export async function initCache() {
   try {
     if (typeof caches === 'undefined') return false;
     const res = await fetch('assets/manifest.json', { cache: 'no-store' });
     if (!res.ok) return false;
     manifest = await res.json();
-    cache = await caches.open(CACHE_NAME);
-    const keys = (await cache.keys()).map(r => r.url);
-    for (const url of staleKeys(keys, manifest)) await cache.delete(url);
-    return true;
+    /* the whole cache interaction is bounded: a hung open/keys/delete
+     * must never block preload — race it and fall back to no-cache */
+    const ok = await Promise.race([
+      (async () => {
+        cache = await caches.open(CACHE_NAME);
+        const keys = (await cache.keys()).map(r => r.url);
+        for (const url of staleKeys(keys, manifest)) await cache.delete(url);
+        return true;
+      })(),
+      new Promise((resolve) => setTimeout(() => resolve(false), CACHE_BOUND_MS)),
+    ]);
+    if (!ok) { cache = null; }
+    return ok;
   } catch {
     cache = null; manifest = null;
     return false;
@@ -63,8 +79,6 @@ export async function initCache() {
  * stuck as procedural fallbacks) cannot stall the loader; the race
  * evicts it and the image falls back to the plain network URL. Verified
  * hits return object URLs; verified fetches are banked. */
-const CACHE_BOUND_MS = 1200;
-
 export async function cachedSpriteUrl(file, buster) {
   const url = spriteUrl(file, manifest, buster);
   try {
