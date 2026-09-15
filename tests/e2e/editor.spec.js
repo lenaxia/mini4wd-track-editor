@@ -522,14 +522,15 @@ test('Rudoc mode: place and chain the 1L corner at its real 45 deg geometry', as
   expect((await st(page)).tool).toBe('R1C45I150');
   await page.keyboard.press('z'); /* arm 315 — orientation has real work */
   /* corner v1 local (7.6,3.15); armed 315 rotates it to (7.6,-3.15);
-   * first's v2 = origin + (12.5,-6). Drag the placement from 4cm short
-   * to the joint — the per-frame snap locks the weld. (Probe-verified:
-   * held AND released positions weld to a=179.985, vertex exact.) */
+   * first's v2 = origin + (12.5,0) (verts ride the road centerline).
+   * Drag the placement from 4cm short to the joint — the per-frame snap
+   * locks the weld. (Probe-verified: held AND released positions weld
+   * to a=179.985, vertex exact.) */
   const { view } = await st(page);
   const bb = await canvasBox(page);
   const w2s = (wx, wy) => ({ x: bb.x + view.x + wx * view.scale, y: bb.y + view.y + wy * view.scale });
-  const start = w2s(first.x + 12.5 - 7.6 - 4, first.y - 6 + 3.15);
-  const end = w2s(first.x + 12.5 - 7.6, first.y - 6 + 3.15);
+  const start = w2s(first.x + 12.5 - 7.6 - 4, first.y + 3.15);
+  const end = w2s(first.x + 12.5 - 7.6, first.y + 3.15);
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 6 });
@@ -538,7 +539,7 @@ test('Rudoc mode: place and chain the 1L corner at its real 45 deg geometry', as
   expect(s.sprites[1].name).toBe('R1C45I150');
   expect(Math.abs(s.sprites[1].a - 180)).toBeLessThan(0.5); /* welded orientation */
   const c = s.sprites[1];
-  const j = { x: first.x + 12.5, y: first.y - 6 };
+  const j = { x: first.x + 12.5, y: first.y };
   const d = Math.min(
     Math.hypot(c.x + 7.6 - j.x, c.y + 3.15 - j.y),
     Math.hypot(c.x - 7.6 - j.x, c.y - 3.15 - j.y));

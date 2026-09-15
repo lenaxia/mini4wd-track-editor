@@ -53,7 +53,9 @@ marking a bridge's departure/landing draw above the band.
   banks per family `BANK_COLORS`. Never invent swatches.
 - **All line-work is one color** (`OUTLINE`): walls, lane boundaries,
   bridge edges, delineators, end caps. Stroke widths 1.1–1.2.
-- Lane-surface shading (gradients) uses `BED → BANK_GRAY` only.
+- Lane-surface shading (gradients) uses `BED → ramp gray #c8c4c0` only
+  (the calibrated ramp-face stop in every ramp sprite — distinct from
+  `BANK_GRAY`, the Bri2 jump-face midtone).
 - Gradients indicate rise: approach lanes ramp bed→gray into the
   climb, exit lanes settle gray→bed at the piece edge; bridge bands
   and the bed stay solid. (Bri2's ramp lane: measured stops 2–20 cm

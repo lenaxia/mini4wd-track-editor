@@ -58,14 +58,22 @@ test('catalog fields are sane for every piece', () => {
      * determinism still holds, only the both-vertices window widens
      * (hysteresis deferred: docs/design/orient-elevation.md §9). */
     if (def.kind === 'straight' || def.kind === 'slope') {
-      /* travel axis (x) must center — sprites render origin-centered. The
-       * cross axis may be offset by real asymmetry (rucdoc connector tabs
-       * shift the bbox; R1S250's trackline sits at y = -6). */
+      /* travel axis (x) must center — sprites render origin-centered — and
+       * the cross axis sits on the road centerline (y=0) for every axis
+       * kind: rudoc verts were normalized to the centerline so seams
+       * align with the corners (whose verts ride the R circle). */
       const midX = (def.verts[0][0] + def.verts[1][0]) / 2;
       assert.ok(Math.abs(midX) < 1e-9, `${name}: vert x-midpoint ${midX} must be 0`);
+      const midY = (def.verts[0][1] + def.verts[1][1]) / 2;
+      assert.ok(Math.abs(midY) < 1e-9, `${name}: vert y-midpoint ${midY} must be 0 (road centerline)`);
     }
     const floor = TAMIYA.has(name) ? 2 : 1.5;
-    const meas = !TAMIYA.has(name) && !PIECES[name].procedural; /* measured real geometry */
+    /* rip/drawing-measured families carry real (sometimes tight) geometry:
+     * the Tamiya drawers plus the #8 measured rucdoc entries (the ones
+     * with their own sprite files). The analytically derived rucdoc
+     * entries (published dims) keep the separation floor enforced. */
+    const meas = !TAMIYA.has(name) &&
+                 !(PALETTE.rucdoc.includes(name) && !PIECES[name].sprite);
     assert.ok(meas || minSep > floor * SNAP_RADIUS, `${name}: vertex separation ${minSep} < ${floor}x snap radius`);
     if (def.kind === 'corner' || def.kind === 'hairpin') {
       assert.ok(def.R > 0 && def.band > 0, name);
