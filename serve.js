@@ -29,7 +29,12 @@ http.createServer((req, res) => {
   req.on('error', onError);
   const log = () => console.log(`${new Date().toISOString()} ${req.method} ${req.url} -> ${res.statusCode !== 200 && res.statusCode !== 304 ? res.statusCode : 'ok'} [${req.headers['user-agent'] ? req.headers['user-agent'].slice(0, 40) : '?'}]`);
   const url = decodeURIComponent(req.url.split('?')[0]);
-  const versioned = /[?&][vh]=[^&]/.test(req.url); /* ?v= busters and ?h= content hashes */
+  /* immutable only where the query is content-addressed (?h= manifests)
+   * or rule-5-governed (?v= under assets//src/); root files like
+   * style.css?v=N are hand-bumped — they keep no-cache + ETag so a
+   * forgotten bump can never pin stale content for a year */
+  const versioned = /[?&][vh]=[^&]/.test(req.url) &&
+                    (url.startsWith('/assets/') || url.startsWith('/src/'));
   let file = path.normalize(path.join(ROOT, url === '/' ? 'index.html' : url));
   if (!file.startsWith(ROOT)) { res.writeHead(403); res.end('forbidden'); return log(); }
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');

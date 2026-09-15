@@ -24,6 +24,10 @@ test('html and src modules always revalidate', async ({ request }) => {
     expect(r.headers()['cache-control']).toBe('no-cache');
     expect(r.headers()['etag']).toBeTruthy();
   }
+  /* hand-bumped ?v= on root files must NOT earn the immutable pin —
+   * only content-addressed (?h=) and rule-5-governed paths do */
+  const r = await request.get('/style.css?v=8');
+  expect(r.headers()['cache-control']).toBe('no-cache');
 });
 
 test('ETag revalidation returns 304 with empty body', async ({ request }) => {
