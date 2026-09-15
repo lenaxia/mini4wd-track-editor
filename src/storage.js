@@ -10,13 +10,7 @@ const KEY = 'm4wd.autosave';
 const ID_KEY = 'm4wd.trackId';
 let autosaveTimer = null;
 let syncTimer = null;
-let syncGen = 0;
-
-/* globalThis.setTimeout explicitly: ESM resolves bare timer builtins at
- * link time, which node:test mock.timers cannot intercept — the global
- * property lookup keeps the timers mockable in tests (same runtime). */
-const later = (fn, ms) => globalThis.setTimeout(fn, ms);
-const cancelLater = (id) => globalThis.clearTimeout(id);   /* a newer edit's sync abandons older retry chains */
+let syncGen = 0;   /* a newer edit's sync abandons older retry chains */
 
 /* Retry ONLY on network failure / 5xx / 429 — permanent 4xx (static-only
  * server, validation, size caps) can never succeed and would just
@@ -36,10 +30,10 @@ function syncToServer(id, snapshot) {
       body: JSON.stringify({ name: 'Untitled', data: snapshot }),
     }).then((r) => {
       if (gen === syncGen && !r.ok && RETRYABLE(r.status) && attempt < 3)
-        later(() => put(attempt + 1), 2000 * (attempt + 1));
+        setTimeout(() => put(attempt + 1), 2000 * (attempt + 1));
     }).catch(() => {
       if (gen === syncGen && attempt < 3)
-        later(() => put(attempt + 1), 2000 * (attempt + 1));
+        setTimeout(() => put(attempt + 1), 2000 * (attempt + 1));
     });
   };
   put(0);
@@ -56,8 +50,8 @@ function trackId() {
 }
 
 export function autosave(state) {
-  cancelLater(autosaveTimer);
-  autosaveTimer = later(() => {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
     let snapshot = null;
     try {
       snapshot = {
@@ -67,8 +61,8 @@ export function autosave(state) {
     } catch (_) { /* private mode etc. */ }
     /* best-effort server mirror, debounced independently */
     if (snapshot) {
-      cancelLater(syncTimer);
-      syncTimer = later(() => syncToServer(trackId(), snapshot), 1500);
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => syncToServer(trackId(), snapshot), 1500);
     }
   }, 350);
 }

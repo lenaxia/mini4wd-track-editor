@@ -1,4 +1,4 @@
-import { test, beforeEach } from 'node:test';
+import { test, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { autosave, restore } from '../../src/storage.js';
 
@@ -74,7 +74,6 @@ test('restore tolerates malformed saved data', () => {
 });
 
 /* ---------- server mirror: retry semantics (mock timers) ---------- */
-import { mock } from 'node:test';
 
 function deferredFetch(handler) {
   const calls = [];
