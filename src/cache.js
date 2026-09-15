@@ -57,38 +57,50 @@ export async function initCache() {
   }
 }
 
-/* Load a sprite as an image-ready URL. Cache hit -> object URL from the
- * stored bytes, VERIFIED against the manifest hash — a corrupt/truncated
- * entry (interrupted put, engine quirk) is deleted and re-fetched instead
- * of permanently shadowing the asset. Miss -> fetch, verify, bank into
- * the CacheStorage, and return an object URL; on any failure fall back to
- * the plain network URL (immutable, HTTP cache serves repeats). */
+/* Load a sprite as an image-ready URL. The cache path is fully bounded:
+ * a corrupt entry whose body READ HANGS (an interrupted-write failure
+ * mode — observed live: manifest fetched, zero sprite requests, sprites
+ * stuck as procedural fallbacks) cannot stall the loader; the race
+ * evicts it and the image falls back to the plain network URL. Verified
+ * hits return object URLs; verified fetches are banked. */
+const CACHE_BOUND_MS = 1200;
+
 export async function cachedSpriteUrl(file, buster) {
   const url = spriteUrl(file, manifest, buster);
   try {
     if (cache && manifest && manifest[file]) {
       const want = manifest[file];
-      const hit = await cache.match(url);
-      if (hit && hit.ok) {
-        const blob = await hit.blob();
-        if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want))
-          return URL.createObjectURL(blob);
-        /* corrupt: evict (awaited — a late delete must not evict the fresh entry), refetch */
-        await cache.delete(url).catch(() => {});
-      }
-      const res = await fetch(url);
-      if (res.ok) {
-        const blob = await res.blob();
-        if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
-          cache.put(url, new Response(blob, {
-            headers: { 'Content-Type': res.headers.get('Content-Type') || 'image/svg+xml' },
-          })).catch(() => {});
-          return URL.createObjectURL(blob);
-        }
-      }
+      const loaded = await Promise.race([
+        loadVerified(url, want),
+        new Promise((resolve) => setTimeout(() => resolve(null), CACHE_BOUND_MS)),
+      ]);
+      if (loaded) return loaded;
+      /* hung or unverifiable: evict so the next boot starts clean */
+      cache.delete(url).catch(() => {});
     }
   } catch { /* fall through to network */ }
   return url;
+}
+
+async function loadVerified(url, want) {
+  const hit = await cache.match(url);
+  if (hit && hit.ok) {
+    const blob = await hit.blob();
+    if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want))
+      return URL.createObjectURL(blob);
+    await cache.delete(url).catch(() => {});   /* corrupt: evict (awaited — a late delete must not evict the fresh entry) + refetch */
+  }
+  const res = await fetch(url);
+  if (res.ok) {
+    const blob = await res.blob();
+    if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
+      cache.put(url, new Response(blob, {
+        headers: { 'Content-Type': res.headers.get('Content-Type') || 'image/svg+xml' },
+      })).catch(() => {});
+      return URL.createObjectURL(blob);
+    }
+  }
+  return null;
 }
 
 /* sha-256 of a blob, hex — for hit verification (self-healing cache).
