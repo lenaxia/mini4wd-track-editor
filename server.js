@@ -11,6 +11,8 @@
 'use strict';
 import http from 'node:http';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { createStaticHandler } from './lib/static.js';
 import { openStore } from './lib/store/index.js';
 import { facets, MAX_TRACK_BYTES_EXPORTED } from './lib/store/facets.js';
@@ -99,6 +101,31 @@ async function main() {
     }
     try {
       if (u === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, driver: store.driver });
+
+      /* Sprites over json: the preview proxy empties svg-typed fetch()
+       * responses and injects bytes into svg image responses (HAR evidence,
+       * worklog 0011) while json passes untouched — the manifest proves it
+       * every boot. Same bytes, hash-addressed via ?h=. */
+      {
+        const m = /^\/api\/sprites\/([A-Za-z0-9._-]+\.svg)$/.exec(u);
+        if (m && req.method === 'GET') {
+          const name = m[1];
+          if (name.includes('..')) return json(res, 403, { error: 'forbidden' });
+          const file = path.join(import.meta.dirname, 'assets', name);
+          let body;
+          try { body = await fs.promises.readFile(file, 'utf8'); }
+          catch { return json(res, 404, { error: 'not found' }); }
+          /* genuine JSON envelope — the transport must survive proxies
+           * that parse (not just type-match) json responses */
+          const hashAddr = /[?&]h=[0-9a-f]{8,64}/.test(req.url);
+          res.writeHead(200, {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': hashAddr ? 'public, max-age=31536000, immutable' : 'no-cache',
+            'Access-Control-Allow-Origin': '*',
+          });
+          return res.end(JSON.stringify({ svg: body }));
+        }
+      }
 
       const m = /^\/api\/tracks\/([^/]+)$/.exec(u);
       if (u === '/api/tracks' && req.method === 'GET') {

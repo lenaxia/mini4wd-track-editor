@@ -109,58 +109,71 @@ export async function cachedSpriteUrl(file, buster) {
       const want = manifest[file];
       const race = { live: true };   /* lets the losing path revoke its URL */
       let timer = null;
-      const hit = await Promise.race([
-        verifiedHit(url, want, race),
+      const got = await Promise.race([
+        verifiedLoad(file, url, want, race),
         new Promise((resolve) => { timer = setTimeout(() => { race.live = false; resolve(null); }, CACHE_BOUND_MS); }),
       ]);
       clearTimeout(timer);
-      /* verified bytes, or null for corrupt-but-readable / clean miss —
-       * either way the img loads the plain URL and banking runs detached */
-      if (race.live) { if (!hit) bank(url, want); return hit ?? url; }
-      if (hit) URL.revokeObjectURL(hit);  /* lost the race: don't leak */
+      if (race.live) return got ?? url;   /* object URL, or fallback to the plain URL */
+      if (got) URL.revokeObjectURL(got);  /* lost the race: don't leak */
       cache.delete(url).catch(() => {});  /* hung: best-effort eviction */
-      return url;
     }
   } catch { /* fall through to network */ }
   return url;
 }
 
-/* Verified cache hit -> object URL. NEVER falls through to a foreground
- * fetch: some proxies (observed: the safespaces preview) answer fetch()
- * with EMPTY 200 bodies while serving <img> loads correctly — a
- * foreground fetch-verify would fail forever and cost a wasted request
- * per sprite per boot (HAR evidence in worklog 0011). The image element
- * loads the plain URL natively instead; banking runs in the background
- * where fetch works. */
-async function verifiedHit(url, want, race) {
+/* Verified load, hit-first. Misses fetch the json-typed sprite endpoint
+ * (/api/sprites): the preview proxy empties svg-typed fetch responses and
+ * injects bytes into svg image responses, while json passes clean (HAR
+ * evidence — the manifest rides the same path every boot). Verified bytes
+ * render as object URLs and bank into the CacheStorage under the /assets
+ * key. Any failure returns null and the caller falls back to the plain
+ * /assets URL (image-element path). */
+async function verifiedLoad(file, url, want, race) {
+  const objUrlOrNull = (blob) => {
+    const u = URL.createObjectURL(blob);
+    if (!race.live) { URL.revokeObjectURL(u); return null; }
+    return u;
+  };
   const hit = await cache.match(url);
-  if (!hit || !hit.ok) return null;
-  const blob = await hit.blob();
-  if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
-    const objUrl = URL.createObjectURL(blob);
-    if (!race.live) { URL.revokeObjectURL(objUrl); return null; }
-    return objUrl;
+  if (hit && hit.ok) {
+    const blob = await hit.blob();
+    if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want))
+      return objUrlOrNull(blob);
+    await cache.delete(url).catch(() => {});   /* corrupt/empty: evict, reload below */
   }
-  await cache.delete(url).catch(() => {});   /* corrupt/empty: evict + bank fresh below */
+  let text = null;
+  try {
+    const res = await fetch(`/api/sprites/${file}?h=${want}`);
+    if (res.ok) {
+      const j = await res.json();          /* {svg: "<svg ..."} envelope */
+      if (typeof j?.svg === 'string') text = j.svg;
+    }
+  } catch { /* endpoint absent or non-json — fall through */ }
+  if (text !== null && text.length && (!crypto?.subtle || await blobSha(new Blob([text])) === want)) {
+    cache.put(url, new Response(text, { headers: { 'Content-Type': 'image/svg+xml' } })).catch(() => {});
+    return objUrlOrNull(new Blob([text], { type: 'image/svg+xml' }));
+  }
+  /* endpoint absent (static-only serve.js, subpath mounts) or unverifiable:
+   * render via the plain img URL and bank from it in the background — where
+   * fetch works this restores CacheStorage population; where the proxy
+   * breaks fetch it is a verified no-op */
   bank(url, want);
   return null;
 }
 
-/* Background banking: fetch + verify + store. Detached by design — where
- * fetch is broken (proxy) it silently no-ops and boots use the HTTP
- * cache; where it works, the next boot serves from CacheStorage. */
+/* Detached bank from the plain /assets URL (the pre-endpoint path). */
 function bank(url, want) {
   if (banking.has(url)) return;
   banking.add(url);
   (async () => {
     try {
       const res = await fetch(url);
-      if (!res.ok) return;
-      const blob = await res.blob();
-      if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
-        await cache.put(url, new Response(blob, {
-          headers: { 'Content-Type': res.headers.get('Content-Type') || 'image/svg+xml' },
-        }));
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
+          await cache.put(url, new Response(blob, { headers: { 'Content-Type': 'image/svg+xml' } }));
+        }
       }
     } catch { /* banking is opportunistic */ }
     finally { banking.delete(url); }

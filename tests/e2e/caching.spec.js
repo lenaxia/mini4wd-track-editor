@@ -127,24 +127,40 @@ test('hard refresh clears the asset cache; soft refresh keeps it', async ({ page
   }), { timeout: 15_000 }).toBe(true);
 });
 
-/* The motivating proxy bug as a regression pin: fetch() answered with a
- * delayed EMPTY 200 while <img> loads serve real bytes. Sprite URLs must
- * be assigned from the image path without waiting on any fetch — on the
- * pre-fix code the foreground fetch-verify held the URL until the race
- * bound (~2.5s), missing this window. */
-test('sprites never wait on fetch(): empty-200 fetches load via <img>', async ({ page }) => {
-  await page.route('**/assets/*.svg?h=*', async (route) => {
-    if (route.request().resourceType() === 'fetch') {
-      await new Promise((r) => setTimeout(r, 6000));   // beyond the assert window
-      await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '' });
-    } else {
-      await route.continue();
-    }
+/* The motivating proxy bugs as a regression pin, in the NEW threat model:
+ * the preview proxy (a) empties svg-typed fetch() responses and (b) injects
+ * ~56 bytes into svg image responses — corrupting every <img> load. Sprites
+ * must render anyway: loads go through the json-typed /api/sprites endpoint
+ * (proven proxy-clean), verified by hash, rendered as object URLs.
+ *
+ * NOTE: page.route disables the browser cache, which makes the DOCUMENT
+ * request carry cache-control: no-cache — the server tags it m4wd_hard=1
+ * and the app (correctly) wipes+boots network-only. So the spec drives the
+ * transport directly post-boot instead of fighting the wipe: clear the
+ * cookie, init the cache, load through cachedSpriteUrl, and require a
+ * rendered blob — while every /assets svg response is corrupted. */
+test('sprite transport survives corrupted /assets responses (proxy pin)', async ({ page }) => {
+  await page.route('**/assets/*.svg*', (route) => {
+    const fetchy = route.request().resourceType() === 'fetch';
+    return route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: fetchy ? '' : '<svg xmlns="http://www.w3.org/2000/svg"></svg>injected-garbage-by-proxy',
+    });
   });
   await page.goto('/');
   await expect.poll(async () => await page.evaluate(async () => {
-    const a = await import('/src/assets.js');
-    const img = a.imageFor('Str1', 0);
-    return !!img && !!img.src && img.naturalWidth > 0;
-  }), { timeout: 1500 }).toBe(true);
+    document.cookie = 'm4wd_hard=; Max-Age=0; Path=/';
+    const c = await import('/src/cache.js');
+    if (!await c.initCache()) return { ok: false, why: 'init' };
+    const url = await c.cachedSpriteUrl('Str1.0.svg', 27);
+    if (!url.startsWith('blob:')) return { ok: false, why: url.slice(0, 40) };
+    /* the returned object URL must decode to the real sprite */
+    const img = await new Promise((res) => {
+      const i = new Image();
+      i.onload = () => res(i); i.onerror = () => res(null);
+      i.src = url;
+    });
+    return { ok: !!img && img.naturalWidth > 0 };
+  }), { timeout: 15_000 }).toEqual({ ok: true });
 });
