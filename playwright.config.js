@@ -11,8 +11,6 @@ export default defineConfig({
   timeout: 30_000,
   retries: 0,
   reporter: 'list',
-  /* PW_PORT lets parallel checkouts (git worktrees) test without fighting
-   * over :3000 — defaults to the shared preview port. */
   use: {
     baseURL: `http://localhost:${process.env.PW_PORT || 3000}`,
   },
