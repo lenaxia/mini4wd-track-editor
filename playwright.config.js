@@ -15,7 +15,9 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
   },
   webServer: {
-    command: 'node serve.js',
+    /* generate the asset manifest first so e2e runs the production
+     * cache mode (per-file ?h= URLs), not just the buster fallback */
+    command: 'node tools/gen-manifest.js && node serve.js',
     url: 'http://localhost:3000',
     reuseExistingServer: true,
   },
