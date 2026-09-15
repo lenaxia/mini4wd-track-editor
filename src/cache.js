@@ -60,7 +60,7 @@ export async function initCache() {
     if (/(?:^|;\s*)m4wd_hard=1(?:;|$)/.test(document.cookie)) {
       document.cookie = 'm4wd_hard=; Max-Age=0; Path=/';
       let wipe = null;
-      const wiped = await Promise.race([
+      await Promise.race([
         caches.delete(CACHE_NAME).then((v) => { if (wipe !== null) clearTimeout(wipe); return v; }),
         new Promise((resolve) => { wipe = setTimeout(resolve, CACHE_BOUND_MS); }),
       ]);

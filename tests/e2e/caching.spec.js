@@ -146,5 +146,5 @@ test('sprites never wait on fetch(): empty-200 fetches load via <img>', async ({
     const a = await import('/src/assets.js');
     const img = a.imageFor('Str1', 0);
     return !!img && !!img.src && img.naturalWidth > 0;
-  }), { timeout: 2500 }).toBe(true);
+  }), { timeout: 1500 }).toBe(true);
 });
