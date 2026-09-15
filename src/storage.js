@@ -10,6 +10,34 @@ const KEY = 'm4wd.autosave';
 const ID_KEY = 'm4wd.trackId';
 let autosaveTimer = null;
 let syncTimer = null;
+let syncGen = 0;   /* a newer edit's sync abandons older retry chains */
+
+/* Retry ONLY on network failure / 5xx / 429 — permanent 4xx (static-only
+ * server, validation, size caps) can never succeed and would just
+ * multiply pointless PUTs. A superseded generation issues no further
+ * requests at all. */
+const RETRYABLE = (status) => status === 429 || status >= 500;
+
+function syncToServer(id, snapshot) {
+  const gen = ++syncGen;
+  const put = (attempt) => {
+    /* superseded: no further requests are issued (an in-flight PUT cannot
+     * be cancelled — the exposure window is one request duration) */
+    if (gen !== syncGen) return;
+    fetch(`/api/tracks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Untitled', data: snapshot }),
+    }).then((r) => {
+      if (gen === syncGen && !r.ok && RETRYABLE(r.status) && attempt < 3)
+        setTimeout(() => put(attempt + 1), 2000 * (attempt + 1));
+    }).catch(() => {
+      if (gen === syncGen && attempt < 3)
+        setTimeout(() => put(attempt + 1), 2000 * (attempt + 1));
+    });
+  };
+  put(0);
+}
 
 function trackId() {
   let id = null;
@@ -34,14 +62,7 @@ export function autosave(state) {
     /* best-effort server mirror, debounced independently */
     if (snapshot) {
       clearTimeout(syncTimer);
-      const id = trackId();
-      syncTimer = setTimeout(() => {
-        fetch(`/api/tracks/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: 'Untitled', data: snapshot }),
-        }).catch(() => {});
-      }, 1500);
+      syncTimer = setTimeout(() => syncToServer(trackId(), snapshot), 1500);
     }
   }, 350);
 }

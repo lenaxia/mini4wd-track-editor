@@ -52,3 +52,10 @@ test('staleKeys: everything is stale when the manifest failed to load', () => {
   const keys = [`https://host/assets/Str1.0.svg?h=${H}`];
   assert.deepEqual(staleKeys(keys, null), keys);
 });
+
+test('blobSha: known sha-256 vector', async () => {
+  const { blobSha } = await import('../../src/cache.js');
+  const blob = new Blob(['abc']);
+  assert.equal(await blobSha(blob),
+    'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+});
