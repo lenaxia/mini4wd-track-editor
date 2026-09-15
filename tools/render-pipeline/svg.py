@@ -17,7 +17,7 @@ The original PNGs stay in assets/ untouched (provenance); the loader
 prefers these redraws. Derived from the MIT-licensed original editor's
 artwork (see src/main.js header).
 """
-import json, math, os, subprocess, sys
+import json, os, subprocess, sys
 
 import shapes
 _CTX = shapes.Ctx()
@@ -132,7 +132,7 @@ def _decode_png(path):
 
 def _set_overrides(rip, fname, defn):
     """sample the rip and set BED_FILL / LANE_FILLS / BED_DEFS"""
-    global BED_FILL, LANE_FILLS, BED_DEFS
+    global BED_FILL, LANE_FILLS
     BED_FILL, LANE_FILLS = BED, None
     ov = OWNER_OVERRIDES.get(fname[:-4])
     if ov:
@@ -302,7 +302,7 @@ def changer_art(defn):
         f'<linearGradient id="exit" gradientUnits="userSpaceOnUse" x1="42.5" y1="0" x2="81" y2="0">'
         f'<stop offset="0" stop-color="{BANK_GRAY}"/><stop offset="1" stop-color="{BED}"/></linearGradient></defs>'
         f'<path d="M -81 5.75 H -44 V 17.25 H -81 Z" fill="url(#approach)"/>',
-        f'<path d="M 42.5 -17.25 H 81 V -5.75 H 42.5 Z" fill="url(#exit)"/>',
+        '<path d="M 42.5 -17.25 H 81 V -5.75 H 42.5 Z" fill="url(#exit)"/>',
 
         stroke(stepped(-17.25), OUTLINE, 1.2),
         stroke(stepped(-5.75), OUTLINE, 1.2),
