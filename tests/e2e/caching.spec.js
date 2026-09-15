@@ -131,10 +131,15 @@ test('hard refresh clears the asset cache; soft refresh keeps it', async ({ page
  * the preview proxy (a) empties svg-typed fetch() responses and (b) injects
  * ~56 bytes into svg image responses — corrupting every <img> load. Sprites
  * must render anyway: loads go through the json-typed /api/sprites endpoint
- * (proven proxy-clean — the manifest rides it every boot), verified by hash,
- * rendered as object URLs. Corrupt BOTH /assets svg transports here and the
- * sprite must still render. */
-test('sprites render even when every /assets svg response is corrupted', async ({ page }) => {
+ * (proven proxy-clean), verified by hash, rendered as object URLs.
+ *
+ * NOTE: page.route disables the browser cache, which makes the DOCUMENT
+ * request carry cache-control: no-cache — the server tags it m4wd_hard=1
+ * and the app (correctly) wipes+boots network-only. So the spec drives the
+ * transport directly post-boot instead of fighting the wipe: clear the
+ * cookie, init the cache, load through cachedSpriteUrl, and require a
+ * rendered blob — while every /assets svg response is corrupted. */
+test('sprite transport survives corrupted /assets responses (proxy pin)', async ({ page }) => {
   await page.route('**/assets/*.svg*', (route) => {
     const fetchy = route.request().resourceType() === 'fetch';
     return route.fulfill({
@@ -145,8 +150,17 @@ test('sprites render even when every /assets svg response is corrupted', async (
   });
   await page.goto('/');
   await expect.poll(async () => await page.evaluate(async () => {
-    const a = await import('/src/assets.js');
-    const img = a.imageFor('Str1', 0);
-    return !!img && !!img.src && img.naturalWidth > 0;
-  }), { timeout: 15000 }).toBe(true);
+    document.cookie = 'm4wd_hard=; Max-Age=0; Path=/';
+    const c = await import('/src/cache.js');
+    if (!await c.initCache()) return { ok: false, why: 'init' };
+    const url = await c.cachedSpriteUrl('Str1.0.svg', 27);
+    if (!url.startsWith('blob:')) return { ok: false, why: url.slice(0, 40) };
+    /* the returned object URL must decode to the real sprite */
+    const img = await new Promise((res) => {
+      const i = new Image();
+      i.onload = () => res(i); i.onerror = () => res(null);
+      i.src = url;
+    });
+    return { ok: !!img && img.naturalWidth > 0 };
+  }), { timeout: 15_000 }).toEqual({ ok: true });
 });
