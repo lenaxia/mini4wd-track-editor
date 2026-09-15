@@ -112,15 +112,18 @@ async function main() {
           const name = m[1];
           if (name.includes('..')) return json(res, 403, { error: 'forbidden' });
           const file = path.join(import.meta.dirname, 'assets', name);
-          if (!fs.existsSync(file)) return json(res, 404, { error: 'not found' });
-          const body = fs.readFileSync(file, 'utf8');
+          let body;
+          try { body = await fs.promises.readFile(file, 'utf8'); }
+          catch { return json(res, 404, { error: 'not found' }); }
+          /* genuine JSON envelope — the transport must survive proxies
+           * that parse (not just type-match) json responses */
           const hashAddr = /[?&]h=[0-9a-f]{8,64}/.test(req.url);
           res.writeHead(200, {
             'Content-Type': 'application/json; charset=utf-8',
             'Cache-Control': hashAddr ? 'public, max-age=31536000, immutable' : 'no-cache',
             'Access-Control-Allow-Origin': '*',
           });
-          return res.end(body);
+          return res.end(JSON.stringify({ svg: body }));
         }
       }
 

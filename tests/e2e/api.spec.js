@@ -127,10 +127,11 @@ test('sprite endpoint serves verified bytes proxy-safely (json transport)', asyn
   expect(r.status()).toBe(200);
   expect(r.headers()['content-type']).toContain('application/json');
   expect(r.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
-  const text = await r.text();
-  expect(text.startsWith('<svg')).toBe(true);
+  const body = await r.json();
+  expect(typeof body.svg).toBe('string');
+  expect(body.svg.startsWith('<svg')).toBe(true);
   /* hash-true: identical bytes to the manifest */
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body.svg));
   expect(Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('')).toBe(manifest[name]);
   /* unversioned: revalidating, not immutable */
   const plain = await request.get(`/api/sprites/${name}`);

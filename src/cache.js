@@ -142,16 +142,44 @@ async function verifiedLoad(file, url, want, race) {
       return objUrlOrNull(blob);
     await cache.delete(url).catch(() => {});   /* corrupt/empty: evict, reload below */
   }
-  const res = await fetch(`/api/sprites/${file}?h=${want}`);
-  if (res.ok) {
-    const text = await res.text();
-    if (text.length && (!crypto?.subtle || await blobSha(new Blob([text])) === want)) {
-      cache.put(url, new Response(text, { headers: { 'Content-Type': 'image/svg+xml' } })).catch(() => {});
-      return objUrlOrNull(new Blob([text], { type: 'image/svg+xml' }));
+  let text = null;
+  try {
+    const res = await fetch(`/api/sprites/${file}?h=${want}`);
+    if (res.ok) {
+      const j = await res.json();          /* {svg: "<svg ..."} envelope */
+      if (typeof j?.svg === 'string') text = j.svg;
     }
+  } catch { /* endpoint absent or non-json — fall through */ }
+  if (text !== null && text.length && (!crypto?.subtle || await blobSha(new Blob([text])) === want)) {
+    cache.put(url, new Response(text, { headers: { 'Content-Type': 'image/svg+xml' } })).catch(() => {});
+    return objUrlOrNull(new Blob([text], { type: 'image/svg+xml' }));
   }
+  /* endpoint absent (static-only serve.js, subpath mounts) or unverifiable:
+   * render via the plain img URL and bank from it in the background — where
+   * fetch works this restores CacheStorage population; where the proxy
+   * breaks fetch it is a verified no-op */
+  bank(url, want);
   return null;
 }
+
+/* Detached bank from the plain /assets URL (the pre-endpoint path). */
+function bank(url, want) {
+  if (banking.has(url)) return;
+  banking.add(url);
+  (async () => {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
+          await cache.put(url, new Response(blob, { headers: { 'Content-Type': 'image/svg+xml' } }));
+        }
+      }
+    } catch { /* banking is opportunistic */ }
+    finally { banking.delete(url); }
+  })();
+}
+const banking = new Set();
 
 /* sha-256 of a blob, hex — for hit verification (self-healing cache).
  * Absent crypto.subtle (insecure context) the caller skips verifying. */
