@@ -126,3 +126,25 @@ test('hard refresh clears the asset cache; soft refresh keeps it', async ({ page
     return !!img && !!img.src && img.naturalWidth > 0;
   }), { timeout: 15_000 }).toBe(true);
 });
+
+/* The motivating proxy bug as a regression pin: fetch() answered with a
+ * delayed EMPTY 200 while <img> loads serve real bytes. Sprite URLs must
+ * be assigned from the image path without waiting on any fetch — on the
+ * pre-fix code the foreground fetch-verify held the URL until the race
+ * bound (~2.5s), missing this window. */
+test('sprites never wait on fetch(): empty-200 fetches load via <img>', async ({ page }) => {
+  await page.route('**/assets/*.svg?h=*', async (route) => {
+    if (route.request().resourceType() === 'fetch') {
+      await new Promise((r) => setTimeout(r, 6000));   // beyond the assert window
+      await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '' });
+    } else {
+      await route.continue();
+    }
+  });
+  await page.goto('/');
+  await expect.poll(async () => await page.evaluate(async () => {
+    const a = await import('/src/assets.js');
+    const img = a.imageFor('Str1', 0);
+    return !!img && !!img.src && img.naturalWidth > 0;
+  }), { timeout: 2500 }).toBe(true);
+});

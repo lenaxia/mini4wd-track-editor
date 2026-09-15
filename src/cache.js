@@ -59,9 +59,10 @@ export async function initCache() {
      * the next soft refresh repopulates. */
     if (/(?:^|;\s*)m4wd_hard=1(?:;|$)/.test(document.cookie)) {
       document.cookie = 'm4wd_hard=; Max-Age=0; Path=/';
-      await Promise.race([
-        caches.delete(CACHE_NAME),
-        new Promise((resolve) => setTimeout(resolve, CACHE_BOUND_MS)),
+      let wipe = null;
+      const wiped = await Promise.race([
+        caches.delete(CACHE_NAME).then((v) => { if (wipe !== null) clearTimeout(wipe); return v; }),
+        new Promise((resolve) => { wipe = setTimeout(resolve, CACHE_BOUND_MS); }),
       ]);
       cache = null;
       return false;
@@ -71,17 +72,23 @@ export async function initCache() {
     if (!res.ok) return false;
     manifest = await res.json();
     /* the whole cache interaction is bounded: a hung open/keys/delete
-     * must never block preload — race it and fall back to no-cache */
+     * must never block preload — race it and fall back to no-cache. The
+     * handle is published only while the race is live; a late assignment
+     * must not resurrect a zombie cache next to the fallback decision. */
+    const race = { live: true };
+    let timer = null;
     const ok = await Promise.race([
       (async () => {
-        cache = await caches.open(CACHE_NAME);
-        const keys = (await cache.keys()).map(r => r.url);
-        for (const url of staleKeys(keys, manifest)) await cache.delete(url);
+        const c = await caches.open(CACHE_NAME);
+        const keys = (await c.keys()).map(r => r.url);
+        for (const url of staleKeys(keys, manifest)) await c.delete(url);
+        if (!race.live) return false;   /* lost: publish nothing */
+        cache = c;
         return true;
       })(),
-      new Promise((resolve) => setTimeout(() => resolve(false), CACHE_BOUND_MS)),
+      new Promise((resolve) => { timer = setTimeout(() => { race.live = false; resolve(false); }, CACHE_BOUND_MS); }),
     ]);
-    if (!ok) { cache = null; }
+    clearTimeout(timer);
     return ok;
   } catch {
     cache = null; manifest = null;
