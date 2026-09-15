@@ -60,3 +60,26 @@ jobs:
         env:
           PG_TEST_URL: postgres://mini4wd:mini4wd@localhost:5432/mini4wd
         run: node --test tests/unit/server-store.test.js
+
+  # Build the image and smoke-test the RUNNING container: static pages,
+  # baked manifest, and an API roundtrip through the container's sqlite.
+  # Until this job existed the Dockerfile was emulation-verified only
+  # (no docker binary in dev sandboxes) — this is the real thing.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t mini4wd-editor .
+      - name: Run + smoke test
+        run: |
+          docker run -d --name app -p 3000:3000 mini4wd-editor
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:3000/ >/dev/null
+          curl -sf http://localhost:3000/style.css >/dev/null
+          curl -sf http://localhost:3000/src/main.js >/dev/null
+          curl -sf http://localhost:3000/assets/manifest.json >/dev/null
+          test "$(curl -s http://localhost:3000/api/health | grep -o '"driver":"[^"]*"')" = '"driver":"sqlite"'
+          curl -sf -X PUT http://localhost:3000/api/tracks/ci-smoke             -H 'Content-Type: application/json'             -d '{"name":"ci","data":{"track":"Str1;1;1;0;0;0#"}}' >/dev/null
+          curl -sf http://localhost:3000/api/tracks/ci-smoke >/dev/null
+          docker logs app | tail -5
