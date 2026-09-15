@@ -68,7 +68,12 @@ test('catalog fields are sane for every piece', () => {
       assert.ok(Math.abs(midY) < 1e-9, `${name}: vert y-midpoint ${midY} must be 0 (road centerline)`);
     }
     const floor = TAMIYA.has(name) ? 2 : 1.5;
-    const meas = !TAMIYA.has(name) && !PIECES[name].procedural; /* measured real geometry */
+    /* rip/drawing-measured families carry real (sometimes tight) geometry:
+     * the Tamiya drawers plus the #8 measured rucdoc entries (the ones
+     * with their own sprite files). The analytically derived rucdoc
+     * entries (published dims) keep the separation floor enforced. */
+    const meas = !TAMIYA.has(name) &&
+                 !(PALETTE.rucdoc.includes(name) && !PIECES[name].sprite);
     assert.ok(meas || minSep > floor * SNAP_RADIUS, `${name}: vertex separation ${minSep} < ${floor}x snap radius`);
     if (def.kind === 'corner' || def.kind === 'hairpin') {
       assert.ok(def.R > 0 && def.band > 0, name);
