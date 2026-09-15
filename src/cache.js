@@ -102,48 +102,64 @@ export async function cachedSpriteUrl(file, buster) {
       const want = manifest[file];
       const race = { live: true };   /* lets the losing path revoke its URL */
       let timer = null;
-      const loaded = await Promise.race([
-        loadVerified(url, want, race),
+      const hit = await Promise.race([
+        verifiedHit(url, want, race),
         new Promise((resolve) => { timer = setTimeout(() => { race.live = false; resolve(null); }, CACHE_BOUND_MS); }),
       ]);
       clearTimeout(timer);
-      /* won: a URL, or null for corrupt-but-readable (already evicted
-       * inside loadVerified) — the plain network URL covers the latter */
-      if (race.live) return loaded ?? url;
-      if (loaded) URL.revokeObjectURL(loaded);   /* lost the race: don't leak */
-      /* hung or unverifiable: evict (best-effort — the same corruption
-       * may hang the delete too) so the next boot may start clean */
-      cache.delete(url).catch(() => {});
+      /* verified bytes, or null for corrupt-but-readable / clean miss —
+       * either way the img loads the plain URL and banking runs detached */
+      if (race.live) { if (!hit) bank(url, want); return hit ?? url; }
+      if (hit) URL.revokeObjectURL(hit);  /* lost the race: don't leak */
+      cache.delete(url).catch(() => {});  /* hung: best-effort eviction */
+      return url;
     }
   } catch { /* fall through to network */ }
   return url;
 }
 
-async function loadVerified(url, want, race) {
+/* Verified cache hit -> object URL. NEVER falls through to a foreground
+ * fetch: some proxies (observed: the safespaces preview) answer fetch()
+ * with EMPTY 200 bodies while serving <img> loads correctly — a
+ * foreground fetch-verify would fail forever and cost a wasted request
+ * per sprite per boot (HAR evidence in worklog 0011). The image element
+ * loads the plain URL natively instead; banking runs in the background
+ * where fetch works. */
+async function verifiedHit(url, want, race) {
   const hit = await cache.match(url);
-  if (hit && hit.ok) {
-    const blob = await hit.blob();
-    if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
-      const objUrl = URL.createObjectURL(blob);
-      if (!race.live) { URL.revokeObjectURL(objUrl); return null; }
-      return objUrl;
-    }
-    await cache.delete(url).catch(() => {});   /* corrupt: evict (awaited — a late delete must not evict the fresh entry) + refetch */
+  if (!hit || !hit.ok) return null;
+  const blob = await hit.blob();
+  if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
+    const objUrl = URL.createObjectURL(blob);
+    if (!race.live) { URL.revokeObjectURL(objUrl); return null; }
+    return objUrl;
   }
-  const res = await fetch(url);
-  if (res.ok) {
-    const blob = await res.blob();
-    if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
-      cache.put(url, new Response(blob, {
-        headers: { 'Content-Type': res.headers.get('Content-Type') || 'image/svg+xml' },
-      })).catch(() => {});
-      const objUrl = URL.createObjectURL(blob);
-      if (!race.live) { URL.revokeObjectURL(objUrl); return null; }
-      return objUrl;
-    }
-  }
+  await cache.delete(url).catch(() => {});   /* corrupt/empty: evict + bank fresh below */
+  bank(url, want);
   return null;
 }
+
+/* Background banking: fetch + verify + store. Detached by design — where
+ * fetch is broken (proxy) it silently no-ops and boots use the HTTP
+ * cache; where it works, the next boot serves from CacheStorage. */
+function bank(url, want) {
+  if (banking.has(url)) return;
+  banking.add(url);
+  (async () => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      if (blob.size > 0 && (!crypto?.subtle || await blobSha(blob) === want)) {
+        await cache.put(url, new Response(blob, {
+          headers: { 'Content-Type': res.headers.get('Content-Type') || 'image/svg+xml' },
+        }));
+      }
+    } catch { /* banking is opportunistic */ }
+    finally { banking.delete(url); }
+  })();
+}
+const banking = new Set();
 
 /* sha-256 of a blob, hex — for hit verification (self-healing cache).
  * Absent crypto.subtle (insecure context) the caller skips verifying. */
