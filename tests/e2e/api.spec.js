@@ -107,7 +107,11 @@ test('autosave mirrors to the server (client sync)', async ({ page, request }) =
   await page.click('canvas', { position: { x: 200, y: 200 } });
   await expect.poll(async () => await page.evaluate(() =>
     window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(1);
-  /* sync fires 350ms after the change, then a 1500ms debounce */
+  /* sync fires 350ms after the change, then a 1500ms debounce — on fast
+   * runners the piece poll can pass BEFORE the debounced autosave wrote
+   * m4wd.trackId; await its existence instead of reading it once */
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('m4wd.trackId')),
+    { timeout: 10_000 }).toBeTruthy();
   const id = await page.evaluate(() => localStorage.getItem('m4wd.trackId'));
   await expect.poll(async () => (await request.get(`/api/tracks/${id}`)).status(),
     { timeout: 10_000 }).toBe(200);
