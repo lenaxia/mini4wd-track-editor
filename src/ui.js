@@ -9,6 +9,7 @@ import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow } from './storage.js';
+import { validateTrack } from './validate.js';
 import { drawPieceArt } from './art.js';
 import { closeLoop, closeLoopStepping, solverSetFor, endPieceIssue } from './solver.js';
 
@@ -92,7 +93,8 @@ let lastMode = null;
 function updateStats() {
   let len = 0;
   for (const p of state.sprites) len += PIECES[p.name].l;
-  const txt = `${len.toFixed(2)} m \u00B7 ${state.sprites.length} pcs`;
+  const pub = publishedTrack();
+  const txt = `${pub ? pub.name + ' \u00B7 ' : ''}${len.toFixed(2)} m \u00B7 ${state.sprites.length} pcs`;
   if (txt === lastStatsText) return; /* avoid DOM writes from the render loop */
   lastStatsText = txt;
   $('stats').textContent = txt;
@@ -269,19 +271,42 @@ export function init(dimsGetter) {
 
   $('btnLoop').addEventListener('click', () => { closeDialog($('menuDialog')); closeLoopAction(); });
 
-  /* ---------- publish / library (owner model: unpublished = local only) ---------- */
+  /* ---------- publish / save / library (unpublished = local only) ---------- */
 
-  $('btnPublish').addEventListener('click', () => {
+  function refreshPublishUi() {
     const pub = publishedTrack();
-    $('pubTitle').textContent = pub ? 'Rename published track' : 'Publish';
-    $('pubOk').textContent = pub ? 'Save name' : 'Publish';
+    $('btnPublishBar').textContent = pub ? '💾' : '📤';
+    $('btnPublishBar').title = pub ? `Save “${pub.name}” (published)` : 'Publish track';
+    lastStatsText = '';   /* force the stats line to re-render with the name */
+    updateStats();
+  }
+
+  function renderPubStatus() {
+    const { ok, errors, warnings } = validateTrack(state.sprites);
+    const box = $('pubStatus');
+    const rows = [];
+    for (const e of errors) rows.push(`<div style="color:#e05263">✖ ${e}</div>`);
+    for (const w of warnings) rows.push(`<div style="color:#d9a441">⚠ ${w}</div>`);
+    if (ok && !warnings.length) rows.push('<div style="color:#7dd3fc">✓ track is complete and consistent</div>');
+    box.innerHTML = rows.join('');
+    $('pubOk').disabled = !ok;
+    return ok;
+  }
+
+  $('btnPublishBar').addEventListener('click', () => {
+    const pub = publishedTrack();
+    $('pubTitle').textContent = pub ? `Save “${pub.name}”` : 'Publish track';
+    $('pubOk').textContent = pub ? 'Save' : 'Publish';
     $('pubName').value = pub ? pub.name : '';
+    renderPubStatus();
     closeDialog($('menuDialog'));
     openDialog($('publishDialog'));
     $('pubName').focus();
   });
   $('pubClose').addEventListener('click', () => closeDialog($('publishDialog')));
+  $('pubCancel').addEventListener('click', () => closeDialog($('publishDialog')));
   $('pubOk').addEventListener('click', async () => {
+    if (!renderPubStatus()) return;   /* re-validate at the moment of saving */
     const name = $('pubName').value.trim() || 'Untitled';
     const wasPublished = !!publishedTrack();
     $('pubOk').disabled = true;
@@ -289,7 +314,8 @@ export function init(dimsGetter) {
     $('pubOk').disabled = false;
     if (!row) { toast('Server unreachable — track stays local'); return; }
     closeDialog($('publishDialog'));
-    toast(wasPublished ? `Renamed to “${row.name}”`
+    refreshPublishUi();
+    toast(wasPublished ? `Saved “${row.name}”`
                        : `Published “${row.name}” — edits now auto-save`);
   });
 
@@ -329,6 +355,7 @@ export function init(dimsGetter) {
       loadSprites(sprites); /* emits -> autosave snapshots it */
       fitView(getDims().w, getDims().h);
       closeDialog($('libraryDialog'));
+      refreshPublishUi();
       toast(`Loaded “${row.name}” — ${sprites.length} pcs · edits auto-save`);
     } catch { toast('Server unreachable'); }
   }
@@ -338,6 +365,7 @@ export function init(dimsGetter) {
     if (!confirm('Start a new track? The canvas clears; the published track stays on the server.')) return;
     unpublishTrack();
     clearAll();
+    refreshPublishUi();
     toast('New track — local until you publish');
   });
 
@@ -370,6 +398,8 @@ export function init(dimsGetter) {
     const order = [3, 5, 'rucdoc'];
     setMode(order[(order.indexOf(state.mode) + 1) % order.length]);
   });
+
+  refreshPublishUi();   /* restored binding shows Save + stats name on boot */
 
   window.addEventListener('beforeunload', (e) => {
     if (state.sprites.length) { e.preventDefault(); e.returnValue = ''; }
