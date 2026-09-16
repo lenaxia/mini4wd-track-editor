@@ -84,8 +84,8 @@ test('insufficient crossover clearance warns but does not block', () => {
 /* Owner-reported regression: a genuinely complete shared track must not
  * read as dangling. The codec rounds positions/angles to 3 decimals, so
  * true welds sit up to ~0.1 cm apart after a round-trip (measured 0.095
- * on this 22-piece circuit) — connectivity follows openLinks' 2 cm
- * semantics, not float-exactness. */
+ * on this 22-piece circuit) — connectivity tolerance is 1 cm (owner
+ * cap), far above rounding noise, not float-exactness. */
 const OWNER_CIRCUIT_B64 = 'Q29yMTs0MjQuMTQ1OzIyNy41ODc7NDUuMDE0OzA7MCNDb3IxOzM0OS4yMDQ7MzMwLjgyMDsxMzUuMDM0OzA7MCNDb3IxOzMwOS4wNjY7MzI1LjkwMzsxODAuMDQ1OzA7MCNDb3IxOzQxOS4yNDI7MjY3LjcyNzs5MC4wMjQ7MDswI1N0cjE7MzkyLjM0NTsyOTkuMDE1OzEzNTswOzAjU3RyMTsyNzcuNzg3OzI5OC45OTU7MjI1LjAyOzA7MCNMYW4xOzM1NC4xMjc7MTQ2LjI4NzsyMjQuOTg7MDswI0NvcjE7MjQ1Ljk5NzsyNTUuODQzOzIyNS4wNTQ7MDswI0NvcjE7MjUwLjkyODsyMTUuNzA2OzI3MC4wNjU7MDswI0NvcjE7MjY2LjU1NjsxOTEuMzI0OzkwLjA2NTswOzAjQ29yMTsyNzEuNDg4OzE1MS4xODg7NDUuMDU1OzA7MCNDaGkxOzI3OS44NTM7NjcuODI0OzQ0Ljk4OzA7MCNTdHIxOzIzOS41MzU7MzEuNzc1OzIyNC45ODswOzAjQ29yMTsyMDguMjM3OzQuODg5OzAuMDA0OzA7MCNDb3IxOzE2OC4wOTY7MC4wMDA7MzE0Ljk5NDswOzAjU3RyMTsxMjQuOTc3OzMxLjgzNjsxMzQuOTY7MDswI0NvcjE7OTguMTAyOzYzLjE0MzsyNjkuOTg0OzA7MCNDb3IxOzkzLjIyNzsxMDMuMjg2OzIyNC45NzQ7MDswI0NvcjE7MTE4LjE3MTsxMzUuMTE0OzE3OS45NjQ7MDswI0NvcjE7MTU4LjMxNTsxMzkuOTc1OzEzNC45NTQ7MDswI0NvcjE7MjA2LjM3ODsxMTQuNDgxOzMxNC45NTQ7MDswI0NvcjE7MjQ2LjU4OTsxMTkuMzI0OzAuMDQ1OzA7MCM';
 test('a complete shared track (rounded coords) validates clean', () => {
   const sprites = parseTrack(Buffer.from(OWNER_CIRCUIT_B64, 'base64url').toString('utf8'));

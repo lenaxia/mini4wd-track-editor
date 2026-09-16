@@ -21,11 +21,11 @@ import { vertsOf, vertexOf, outwardTangent, inwardTangent, pieceHalfExtents, LIN
 
 /* Serialization rounds positions and angles to 3 decimals, so a true
  * weld can sit ~0.1 cm apart after a save/share round-trip (measured on
- * real tracks). Connectivity uses the app's own semantics — openLinks
- * treats verts within 2 cm as connected — NOT float-exactness. Tangent
- * tolerance likewise scales for rounding: 3-decimal angle error shows up
- * as ~0.1° deltas on serialized tracks. */
-const CONNECTED_EPS = 2.0;      /* cm — matches openLinks' connected check */
+ * real tracks). Connectivity tolerance is 1 cm — an owner-capped absolute
+ * maximum: comfortably above the observed 0.095 cm rounding noise, far
+ * below anything a real gap would read as. Tangent tolerance likewise
+ * scales for rounding: 3-decimal angle error shows as ~0.1° deltas. */
+const CONNECTED_EPS = 1.0;      /* cm — owner cap: absolute max */
 const KINK_TANGENT_TOL = 0.5;   /* deg — visible kinks, above rounding noise */
 
 const face = (t, to) => 180 - Math.abs(((t - to + 540) % 360) - 180); /* 0..180, 180=aligned */
