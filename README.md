@@ -15,7 +15,7 @@ frameworks — open it and lay track.
   levels automatically; bridges over lower track render see-through with
   a warning when 75 mm clearance isn't met.
 - **Complete the loop.** Leave a gap, select the two open ends, tap
-  🏁 — the shortest run of straights and corners fills it. If nothing
+  Complete — the shortest run of straights and corners fills it. If nothing
   fits, the tool offers to remove pieces until something does, then
   closes it.
 - **Made for thumbs.** Two-finger pan and pinch zoom, bottom toolbar,
@@ -58,6 +58,11 @@ Track format: `Name;x;y;angle;color;z#…` (1 px = 1 cm, z in mm);
 legacy tracks import unchanged.
 
 ## Development
+Module map: `pieces.js` catalog · `geometry.js` snap math · `track.js` codec ·
+`validate.js` validator · `store.js` model · `render.js` canvas · `input.js`
+gestures · `ui.js`/`gallery.js` DOM · `storage.js`/`cache.js`/`assets.js`
+persistence+assets · `art.js`/`icons.js` fallback art and icons · `main.js`
+boot. `server.js`+`lib/` serve and store; `tools/` generate and verify.
 
 ```sh
 npm test             # unit (node --test, zero deps)

@@ -140,7 +140,8 @@ test('a complete track publishes from the toolbar; the button becomes Save', asy
   await page.locator('#pubOk').click();
   await expect.poll(async () => await page.evaluate(() =>
     localStorage.getItem('m4wd.published')), { timeout: 10_000 }).toBeTruthy();
-  await expect(page.locator('#btnPublishBar svg path')).toHaveAttribute('d', /.+/);   /* save icon */
+  /* the badge must show content-save-check specifically — cloud-upload forever would be the regression */
+  await expect(page.locator('#btnPublishBar svg path')).toHaveAttribute('d', /^M17 3H5C3\.9 3 3 3\.9/);
 
   const id = (await page.evaluate(() => JSON.parse(localStorage.getItem('m4wd.published')).id));
   ids.push(id);
@@ -226,7 +227,8 @@ test('WIP publishes; badge flags issues; stats-bar rename keeps the row', async 
   expect(row.issues).toBeGreaterThan(0);
 
   /* badge: 💾 with the red ring (debounced 600ms after the last edit) */
-  await expect(page.locator('#btnPublishBar svg path')).toHaveAttribute('d', /.+/);   /* save icon */
+  /* the badge must show content-save-check specifically — cloud-upload forever would be the regression */
+  await expect(page.locator('#btnPublishBar svg path')).toHaveAttribute('d', /^M17 3H5C3\.9 3 3 3\.9/);
   await expect.poll(async () => page.evaluate(() =>
     document.getElementById('btnPublishBar').classList.contains('pub-bad')),
     { timeout: 5_000 }).toBe(true);

@@ -87,7 +87,6 @@ body {
   display: inline-flex; align-items: center; justify-content: center;
 }
 .tool svg { display: block; }        /* rgb dots + MDI icons: baseline off, center it */
-.tool[data-tool='Move'] { font-size: 24px; } /* glyph reads small at 19px */
 .tool.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
 .sep { width: 1px; height: 28px; background: var(--line); flex: 0 0 auto; margin: 0 2px; }
 
