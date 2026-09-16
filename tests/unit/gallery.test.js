@@ -122,7 +122,12 @@ test('trackFacets matches the server facet classification', () => {
     { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 },
     { name: 'Chi1', x: 200, y: 100, a: 0, c: 1, z: 0 },     /* wave -> straight */
     { name: 'Bri1', x: 300, y: 100, a: 0, c: 2, z: 75 },    /* slope -> OWN count */
-    { name: 'Cor1', x: 400, y: 100, a: 45, c: 3, z: 0 },    /* corner (45°) */
+    { name: 'Cor1', x: 400, y: 100, a: 45, c: 3, z: 0 },    /* corner (45°) = 1 */
+    { name: 'R1C90I150', x: 450, y: 100, a: 90, c: 0, z: 0 }, /* corner (90°) = 2 */
+    { name: 'Cor3', x: 500, y: 100, a: 90, c: 0, z: 0 },     /* 90° = 2 */
+    { name: 'Cor4', x: 550, y: 100, a: 90, c: 0, z: 0 },     /* digital curve = Cor3 geometry = 2 */
+    { name: 'Cor5', x: 600, y: 100, a: 90, c: 0, z: 0 },     /* R2100: solveGeo pins 90° = 2 */
+    { name: 'R1C45I150', x: 650, y: 100, a: 45, c: 0, z: 0 }, /* rucdoc 45° = 1 */
     { name: 'Lan2', x: 500, y: 100, a: 0, c: 0, z: 0 },     /* hairpin (rainbow) -> 4 corners */
     { name: 'Lan1', x: 600, y: 100, a: 0, c: 0, z: 0 },     /* lane changer — excluded */
     { name: 'Ban1', x: 700, y: 100, a: 0, c: 1, z: 0 },     /* bank — excluded */
@@ -135,13 +140,13 @@ test('trackFacets matches the server facet classification', () => {
     lanes: server.lanes,
     straights: server.straights,       /* Str1 + wave only */
     slopes: server.slopes,             /* Bri1 — counted separately */
-    corners: server.corners,           /* Cor1 + 4 for the hairpin */
+    corners: server.corners,           /* 45°=1, 90°=2, +4 for the hairpin */
   });
   assert.equal(local.straights, 2);
   assert.equal(local.slopes, 1);
-  assert.equal(local.corners, 5);      /* 1 × 45° corner + 4 for the 180° */
-  assert.equal(local.pieces, 7);
-  assert.equal(local.lanes, 3);
+  assert.equal(local.corners, 14);     /* 1+2 + 2+2+2+1 + 4 — every SWEEP_DEG name pinned */
+  assert.equal(local.pieces, 12);
+  assert.equal(local.lanes, 5);       /* the WIDE 90s are 5-lane */
   assert.deepEqual(trackFacets([]),
     { pieces: 0, length_cm: 0, lanes: 0, straights: 0, slopes: 0, corners: 0 });
 });
