@@ -741,14 +741,17 @@ export function init(dimsGetter) {
     kebab.innerHTML = icon('dots-vertical', 20);
     const menu = document.createElement('span');
     menu.className = 'gal-menu';
+    menu.setAttribute('role', 'menu');
     menu.hidden = true;
     const copy = document.createElement('button');
     copy.type = 'button';
+    copy.setAttribute('role', 'menuitem');
     copy.title = `Make your own copy of “${it.name}” — the original is not changed`;
     copy.textContent = 'Save my own copy';
     copy.addEventListener('click', (e) => { e.stopPropagation(); closeGalMenus(); galCopy(it, copy); });
     const his = document.createElement('button');
     his.type = 'button';
+    his.setAttribute('role', 'menuitem');
     his.title = 'Old versions of this track — restore one';
     his.textContent = 'History';
     his.addEventListener('click', (e) => { e.stopPropagation(); closeGalMenus(); openHistory(it); });
@@ -760,13 +763,18 @@ export function init(dimsGetter) {
       menu.hidden = !open;
       kebab.setAttribute('aria-expanded', String(!menu.hidden));
     });
+    menu.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { closeGalMenus(); kebab.focus(); }
+    });
 
     row.append(card, star, kebab, menu);
     return row;
   }
 
-  /* one open kebab menu at a time; any tap outside (or a scroll of the
-   * list) closes it. Registered once at init. */
+  /* one open kebab menu at a time. The closer runs in CAPTURE phase so
+   * widgets that stopPropagation (the star) still count as outside
+   * taps; the kebab and its own menu are exempt (they manage their
+   * own state). List scroll closes too. Registered once at init. */
   function closeGalMenus() {
     document.querySelectorAll('.gal-menu:not([hidden])').forEach((m) => {
       m.hidden = true;
@@ -774,7 +782,11 @@ export function init(dimsGetter) {
       if (k) k.setAttribute('aria-expanded', 'false');
     });
   }
-  document.addEventListener('click', closeGalMenus);
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.gal-menu') || e.target.closest('.gal-kebab')) return;
+    closeGalMenus();
+  }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeGalMenus(); });
   $('galList').addEventListener('scroll', closeGalMenus, { passive: true });
 
   function galRenderList() {

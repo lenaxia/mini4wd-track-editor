@@ -324,11 +324,17 @@ test('Copy forks the row: your copy appears with a "based on" line; the original
   await row.locator('.gal-menu button', { hasText: 'Save my own copy' }).click();
   await expect(page.locator('#toast')).toContainText('your own copy');
 
-  /* kebab behavior: reopens, a tap elsewhere closes it */
+  /* kebab behavior: reopens, a tap elsewhere closes it — including a
+   * star (which stops propagation; the closer runs in capture phase) */
   await row.locator('.gal-kebab').click();
   await expect(row.locator('.gal-menu')).toBeVisible();
   await page.locator('#galMeta').click();
   await expect(row.locator('.gal-menu')).toBeHidden();
+  await row.locator('.gal-kebab').click();
+  await expect(row.locator('.gal-menu')).toBeVisible();
+  await row.locator('.gal-star').click();
+  await expect(row.locator('.gal-menu')).toBeHidden();
+  await expect(row.locator('.gal-star')).toHaveClass(/starred/);   /* the tap still starred */
 
   /* the fork exists server-side, carries server-resolved lineage, and the
    * original still holds its own track body */
