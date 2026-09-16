@@ -297,7 +297,6 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
 .gal-field-title {
   display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
 }
-.gal-units { flex-direction: row; align-items: center; gap: 10px; }
 .gal-panel-row input[type="range"] { accent-color: var(--accent); width: 100%; }
 .gal-units {
   flex-direction: row; align-items: center; gap: 8px;

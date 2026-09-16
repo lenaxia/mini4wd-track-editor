@@ -519,7 +519,7 @@ export function init(dimsGetter) {
   function galMinLenOut() {
     const v = gal.filter.minLength;
     $('galMinLenOut').textContent = v > 0
-      ? (gal.unit === 'ft' ? `${Math.round(v * 3.28084)} ft+` : `${v} m+`)
+      ? (gal.unit === 'ft' ? `${Math.round(cmToLength(v * 100, 'ft'))} ft+` : `${v} m+`)
       : 'any';
   }
 
@@ -748,8 +748,7 @@ export function init(dimsGetter) {
 
   galBuildLanes();
   /* (?) affordances on the filter fields (reusable tooltip system) —
-   * AFTER the title text, before the live value/inputs (reading order:
-   * "Footprint max (?)" then the controls) */
+   * AFTER the title text; the controls sit BELOW the title row */
   /* title row ("Footprint max (?)") with the controls BELOW it */
   const titleTip = (field, text) => {
     const title = document.createElement('span');
@@ -779,9 +778,7 @@ export function init(dimsGetter) {
   /* toolbar globe beside Publish — the gallery was hard to find (owner) */
   $('btnGalleryBar').addEventListener('click', openGalleryFresh);
   $('galClose').addEventListener('click', () => { galOpenPanel(false); closeDialog($('galleryDialog')); });
-  document.querySelectorAll('dialog').forEach((d) => d.addEventListener('close', () => {
-    if (d.id === 'galleryDialog') galOpenPanel(false);   /* Esc/backdrop path */
-  }));
+  $('galleryDialog').addEventListener('close', () => galOpenPanel(false));   /* Esc/backdrop path */
   $('galSort').addEventListener('change', (e) => openGallery(e.target.value));
   $('galComplete').addEventListener('click', () => { gal.complete = !gal.complete; openGallery(); });
   /* the Filters button TOGGLES the panel (owner round 2) */
