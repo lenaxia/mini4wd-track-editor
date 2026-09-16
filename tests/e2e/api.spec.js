@@ -202,3 +202,45 @@ test('sprite endpoint serves verified bytes proxy-safely (json transport)', asyn
   expect((await request.get('/api/sprites/..%2F..%2Fserver.js')).status()).toBe(404);
   expect((await request.get('/api/sprites/Nope.0.svg')).status()).toBe(404);
 });
+
+/* WIP publishing end-to-end: incomplete publishes (complete=0), the badge
+ * shows the red ring, tapping reports the verdict, and the stats-bar name
+ * renames in place (same row id). */
+test('WIP publishes; badge flags issues; stats-bar rename keeps the row', async ({ page, request }) => {
+  await page.goto('/');
+  await page.locator('.chip').first().click();   /* one lone straight: WIP */
+  await page.click('canvas', { position: { x: 200, y: 200 } });
+  await expect.poll(async () => await page.evaluate(() =>
+    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(1);
+
+  await page.locator('#btnPublishBar').click();
+  await expect(page.locator('#pubStatus')).toContainText('Work-in-Progress');
+  await page.locator('#pubName').fill('E2E WIP Track');
+  await page.locator('#pubOk').click();
+  await expect.poll(async () => await page.evaluate(() =>
+    localStorage.getItem('m4wd.published')), { timeout: 10_000 }).toBeTruthy();
+  const id = (await page.evaluate(() => JSON.parse(localStorage.getItem('m4wd.published')).id));
+  ids.push(id);
+  const row = await (await request.get(`/api/tracks/${id}`)).json();
+  expect(row.complete).toBe(false);          /* the facet, not a gate */
+  expect(row.issues).toBeGreaterThan(0);
+
+  /* badge: 💾 with the red ring (debounced 600ms after the last edit) */
+  await expect(page.locator('#btnPublishBar')).toHaveText('💾');
+  await expect.poll(async () => page.evaluate(() =>
+    document.getElementById('btnPublishBar').classList.contains('pub-bad')),
+    { timeout: 5_000 }).toBe(true);
+  /* status tap reports the verdict (no dialog opens) */
+  await page.locator('#btnPublishBar').click();
+  await expect(page.locator('#toast')).toContainText('WIP');
+  await expect(page.locator('#publishDialog')).not.toBeVisible();
+
+  /* rename via the stats bar: same row id, new name */
+  await page.locator('#stats').click();
+  await expect(page.locator('#pubOk')).toHaveText('Save name');
+  await expect(page.locator('#pubStatus')).toContainText('saved as Work-in-Progress');
+  await page.locator('#pubName').fill('E2E WIP Renamed');
+  await page.locator('#pubOk').click();
+  await expect.poll(async () => (await (await request.get(`/api/tracks/${id}`)).json()).name,
+    { timeout: 10_000 }).toBe('E2E WIP Renamed');
+});

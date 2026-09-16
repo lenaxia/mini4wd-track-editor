@@ -99,9 +99,10 @@ function updateStats() {
   for (const p of state.sprites) len += PIECES[p.name].l;
   const pub = publishedTrack();
   const txt = `${pub ? pub.name + ' \u00B7 ' : ''}${len.toFixed(2)} m \u00B7 ${state.sprites.length} pcs`;
-  $('stats').title = pub ? 'Rename published track' : '';
-  if (txt === lastStatsText) return; /* avoid DOM writes from the render loop */
+  const title = pub ? 'Rename published track' : '';
+  if (txt === lastStatsText && $('stats').title === title) return; /* avoid DOM writes from the render loop */
   lastStatsText = txt;
+  $('stats').title = title;
   $('stats').textContent = txt;
 }
 
@@ -315,8 +316,14 @@ export function init(dimsGetter) {
     for (const w of warnings) rows.push(`<div style="color:#d9a441">⚠ ${w}</div>`);
     if (ok && !warnings.length) rows.push('<div style="color:#4ade80">✓ track is complete and consistent</div>');
     /* completeness is a facet, not a gate (owner model): incomplete
-     * tracks publish as Work-in-Progress — warn, never lock */
-    if (!ok) rows.push(`<div style="color:#d9a441">▸ will publish as Work-in-Progress (${errors.length} issue${errors.length === 1 ? '' : 's'})</div>`);
+     * tracks publish as Work-in-Progress — warn, never lock. Rename mode
+     * states the CURRENT state instead of a pending publish. */
+    if (!ok) {
+      const bound = !!publishedTrack();
+      rows.push(bound
+        ? `<div style="color:#d9a441">▸ saved as Work-in-Progress (${errors.length} issue${errors.length === 1 ? '' : 's'})</div>`
+        : `<div style="color:#d9a441">▸ will publish as Work-in-Progress (${errors.length} issue${errors.length === 1 ? '' : 's'})</div>`);
+    }
     box.innerHTML = rows.join('');
     /* dangling ends have a tool for exactly that */
     $('pubTipComplete').style.display = errors.some((e) => /Dangling/.test(e)) ? 'block' : 'none';
