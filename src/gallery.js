@@ -14,6 +14,7 @@ export const GALLERY_SORTS = [
   { value: '-bbox', label: 'Footprint' },
   { value: '-stars', label: 'Stars' },
   { value: '-straights', label: 'Straights' },
+  { value: '-slopes', label: 'Slopes' },
   { value: '-corners', label: 'Corners' },
 ];
 
@@ -80,26 +81,32 @@ export function removeStarred(ls = globalThis.localStorage, id) {
 }
 
 /* ---------- local track metadata (topbar popup) ----------
- * Mirrors the server's facet stamping (lib/store/facets.js): waves and
- * slopes are straights, hairpins are corners, specials (changers, jumps,
- * banks, starts) are excluded from both counts, lanes = max. Unit tests
- * cross-check the two classifiers over a serialized round-trip so the
- * popup can never disagree with the stored row. */
-const STRAIGHT_KINDS = new Set(['straight', 'wave', 'slope']);
-const CORNER_KINDS = new Set(['corner', 'hairpin']);
+ * Mirrors the server's facet stamping (lib/store/facets.js), owner
+ * rulings 2026-09-16 included: waves are straights, SLOPES ARE THEIR
+ * OWN COUNT (not interchangeable with straights), hairpins/rainbows
+ * count as 4 corners (a 180° turn is four 45° pieces' worth), specials
+ * excluded, lanes = max. Unit tests cross-check the two classifiers
+ * over a serialized round-trip so the popup can never disagree with
+ * the stored row. */
+const STRAIGHT_KINDS = new Set(['straight', 'wave']);
+const CORNER_KINDS = new Set(['corner']);
+const HAIRPIN_KINDS = new Set(['hairpin']);
+const SLOPE_KINDS = new Set(['slope']);
 
 export function trackFacets(sprites) {
-  let pieces = 0, lengthCm = 0, lanes = 0, straights = 0, corners = 0;
+  let pieces = 0, lengthCm = 0, lanes = 0, straights = 0, slopes = 0, corners = 0;
   for (const p of sprites) {
     const def = PIECES[p.name];
     if (!def) continue;
     pieces += 1;
     if (STRAIGHT_KINDS.has(def.kind)) straights += 1;
+    else if (SLOPE_KINDS.has(def.kind)) slopes += 1;
     else if (CORNER_KINDS.has(def.kind)) corners += 1;
+    else if (HAIRPIN_KINDS.has(def.kind)) corners += 4;
     lanes = Math.max(lanes, def.lanes || 1);
     lengthCm += (def.l || 0) * 100;
   }
-  return { pieces, length_cm: Math.round(lengthCm * 10) / 10, lanes, straights, corners };
+  return { pieces, length_cm: Math.round(lengthCm * 10) / 10, lanes, straights, slopes, corners };
 }
 
 /* ---------- card preview fit (track cm -> canvas px) ---------- */

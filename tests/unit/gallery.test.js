@@ -20,7 +20,7 @@ beforeEach(() => backing.clear());
 
 /* The server rejects unknown sort columns with a 400 (server.js
  * parseListQuery) — every offered sort must stay inside that set. */
-const SERVER_SORTS = /^-?(updated_at|created_at|name|pieces|length|lanes|bbox|straights|corners|stars|complete)$/;
+const SERVER_SORTS = /^-?(updated_at|created_at|name|pieces|length|lanes|bbox|straights|corners|slopes|stars|complete)$/;
 
 test('every gallery sort is a column the API accepts', () => {
   assert.ok(GALLERY_SORTS.length >= 5);
@@ -79,17 +79,19 @@ test('removeStarred drops one id, keeps the rest, never throws', () => {
 
 /* trackFacets: the topbar/popup metadata for the LOCAL sprites — must
  * classify exactly like the server's facet stamping (same catalog,
- * same kinds: waves/slopes are straights, hairpins are corners,
- * specials excluded, lanes = max). Cross-checked against
- * lib/store/facets.js over a serialized round-trip so the popup can
- * never disagree with the stored row. */
+ * same kinds). Owner rulings 2026-09-16: waves are straights; SLOPES
+ * ARE THEIR OWN COUNT (not interchangeable with straights);
+ * HAIRPINS/RAINBOWS COUNT AS 4 CORNERS (a 180° turn is four 45°
+ * pieces' worth). Specials excluded, lanes = max. Cross-checked
+ * against lib/store/facets.js over a serialized round-trip so the
+ * popup can never disagree with the stored row. */
 test('trackFacets matches the server facet classification', () => {
   const sprites = [
     { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 },
     { name: 'Chi1', x: 200, y: 100, a: 0, c: 1, z: 0 },     /* wave -> straight */
-    { name: 'Bri1', x: 300, y: 100, a: 0, c: 2, z: 75 },    /* slope -> straight */
-    { name: 'Cor1', x: 400, y: 100, a: 45, c: 3, z: 0 },    /* corner */
-    { name: 'Lan2', x: 500, y: 100, a: 0, c: 0, z: 0 },     /* hairpin (rainbow) */
+    { name: 'Bri1', x: 300, y: 100, a: 0, c: 2, z: 75 },    /* slope -> OWN count */
+    { name: 'Cor1', x: 400, y: 100, a: 45, c: 3, z: 0 },    /* corner (45°) */
+    { name: 'Lan2', x: 500, y: 100, a: 0, c: 0, z: 0 },     /* hairpin (rainbow) -> 4 corners */
     { name: 'Lan1', x: 600, y: 100, a: 0, c: 0, z: 0 },     /* lane changer — excluded */
     { name: 'Ban1', x: 700, y: 100, a: 0, c: 1, z: 0 },     /* bank — excluded */
   ];
@@ -99,14 +101,17 @@ test('trackFacets matches the server facet classification', () => {
     pieces: server.piece_count,
     length_cm: server.length_cm,
     lanes: server.lanes,
-    straights: server.straights,       /* Str1 + wave + slope */
-    corners: server.corners,           /* Cor1 + Lan2 */
+    straights: server.straights,       /* Str1 + wave only */
+    slopes: server.slopes,             /* Bri1 — counted separately */
+    corners: server.corners,           /* Cor1 + 4 for the hairpin */
   });
-  assert.equal(local.straights, 3);
-  assert.equal(local.corners, 2);
+  assert.equal(local.straights, 2);
+  assert.equal(local.slopes, 1);
+  assert.equal(local.corners, 5);      /* 1 × 45° corner + 4 for the 180° */
   assert.equal(local.pieces, 7);
   assert.equal(local.lanes, 3);
-  assert.deepEqual(trackFacets([]), { pieces: 0, length_cm: 0, lanes: 0, straights: 0, corners: 0 });
+  assert.deepEqual(trackFacets([]),
+    { pieces: 0, length_cm: 0, lanes: 0, straights: 0, slopes: 0, corners: 0 });
 });
 
 /* thumbFit: maps track coords (cm) into a canvas box (px), center-fit

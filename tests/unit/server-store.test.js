@@ -155,6 +155,29 @@ function suite(label, open) {
     await s.close();
   });
 
+  test(`${label}: setFacets converges a row without re-saving (sweep path)`, async () => {
+    const s = await open(); const A = ns();
+    await s.upsert({ id: 'sf1', name: 'flat', author: A, data: doc(2), _facets: facets(doc(2)) });
+    const slopeDoc = { track: 'Bri1;100.000;100.000;0;0;0#Str1;160.000;100.000;0;0;0#' };
+    await s.upsert({ id: 'sf2', name: 'hilly', author: A, data: slopeDoc, _facets: facets(slopeDoc) });
+    assert.equal((await s.get('sf2')).slopes, 1);
+    assert.equal((await s.get('sf2')).straights, 1);   /* the slope is NOT a straight */
+    /* a pre-v2 row (slopes folded into straights) is re-stamped via
+     * setFacets — no re-save needed. Two slopes so -slopes ordering is
+     * deterministic against sf2's one. */
+    const twoSlopes = { track: 'Bri1;100.000;100.000;0;0;0#Bri1;160.000;100.000;0;0;0#' };
+    await s.setFacets('sf1', facets(twoSlopes));
+    const converged = await s.get('sf1');
+    assert.equal(converged.slopes, 2);
+    assert.equal(converged.straights, 0);
+    assert.equal(converged.piece_count, 2);
+    /* slopes is a sortable column */
+    const bySlopes = await s.list({ author: A, sort: '-slopes' });
+    assert.equal(bySlopes.items[0].id, 'sf1');
+    assert.ok(bySlopes.items.every((i) => typeof i.slopes === 'number'));
+    await s.close();
+  });
+
   test(`${label}: large track bodies (10k pieces) roundtrip`, async () => {
     const s = await open(); const A = ns();
     const big = doc(10000);
