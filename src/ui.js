@@ -729,28 +729,53 @@ export function init(dimsGetter) {
     star.title = starred ? 'Starred on this device — tap to unstar' : 'Star this track';
     star.addEventListener('click', (e) => { e.stopPropagation(); galStar(it, star, sub); });
 
-    /* Copy + History (worklog 0020): your own version of the row / old
-     * versions with one-tap restore. Siblings of the card — buttons
-     * cannot nest inside the card <button>. */
-    const acts = document.createElement('span');
-    acts.className = 'gal-acts';
+    /* Kebab menu (worklog 0021): Copy + History live behind ⋮ on the
+     * card's thumbnail, beside the star. The card is a <button>, so the
+     * kebab is a sibling overlay like the star — never nested. */
+    const kebab = document.createElement('button');
+    kebab.type = 'button';
+    kebab.className = 'gal-kebab';
+    kebab.title = 'Track actions';
+    kebab.setAttribute('aria-label', `Actions for “${it.name}”`);
+    kebab.setAttribute('aria-expanded', 'false');
+    kebab.innerHTML = icon('dots-vertical', 20);
+    const menu = document.createElement('span');
+    menu.className = 'gal-menu';
+    menu.hidden = true;
     const copy = document.createElement('button');
     copy.type = 'button';
-    copy.className = 'gal-act';
     copy.title = `Make your own copy of “${it.name}” — the original is not changed`;
-    copy.textContent = 'Copy';
-    copy.addEventListener('click', (e) => { e.stopPropagation(); galCopy(it, copy); });
+    copy.textContent = 'Save my own copy';
+    copy.addEventListener('click', (e) => { e.stopPropagation(); closeGalMenus(); galCopy(it, copy); });
     const his = document.createElement('button');
     his.type = 'button';
-    his.className = 'gal-act';
     his.title = 'Old versions of this track — restore one';
     his.textContent = 'History';
-    his.addEventListener('click', (e) => { e.stopPropagation(); openHistory(it); });
-    acts.append(copy, his);
+    his.addEventListener('click', (e) => { e.stopPropagation(); closeGalMenus(); openHistory(it); });
+    menu.append(copy, his);
+    kebab.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = menu.hidden;
+      closeGalMenus();
+      menu.hidden = !open;
+      kebab.setAttribute('aria-expanded', String(!menu.hidden));
+    });
 
-    row.append(card, star, acts);
+    row.append(card, star, kebab, menu);
     return row;
   }
+
+  /* one open kebab menu at a time; any tap outside (or a scroll of the
+   * list) closes it. Registered once at init. */
+  function closeGalMenus() {
+    document.querySelectorAll('.gal-menu:not([hidden])').forEach((m) => {
+      m.hidden = true;
+      const k = m.parentElement?.querySelector('.gal-kebab');
+      if (k) k.setAttribute('aria-expanded', 'false');
+    });
+  }
+  document.addEventListener('click', closeGalMenus);
+  $('galList').addEventListener('scroll', closeGalMenus, { passive: true });
 
   function galRenderList() {
     const list = $('galList');
