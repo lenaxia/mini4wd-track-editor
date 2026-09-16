@@ -599,6 +599,35 @@ test('mobile top bar: the mode control collapses to one cycling button', async (
   await page2.close();
 });
 
+test('mobile top bar: a long track title never pushes the mode control or menu off-screen', async ({ browser }) => {
+  /* owner rule: the lane-width selector and the hamburger are ALWAYS
+   * visible on phones — a long track title (the rename affordance in
+   * the stats bar) must ellipsize, never push them off-screen */
+  const ctxT = await browser.newContext({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
+  const pageT = await ctxT.newPage();
+  await pageT.goto('/');
+  await pageT.evaluate(() => {
+    localStorage.setItem('m4wd.published', JSON.stringify({
+      id: 'probe-long-name', name: 'Grand Canyon Circuit — the extremely long edition',
+    }));
+    localStorage.setItem('m4wd.autosave', JSON.stringify({
+      mode: 3, tool: 'Pan', angle: 0, track: 'Str1;100.000;100.000;0;0;0#',
+    }));
+  });
+  await pageT.reload();
+  await expect(pageT.locator('#stats')).toContainText('Grand Canyon');
+  const inView = (el) => el.evaluate((n) => {
+    const r = n.getBoundingClientRect();
+    return r.left >= 0 && r.right <= window.innerWidth && r.width > 0;
+  });
+  await expect(pageT.locator('#modeCycle')).toBeVisible();
+  await expect(pageT.locator('#btnMenu')).toBeVisible();
+  expect(await inView(pageT.locator('#modeCycle'))).toBe(true);
+  expect(await inView(pageT.locator('#btnMenu'))).toBe(true);
+  expect(await inView(pageT.locator('#stats'))).toBe(true);
+  await ctxT.close();
+});
+
 test('real rucdoc sprites load: SVGs serve for real-data pieces', async ({ page }) => {
   const got = new Set();
   page.on('response', (r) => { if (/\/(?:assets|sprites)\/R/.test(new URL(r.url()).pathname)) got.add(r.url().split('/').pop().split('?')[0]); });
