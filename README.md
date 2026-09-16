@@ -1,5 +1,10 @@
 # Mini4WD Track Editor
 
+<p align="center">
+  <img src="docs/ux.png" width="72%" alt="The editor on desktop with a 100-piece published circuit">
+  <img src="docs/ux-phone.png" width="23%" alt="The editor on a phone with a 32-piece circuit">
+</p>
+
 Design Mini4WD circuits on your phone. Touch-first, no build step, no
 frameworks — open it and lay track.
 
