@@ -11,6 +11,7 @@ import { imageFor } from './assets.js';
 import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow } from './storage.js';
 import { GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge, isStarred, addStarred } from './gallery.js';
 import { validateTrack } from './validate.js';
+import { icon } from './icons.js';
 import { drawPieceArt } from './art.js';
 import { closeLoop, closeLoopStepping, solverSetFor, endPieceIssue } from './solver.js';
 
@@ -282,6 +283,12 @@ export function init(dimsGetter) {
 
   /* ---------- publish / save / library (unpublished = local only) ---------- */
 
+  /* hydrate static icons (data-icon spans carry the MDI name) */
+  document.querySelectorAll('[data-icon]').forEach((el) => {
+    const size = el.closest('.tool, .icon-btn, #zoomControls') ? 20 : 18;
+    el.innerHTML = icon(el.dataset.icon, size);
+  });
+
   refreshPublishUi = function () {
     updatePublishBadge();
     lastStatsText = '';   /* force the stats line to re-render with the name */
@@ -295,13 +302,13 @@ export function init(dimsGetter) {
     const pub = publishedTrack();
     const btn = $('btnPublishBar');
     if (!pub) {
-      btn.textContent = '📤';
+      btn.innerHTML = icon('cloud-upload', 20);
       btn.title = 'Publish track';
       btn.classList.remove('pub-ok', 'pub-bad');
       return;
     }
     const { ok, errors } = validateTrack(state.sprites);
-    btn.textContent = '💾';
+    btn.innerHTML = icon('content-save-check', 20);
     btn.title = ok ? `“${pub.name}” — complete and saved`
                    : `“${pub.name}” — ${errors.length} issue(s); autosaves as Work-in-Progress`;
     btn.classList.toggle('pub-ok', ok);

@@ -46,7 +46,10 @@ body {
 .icon-btn {
   border: 1px solid var(--line); background: var(--panel-2); color: inherit;
   border-radius: 8px; font-size: 16px; padding: 5px 10px; cursor: pointer;
+  display: inline-flex; align-items: center;
 }
+#zoomControls button { display: flex; align-items: center; justify-content: center; }
+.menu-actions button svg, .file-label svg, .tip-cta svg { vertical-align: -3px; margin-right: 2px; }
 
 /* ---------- stage / canvas ---------- */
 #stage { position: relative; flex: 1 1 auto; min-height: 0; }
@@ -83,7 +86,7 @@ body {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.tool svg { display: block; }        /* rgb dots: baseline off, center it */
+.tool svg { display: block; }        /* rgb dots + MDI icons: baseline off, center it */
 .tool[data-tool='Move'] { font-size: 24px; } /* glyph reads small at 19px */
 .tool.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
 .sep { width: 1px; height: 28px; background: var(--line); flex: 0 0 auto; margin: 0 2px; }

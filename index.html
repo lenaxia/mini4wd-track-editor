@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#16181d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>Mini4WD Track Editor — mobile fork (PoC)</title>
-  <meta name="description" content="Touch-first fork of the Mini4WD Online Track Editor. Same track format, works on phones.">
-  <link rel="stylesheet" href="style.css?v=10">
+  <title>Mini4WD Track Editor</title>
+  <meta name="description" content="Touch-first Mini4WD track editor — design, validate and publish circuits on phone or desktop.">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <header id="topbar">
@@ -20,35 +20,35 @@
       ><button id="modeCycle" type="button">3L &#9656;</button>
     </div>
     <button id="stats" class="stats" type="button" aria-live="polite" title="">0.00 m · 0 pcs</button>
-    <button id="btnMenu" class="icon-btn" type="button" aria-label="Menu" title="Menu">☰</button>
+    <button id="btnMenu" class="icon-btn" type="button" aria-label="Menu" title="Menu"><span data-icon="menu"></span></button>
   </header>
 
   <main id="stage">
     <canvas id="editor"></canvas>
     <div id="zoomControls">
-      <button id="btnZoomIn"  type="button" aria-label="Zoom in">+</button>
-      <button id="btnZoomOut" type="button" aria-label="Zoom out">−</button>
-      <button id="btnFit"     type="button" aria-label="Fit track">⤢</button>
+      <button id="btnZoomIn"  type="button" aria-label="Zoom in"><span data-icon="magnify-plus"></span></button>
+      <button id="btnZoomOut" type="button" aria-label="Zoom out"><span data-icon="magnify-minus"></span></button>
+      <button id="btnFit"     type="button" aria-label="Fit track"><span data-icon="fullscreen"></span></button>
     </div>
     <div id="hint" class="hint">Pick a piece · tap to place · keep dragging to position · tap empty space to deselect</div>
   </main>
 
   <footer id="toolbar">
     <div class="tool-row">
-      <button class="tool" id="btnRotL" type="button" title="Rotate left (Z)">⟲</button>
-      <button class="tool" id="btnRotR" type="button" title="Rotate right (X)">⟳</button>
+      <button class="tool" id="btnRotL" type="button" title="Rotate left (Z)"><span data-icon="rotate-left"></span></button>
+      <button class="tool" id="btnRotR" type="button" title="Rotate right (X)"><span data-icon="rotate-right"></span></button>
       <span class="sep"></span>
-      <button class="tool" data-tool="Pan"    type="button" title="Pan / view (Space)">✋</button>
-      <button class="tool" data-tool="Move"   type="button" title="Select / move (Q)">✥</button>
-      <button class="tool" data-tool="Delete" type="button" title="Delete (W)">🗑</button>
+      <button class="tool" data-tool="Pan"    type="button" title="Pan / view (Space)"><span data-icon="arrow-all"></span></button>
+      <button class="tool" data-tool="Move"   type="button" title="Select / move (Q)"><span data-icon="cursor-default-outline"></span></button>
+      <button class="tool" data-tool="Delete" type="button" title="Delete (W)"><span data-icon="trash-can-outline"></span></button>
       <button class="tool" data-tool="Color"  type="button" title="Change color (E)"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="6.5" r="4" fill="#e05263"/><circle cx="6.5" cy="16" r="4" fill="#2ea89b"/><circle cx="17.5" cy="16" r="4" fill="#4f8fdd"/></svg></button>
-      <button class="tool" id="btnComplete" data-tool="Complete" type="button" title="Complete track — tap two ends (L)">🏁</button>
+      <button class="tool" id="btnComplete" data-tool="Complete" type="button" title="Complete track — tap two ends (L)"><span data-icon="flag-checkered"></span></button>
       <span class="sep"></span>
-      <button class="tool" id="btnUndo"  type="button" title="Undo (R)">↩</button>
-      <button class="tool" id="btnLvlUp"   type="button" title="Raise level +10mm (PageUp)">▲</button>
-      <button class="tool" id="btnLvlDown" type="button" title="Lower level −10mm (PageDown)">▼</button>
+      <button class="tool" id="btnUndo"  type="button" title="Undo (R)"><span data-icon="undo"></span></button>
+      <button class="tool" id="btnLvlUp"   type="button" title="Raise level +10mm (PageUp)"><span data-icon="arrow-up-bold"></span></button>
+      <button class="tool" id="btnLvlDown" type="button" title="Lower level −10mm (PageDown)"><span data-icon="arrow-down-bold"></span></button>
       <span class="sep"></span>
-      <button class="tool" id="btnPublishBar" type="button" title="Publish / save track">📤</button>
+      <button class="tool" id="btnPublishBar" type="button" title="Publish / save track"><span data-icon="cloud-upload"></span></button>
     </div>
     <div id="palette" class="palette" role="radiogroup" aria-label="Track pieces"></div>
   </footer>
@@ -56,31 +56,32 @@
   <dialog id="menuDialog">
     <div class="dialog-head">
       <h2>Track</h2>
-      <button id="btnCloseMenu" class="icon-btn" type="button" aria-label="Close menu">✕</button>
+      <button id="btnCloseMenu" class="icon-btn" type="button" aria-label="Close menu"><span data-icon="close"></span></button>
     </div>
     <div class="menu-actions">
-      <button id="btnShare"  type="button">🔗 Share link (no server)</button>
-      <button id="btnExport" type="button">⬇ Export track file</button>
-      <label class="file-label">⬆ Import track file<input type="file" id="fileImport" accept=".txt,.m4t,text/plain"></label>
-      <button id="btnImportText" type="button">📋 Paste / import code</button>
-      <button id="btnLibrary" type="button">📖 My published tracks</button>
-      <button id="btnGallery" type="button">🌍 Gallery</button>
-      <button id="btnNewTrack" type="button">✚ New track (clears canvas)</button>
-      <button id="btnLoop" type="button">🔁 Close loop (2 selected pieces)</button>
-      <button id="btnDeleteAll" type="button">🗑 Delete all pieces</button>
-      <button id="btnHelp" type="button">❓ Help &amp; shortcuts</button>
+      <button id="btnShare"  type="button"><span data-icon="share-variant"></span> Share link (no server)</button>
+      <button id="btnExport" type="button"><span data-icon="download"></span> Export track file</button>
+      <label class="file-label"><span data-icon="file-upload-outline"></span> Import track file<input type="file" id="fileImport" accept=".txt,.m4t,text/plain"></label>
+      <button id="btnImportText" type="button"><span data-icon="clipboard-text-outline"></span> Paste / import code</button>
+      <button id="btnLibrary" type="button"><span data-icon="book-open-variant"></span> My published tracks</button>
+      <button id="btnGallery" type="button"><span data-icon="earth"></span> Gallery</button>
+      <button id="btnNewTrack" type="button"><span data-icon="plus"></span> New track (clears canvas)</button>
+      <button id="btnLoop" type="button"><span data-icon="autorenew"></span> Close loop (2 selected pieces)</button>
+      <button id="btnDeleteAll" type="button"><span data-icon="delete-variant"></span> Delete all pieces</button>
+      <button id="btnHelp" type="button"><span data-icon="help-circle"></span> Help &amp; shortcuts</button>
     </div>
     <p class="credits">
-      Fork PoC of <a href="https://mini4wd-track-editor.pimentoso.com" target="_blank" rel="noopener">Mini4WD Online Track Editor</a>
-      by Pimentoso (editor logic MIT). Original-site tracks import unchanged; this fork's saves add an elevation field. Rudoc piece data (MIT (c) rucdoc) from his published models; sprites are redraws.
-      Mini4WD is a trademark of Tamiya inc. Piece artwork © Tamiya inc., from the original editor's assets.
+      Track format, piece catalog and snapping algorithm derive from the
+      <a href="https://mini4wd-track-editor.pimentoso.com" target="_blank" rel="noopener">Mini4WD Online Track Editor</a>
+      by Pimentoso (MIT). Rudoc piece data (MIT (c) rucdoc) from his published models; sprites are redraws.
+      Mini4WD is a trademark of Tamiya inc.
     </p>
   </dialog>
 
   <dialog id="ioDialog">
     <div class="dialog-head">
       <h2 id="ioTitle">Import</h2>
-      <button id="ioClose" class="icon-btn" type="button" aria-label="Close">✕</button>
+      <button id="ioClose" class="icon-btn" type="button" aria-label="Close"><span data-icon="close"></span></button>
     </div>
     <p class="io-hint" id="ioHint">Paste an original-site track string (<code>Name;x;y;angle;color#Name;…</code>)
        or the full text of a <code>/load/CODE.js</code> response.</p>
@@ -94,18 +95,18 @@
   <dialog id="helpDialog">
     <div class="dialog-head">
       <h2>Help</h2>
-      <button id="helpClose" class="icon-btn" type="button" aria-label="Close help">✕</button>
+      <button id="helpClose" class="icon-btn" type="button" aria-label="Close help"><span data-icon="close"></span></button>
     </div>
     <ul class="help-list">
       <li><b>Pick a piece</b> in the palette, then <b>tap the canvas</b> — the piece is placed immediately and snaps to nearby track ends (dots turn green when connected). On desktop a translucent preview follows your cursor.</li>
       <li><b>Keep dragging</b> before you release to fine-position the piece with live snapping.</li>
-      <li>After placing, the <b>✥ Move</b> tool is active with the new piece selected: <b>drag</b> it to adjust, <b>tap empty space</b> to deselect. Hold <kbd>Shift</kbd> on release to keep the same piece armed for rapid placing.</li>
+      <li>After placing, the <b>Move</b> tool is active with the new piece selected: <b>drag</b> it to adjust, <b>tap empty space</b> to deselect. Hold <kbd>Shift</kbd> on release to keep the same piece armed for rapid placing.</li>
       <li><b>Chain pieces</b>: re-pick the piece and tap/press near the end of the track — it snaps on.</li>
-      <li><b>✋</b> pan tool: drag to look around without placing. <b>⤢</b> zooms to fit the whole track. <b>Two fingers</b> → pan &amp; pinch-zoom.</li>
-      <li><b>⟲ / ⟳</b> rotate by 45° — while placing they turn the ghost; under ✥ they rotate the selection.</li>
-      <li><b>✥</b> drag on empty space to rubber-band select · <b>ctrl/cmd+click</b> a piece to add/remove it · drag a selected piece to move the whole group (it snaps) · <b>⟲/⟳</b> rotate the selection.</li>
+      <li><b>Pan</b> tool: drag to look around without placing. <b>Fit</b> zooms to fit the whole track. <b>Two fingers</b> → pan &amp; pinch-zoom.</li>
+      <li><b>Rotate left/right</b> rotates by 45° — while placing they turn the ghost; with Move they rotate the selection.</li>
+      <li><b>Move</b>: drag on empty space to rubber-band select · <b>ctrl/cmd+click</b> a piece to add/remove it · drag a selected piece to move the whole group (it snaps) · the rotate buttons turn the selection.</li>
       <li><b>🗑</b> tap a piece to delete it. The <b>three-dot</b> tool taps to cycle its color.</li>
-      <li><b>Close the loop</b> (☰ or <kbd>L</kbd>): select exactly two pieces of the <b>same lane count</b> with <b>✥</b> and the gap between their free ends is filled with the shortest run of that family's straights and 45° corners that misses every placed piece. Ends 75 mm apart in level bridge straight over; smaller gaps and same-level overlaps are avoided. If it can't close, the tool says why and offers to remove pieces until it can — one undo puts everything back.</li>
+      <li><b>Close the loop</b> (☰ or <kbd>L</kbd>): select exactly two pieces of the <b>same lane count</b> with <b>Move</b> and the gap between their free ends is filled with the shortest run of that family's straights and 45° corners that misses every placed piece. Ends 75 mm apart in level bridge straight over; smaller gaps and same-level overlaps are avoided. If it can't close, the tool says why and offers to remove pieces until it can — one undo puts everything back.</li>
       <li>Scale: 1 px = 1 cm, one grid square = 1 m (same as original).</li>
     </ul>
     <h3>Keyboard (desktop)</h3>
@@ -120,7 +121,7 @@
   <dialog id="completeDialog">
     <div class="dialog-head">
       <h2>Complete track</h2>
-      <button id="completeClose" class="icon-btn" type="button" aria-label="Close">✕</button>
+      <button id="completeClose" class="icon-btn" type="button" aria-label="Close"><span data-icon="close"></span></button>
     </div>
     <p class="io-hint">Tap two end pieces to complete the track — the gap is filled with the shortest run of straights and 45&deg; corners that clears every piece. If no workable solution is found, the tool can automatically remove pieces one at a time until the track can be completed. Both ends must be of the same lane count and elevation, with exactly one free end each. Straights, corners, waves and lane changers are supported as ends.</p>
     <div class="dialog-actions">
@@ -131,13 +132,13 @@
   <dialog id="publishDialog">
     <div class="dialog-head">
       <h2 id="pubTitle">Publish</h2>
-      <button id="pubClose" class="icon-btn" type="button" aria-label="Close">✕</button>
+      <button id="pubClose" class="icon-btn" type="button" aria-label="Close"><span data-icon="close"></span></button>
     </div>
     <p class="io-hint">Publishing saves this track to the server under a name; from then on your edits save automatically. Unpublished tracks stay on this device only.</p>
     <input id="pubName" type="text" maxlength="200" placeholder="Track name"
            style="width:100%;margin-top:10px;background:#14161a;color:#dfe3ea;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;">
     <div id="pubStatus" style="margin-top:10px;font-size:12px;line-height:1.6;"></div>
-    <button id="pubTipComplete" type="button" class="tip-cta" style="display:none;">🏁 Close the gap with Complete track — select two ends and it fills the run</button>
+    <button id="pubTipComplete" type="button" class="tip-cta" style="display:none;"><span data-icon="flag-checkered"></span> Close the gap with Complete track — select two ends and it fills the run</button>
     <div class="dialog-actions">
       <button id="pubCancel" type="button" class="secondary">Cancel</button>
       <button id="pubOk" type="button" class="primary">Publish</button>
@@ -147,7 +148,7 @@
   <dialog id="libraryDialog">
     <div class="dialog-head">
       <h2>My published tracks</h2>
-      <button id="libClose" class="icon-btn" type="button" aria-label="Close">✕</button>
+      <button id="libClose" class="icon-btn" type="button" aria-label="Close"><span data-icon="close"></span></button>
     </div>
     <p class="io-hint">Tap a track to load it onto the canvas — it stays published and keeps auto-saving.</p>
     <div id="libList" class="menu-actions" style="margin-top:10px;max-height:50vh;overflow-y:auto;"></div>
@@ -156,7 +157,7 @@
   <dialog id="galleryDialog">
     <div class="dialog-head">
       <h2>🌍 Gallery</h2>
-      <button id="galClose" class="icon-btn" type="button" aria-label="Close">✕</button>
+      <button id="galClose" class="icon-btn" type="button" aria-label="Close"><span data-icon="close"></span></button>
     </div>
     <p class="io-hint">All tracks published on this server — not just this device's. Tap a row to load it onto the canvas; ★ to star a favourite.</p>
     <div id="galSorts" class="gal-sorts" role="group" aria-label="Sort tracks"></div>
@@ -167,6 +168,6 @@
 
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=59"></script>
+  <script type="module" src="src/main.js?v=61"></script>
 </body>
 </html>
