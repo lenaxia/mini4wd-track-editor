@@ -23,8 +23,13 @@ body {
   background: var(--panel); border-bottom: 1px solid var(--line);
   flex: 0 0 auto;
 }
-.brand { font-weight: 700; font-size: 15px; white-space: nowrap; }
+.brand {
+  font: inherit; font-weight: 700; font-size: 15px; white-space: nowrap;
+  border: 0; background: transparent; color: inherit; cursor: pointer; padding: 0;
+}
 .brand span { color: var(--accent); }
+.brand:hover { text-decoration: underline; }
+.brand:active { opacity: .8; }
 .mode-switch { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 /* narrow screens: the segmented control collapses to one cycling button
  * (pure CSS — the app never toggles visibility, so viewport changes
@@ -183,7 +188,7 @@ kbd {
 .dialog-actions button:not(:disabled):hover, .menu-actions button:hover, .file-label:hover,
 button.primary:not(:disabled):hover, button.secondary:not(:disabled):hover,
 .icon-btn:hover, .lib-row:hover, .gal-main:hover, .gal-more:hover,
-.gal-star:not(:disabled):hover, .gal-toggle:hover, .gal-sorts button:hover {
+.gal-star:not(:disabled):hover, .gal-toggle:hover, .gal-filterbtn:hover {
   background: #2e3140;
   border-color: #4a5160;
 }
@@ -192,7 +197,7 @@ button.secondary:not(:disabled):hover { background: rgba(255, 255, 255, .06); }
 .dialog-actions button:not(:disabled):active, .menu-actions button:active, .file-label:active,
 button.primary:not(:disabled):active, button.secondary:not(:disabled):active,
 .icon-btn:active, .lib-row:active, .gal-main:active, .gal-more:active,
-.gal-star:not(:disabled):active, .gal-toggle:active, .gal-sorts button:active {
+.gal-star:not(:disabled):active, .gal-toggle:active, .gal-filterbtn:active {
   transform: translateY(1px);
   background: #262a33;
 }
@@ -210,33 +215,84 @@ button.primary:not(:disabled):active { background: #e6b84f; }
 .tip-cta:active { transform: translateY(1px); background: rgba(125, 211, 252, .14); }
 
 /* ---------- gallery (all published tracks on the server) ---------- */
-/* sort chips scroll horizontally on phones, like the palette; the
- * [aria-pressed] rules sit after the shared hover/press block above so
- * an active chip keeps its accent under the pointer */
-.gal-sorts {
-  display: flex; gap: 6px; margin-top: 10px;
-  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+/* full-screen (owner round): the gallery is a browse surface, not a
+ * popover — it takes the whole viewport on every device. display is
+ * [open]-guarded: an unguarded flex would override the UA's
+ * dialog:not([open]) display:none and render a closed dialog as an
+ * invisible click shield over the whole app */
+dialog.gallery-full {
+  max-width: none; width: 100vw; height: 100dvh; height: 100svh;
+  margin: 0; border: 0; border-radius: 0;
 }
-.gal-sorts button {
-  flex: 0 0 auto; font: inherit; font-size: 12px; padding: 6px 11px;
-  border-radius: 999px; border: 1px solid var(--line);
-  background: var(--panel-2); color: #c8cdd6; cursor: pointer;
+dialog.gallery-full[open] { display: flex; flex-direction: column; }
+.gallery-full .dialog-head { flex: 0 0 auto; }
+.gallery-full .io-hint { flex: 0 0 auto; }
+/* toolbar wraps instead of scrolling — the pill row's horizontal
+ * scrollbar on desktop was the complaint that spawned the drawer */
+.gal-toolbar {
+  flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center;
+  gap: 8px; margin-top: 10px;
 }
-.gal-sorts button[aria-pressed="true"] {
-  background: var(--accent); color: var(--accent-ink);
-  border-color: var(--accent); font-weight: 700;
+.gal-sortwrap {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #aab1bd;
+}
+.gal-sortwrap select, .gal-dims select {
+  font: inherit; font-size: 13px; color: #e8eaed;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+  padding: 7px 8px; cursor: pointer;
 }
 .gal-toggle {
-  margin-top: 8px; font: inherit; font-size: 12px; text-align: left;
+  font: inherit; font-size: 12px; text-align: left;
   padding: 7px 11px; border-radius: 10px; border: 1px solid var(--line);
   background: var(--panel-2); color: #aab1bd; cursor: pointer;
 }
 .gal-toggle[aria-pressed="true"] { background: #2e3140; color: #4ade80; border-color: #4ade80; }
-.gal-meta { margin-top: 8px; font-size: 11px; color: #9aa3af; font-variant-numeric: tabular-nums; }
+.gal-filterbtn {
+  position: relative; font: inherit; font-size: 13px; padding: 7px 12px;
+  border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: inherit; cursor: pointer;
+}
+.gal-filtercount {
+  margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 700;
+}
+.gal-meta { flex: 0 0 auto; margin-top: 8px; font-size: 11px; color: #9aa3af; font-variant-numeric: tabular-nums; }
 .gal-list {
-  margin-top: 8px; max-height: 48vh; overflow-y: auto;
+  flex: 1 1 auto; min-height: 0; margin-top: 8px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 8px;
 }
+
+/* the filter drawer — slides over the gallery from the right */
+.gal-drawer {
+  position: absolute; top: 0; right: 0; bottom: 0; z-index: 5;
+  width: min(320px, 92vw); padding: 18px; overflow-y: auto;
+  background: var(--panel); border-left: 1px solid var(--line);
+  transform: translateX(100%); transition: transform .2s ease;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.gal-drawer.open { transform: translateX(0); box-shadow: -8px 0 24px rgba(0, 0, 0, .35); }
+.gal-field {
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 13px; color: #c8cdd6; border: 0; padding: 0; margin: 0;
+}
+.gal-field legend { color: #c8cdd6; padding: 0; }
+.gal-field input[type="range"] { accent-color: var(--accent); width: 100%; }
+.gal-dims { display: flex; gap: 8px; align-items: center; }
+.gal-dims label {
+  flex: 1 1 0; display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: #9aa3af; min-width: 0;
+}
+.gal-dims input[type="number"] {
+  width: 100%; min-width: 0; font: inherit; font-size: 13px; color: #e8eaed;
+  background: #14161a; border: 1px solid var(--line); border-radius: 8px; padding: 6px 7px;
+}
+.gal-lane {
+  display: inline-flex; align-items: center; gap: 6px; margin-right: 12px;
+  font-size: 13px; cursor: pointer;
+}
+.gal-lane input { accent-color: var(--accent); width: 17px; height: 17px; }
+.gal-drawer .dialog-actions { margin-top: auto; }
 .gal-row { display: flex; gap: 8px; align-items: stretch; }
 .gal-main {
   flex: 1 1 auto; min-width: 0; text-align: left; padding: 8px 10px;

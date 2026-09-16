@@ -10,7 +10,7 @@ import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow } from './storage.js';
 import {
-  GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge,
+  GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, completeBadge, lengthToCm,
   isStarred, addStarred, removeStarred, thumbFit, trackFacets,
 } from './gallery.js';
 import { validateTrack } from './validate.js';
@@ -438,24 +438,76 @@ export function init(dimsGetter) {
   /* ---------- gallery (ALL published tracks, not just this browser's) ---------- */
 
   const GAL_PAGE = 25;
+  /* complete-only is the owner's default view; the drawer's filter
+   * state mirrors galFilterDefaults (Reset restores them) */
+  const galFilterDefaults = () => ({
+    minLength: 0, lanes: [...GALLERY_LANES],
+    maxW: null, maxH: null, maxStraights: null, maxSlopes: null, maxCorners: null,
+  });
   /* loading: one galLoad in flight at a time (double-tap on Load more
    * must not fetch the page twice). gen: bumped by every sort/filter/open
    * so a superseded page is dropped instead of appended into the new
    * view. A dropped page leaves `loading` alone — the newer call owns it. */
-  const gal = { sort: '-updated_at', complete: false, items: [], total: 0, gen: 0, loading: false };
+  const gal = { sort: '-updated_at', complete: true, filter: galFilterDefaults(), items: [], total: 0, gen: 0, loading: false };
+
+  function galFilterCount() {
+    const f = gal.filter, d = galFilterDefaults();
+    let n = 0;
+    if (f.minLength > 0) n += 1;
+    if (f.lanes.length !== d.lanes.length) n += 1;
+    for (const k of ['maxW', 'maxH', 'maxStraights', 'maxSlopes', 'maxCorners'])
+      if (f[k] != null) n += 1;
+    return n;
+  }
 
   function galRenderControls() {
-    const bar = $('galSorts');
-    bar.innerHTML = '';
+    const sel = $('galSort');
+    sel.innerHTML = '';
     for (const s of GALLERY_SORTS) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = s.label;
-      b.setAttribute('aria-pressed', String(gal.sort === s.value));
-      b.addEventListener('click', () => { if (gal.sort !== s.value) openGallery(s.value); });
-      bar.appendChild(b);
+      const opt = document.createElement('option');
+      opt.value = s.value;
+      opt.textContent = s.label;
+      opt.selected = gal.sort === s.value;
+      sel.appendChild(opt);
     }
     $('galComplete').setAttribute('aria-pressed', String(gal.complete));
+    const n = galFilterCount();
+    $('galFilterCount').hidden = n === 0;
+    $('galFilterCount').textContent = n;
+  }
+
+  /* sync the drawer's controls from gal.filter (unit keeps the cm
+   * values readable: inputs display converted, state stores cm) */
+  function galRenderDrawer() {
+    const f = gal.filter;
+    $('galMinLen').value = f.minLength;
+    $('galMinLenOut').textContent = f.minLength > 0 ? `${f.minLength} m+` : 'any';
+    const lanes = $('galLanes');
+    lanes.innerHTML = '';
+    for (const n of GALLERY_LANES) {
+      const lab = document.createElement('label');
+      lab.className = 'gal-lane';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = f.lanes.includes(n);
+      cb.addEventListener('change', () => {
+        f.lanes = GALLERY_LANES.filter((x) => x === n ? cb.checked : f.lanes.includes(x));
+        openGallery();
+      });
+      lab.append(cb, `${n} lanes`);
+      lanes.appendChild(lab);
+    }
+    const unit = $('galUnit').value;
+    const fromCm = (cm) => (cm == null ? '' : String(+(cm / ({ cm: 1, m: 100, in: 2.54, ft: 30.48 })[unit]).toFixed(2)));
+    $('galMaxW').value = fromCm(f.maxW);
+    $('galMaxH').value = fromCm(f.maxH);
+    $('galMaxStraights').value = f.maxStraights ?? '';
+    $('galMaxSlopes').value = f.maxSlopes ?? '';
+    $('galMaxCorners').value = f.maxCorners ?? '';
+  }
+
+  function galOpenDrawer(open) {
+    $('galDrawer').classList.toggle('open', open);
   }
 
   async function galLoad() {
@@ -466,7 +518,8 @@ export function init(dimsGetter) {
     if (!gal.items.length) list.textContent = 'Loading…';
     try {
       const res = await fetch(`/api/tracks?${galleryQuery({
-        sort: gal.sort, complete: gal.complete, limit: GAL_PAGE, offset: gal.items.length,
+        sort: gal.sort, complete: gal.complete, filter: gal.filter,
+        limit: GAL_PAGE, offset: gal.items.length,
       })}`);
       const page = await res.json();
       if (gen !== gal.gen) return;   /* a newer sort/filter/open owns the list now */
@@ -658,13 +711,46 @@ export function init(dimsGetter) {
     gal.items = [];
     gal.total = 0;
     galRenderControls();
+    galRenderDrawer();
     galLoad();
     openDialog($('galleryDialog'));
   }
 
+  /* the brand IS a gallery shortcut (owner round) */
+  $('brand').addEventListener('click', () => openGallery());
   $('btnGallery').addEventListener('click', () => openGallery());
-  $('galClose').addEventListener('click', () => closeDialog($('galleryDialog')));
+  $('galClose').addEventListener('click', () => { galOpenDrawer(false); closeDialog($('galleryDialog')); });
+  $('galSort').addEventListener('change', (e) => openGallery(e.target.value));
   $('galComplete').addEventListener('click', () => { gal.complete = !gal.complete; openGallery(); });
+  $('galFilters').addEventListener('click', () => galOpenDrawer(true));
+  $('galDrawerClose').addEventListener('click', () => galOpenDrawer(false));
+  $('galDone').addEventListener('click', () => galOpenDrawer(false));
+  $('galMinLen').addEventListener('input', (e) => {
+    gal.filter.minLength = +e.target.value;
+    $('galMinLenOut').textContent = gal.filter.minLength > 0 ? `${gal.filter.minLength} m+` : 'any';
+  });
+  $('galMinLen').addEventListener('change', () => openGallery());
+  /* footprint + count caps: inputs are in the chosen unit (state is cm);
+   * empty = any. Fires on blur/Enter, not per keystroke. */
+  const galCap = (inputId, key, toCm) => {
+    $(inputId).addEventListener('change', (e) => {
+      const v = e.target.value;
+      gal.filter[key] = v === '' ? null : (toCm ? lengthToCm(+v, $('galUnit').value) : Math.max(0, Math.round(+v)));
+      openGallery();
+    });
+  };
+  galCap('galMaxW', 'maxW', true);
+  galCap('galMaxH', 'maxH', true);
+  galCap('galMaxStraights', 'maxStraights', false);
+  galCap('galMaxSlopes', 'maxSlopes', false);
+  galCap('galMaxCorners', 'maxCorners', false);
+  /* unit switch re-displays the stored cm caps in the new unit */
+  $('galUnit').addEventListener('change', () => galRenderDrawer());
+  $('galReset').addEventListener('click', () => {
+    gal.filter = galFilterDefaults();
+    galRenderDrawer();
+    openGallery();
+  });
 
   $('btnNewTrack').addEventListener('click', () => {
     closeDialog($('menuDialog'));

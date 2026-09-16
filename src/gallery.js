@@ -7,22 +7,48 @@
 
 import { PIECES } from './pieces.js';
 
+
+
+/* Sorts (owner round 2026-09-16): orderings only — counts became max
+ * filters in the drawer. "Newest" renamed "Last updated" so recent
+ * changes read as what they are. */
 export const GALLERY_SORTS = [
-  { value: '-updated_at', label: 'Newest' },
+  { value: '-updated_at', label: 'Last updated' },
   { value: '-length', label: 'Length' },
-  { value: 'lanes', label: 'Lanes' },
+  { value: '-lanes', label: 'Lanes' },
   { value: '-bbox', label: 'Footprint' },
   { value: '-stars', label: 'Stars' },
-  { value: '-straights', label: 'Straights' },
-  { value: '-slopes', label: 'Slopes' },
-  { value: '-corners', label: 'Corners' },
 ];
 
+/* the lane selector's options (2-lane rucdoc, 3-lane Japan Cup, 5-lane WIDE) */
+export const GALLERY_LANES = [2, 3, 5];
+
+/* footprint unit conversion -> cm (the API speaks cm; 1 px = 1 cm) */
+export function lengthToCm(v, unit) {
+  const f = { cm: 1, m: 100, in: 2.54, ft: 30.48 }[unit] || 1;
+  return Math.round(v * f);
+}
+
 /* Query for GET /api/tracks. complete is opt-in only — the toggle means
- * "complete only", an off toggle lists everything. */
-export function galleryQuery({ sort, complete, limit, offset }) {
-  const q = `sort=${sort}&limit=${limit}&offset=${offset}`;
-  return complete ? `${q}&complete=true` : q;
+ * "complete only", an off toggle lists everything. The drawer's filter
+ * state rides along: min length (m) -> min_length (cm), lane selection
+ * (all selected = no param), footprint caps + count caps. */
+export function galleryQuery({ sort, complete, limit, offset, filter }) {
+  /* pairs, not URLSearchParams: it percent-encodes the lanes comma;
+   * every value here is a number or enum, so plain joining is safe */
+  const parts = [`sort=${sort}`, `limit=${limit}`, `offset=${offset}`];
+  if (complete) parts.push('complete=true');
+  if (filter) {
+    if (filter.minLength > 0) parts.push(`min_length=${Math.round(filter.minLength * 100)}`);
+    if (filter.lanes && filter.lanes.length && filter.lanes.length !== GALLERY_LANES.length)
+      parts.push(`lanes=${[...filter.lanes].sort().join(',')}`);
+    if (filter.maxW != null) parts.push(`max_bbox_w=${filter.maxW}`);
+    if (filter.maxH != null) parts.push(`max_bbox_h=${filter.maxH}`);
+    if (filter.maxStraights != null) parts.push(`max_straights=${filter.maxStraights}`);
+    if (filter.maxSlopes != null) parts.push(`max_slopes=${filter.maxSlopes}`);
+    if (filter.maxCorners != null) parts.push(`max_corners=${filter.maxCorners}`);
+  }
+  return parts.join('&');
 }
 
 /* Bbox in cm (1 px = 1 cm); under a meter stays in cm, above switches

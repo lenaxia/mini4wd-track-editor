@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge,
+  GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, completeBadge, lengthToCm,
   readStarred, isStarred, addStarred, removeStarred, thumbFit, trackFacets,
 } from '../../src/gallery.js';
 import { facets } from '../../lib/store/facets.js';
@@ -35,6 +35,33 @@ test('galleryQuery builds the list query; complete only when asked', () => {
     'sort=-length&limit=25&offset=0');
   assert.equal(galleryQuery({ sort: '-updated_at', complete: true, limit: 25, offset: 50 }),
     'sort=-updated_at&limit=25&offset=50&complete=true');
+});
+
+/* the drawer's filter state -> query params (owner round 2026-09-16):
+ * min length (m), lane selection (OR), footprint max W/H (cm after unit
+ * conversion), max straights/slopes/corners */
+test('galleryQuery serializes the drawer filters', () => {
+  const q = galleryQuery({
+    sort: '-stars', complete: true, limit: 25, offset: 0,
+    filter: { minLength: 20, lanes: [3, 5], maxW: 240, maxH: 120, maxStraights: 6, maxSlopes: 2, maxCorners: 12 },
+  });
+  assert.equal(q, 'sort=-stars&limit=25&offset=0&complete=true&min_length=2000&lanes=3,5'
+    + '&max_bbox_w=240&max_bbox_h=120&max_straights=6&max_slopes=2&max_corners=12');
+  /* defaults emit nothing: all lanes selected = no lanes param, no caps */
+  const base = galleryQuery({ sort: '-stars', complete: true, limit: 25, offset: 0,
+    filter: { minLength: 0, lanes: [2, 3, 5], maxW: null, maxH: null, maxStraights: null, maxSlopes: null, maxCorners: null } });
+  assert.equal(base, 'sort=-stars&limit=25&offset=0&complete=true');
+});
+
+test('lengthToCm converts the footprint units (metric + imperial)', () => {
+  assert.equal(lengthToCm(2, 'm'), 200);
+  assert.equal(lengthToCm(240, 'cm'), 240);
+  assert.equal(lengthToCm(96, 'in'), Math.round(96 * 2.54));
+  assert.equal(lengthToCm(8, 'ft'), Math.round(8 * 30.48));
+});
+
+test('gallery lanes options are the catalog widths the owner called out', () => {
+  assert.deepEqual(GALLERY_LANES, [2, 3, 5]);
 });
 
 test('formatFootprint stays in cm under a meter, switches to m above', () => {

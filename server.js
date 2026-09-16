@@ -107,17 +107,28 @@ function normalize({ id, name, author, data }) {
 function parseListQuery(u) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
   const num = (v) => v === undefined || v === '' ? undefined : (Number.isFinite(+v) ? +v : NaN);
+  /* lanes=2,3,5 — the gallery's lane selector (OR semantics) */
+  const lanes = typeof q.lanes === 'string' && q.lanes
+    ? q.lanes.split(',').map((s) => num(s.trim()))
+    : undefined;
   const out = {
     author: typeof q.author === 'string' && q.author ? q.author.slice(0, 100) : undefined,
     min_pieces: num(q.min_pieces), max_pieces: num(q.max_pieces), min_length: num(q.min_length),
     min_lanes: num(q.min_lanes),
+    lanes: lanes && lanes.length ? lanes : undefined,
+    max_bbox_w: num(q.max_bbox_w), max_bbox_h: num(q.max_bbox_h),
+    max_straights: num(q.max_straights), max_slopes: num(q.max_slopes), max_corners: num(q.max_corners),
     complete: q.complete === 'true' ? true : q.complete === 'false' ? false : undefined,
     sort: typeof q.sort === 'string' && q.sort ? q.sort : '-updated_at',
     limit: Math.max(1, Math.min(100, Math.round(num(q.limit) ?? 50))),
     offset: Math.max(0, Math.round(num(q.offset) ?? 0)),
   };
-  for (const v of [out.min_pieces, out.max_pieces, out.min_length, q.limit !== undefined ? out.limit : 0, q.offset !== undefined ? out.offset : 0])
+  for (const v of [out.min_pieces, out.max_pieces, out.min_length, out.min_lanes,
+    ...(out.lanes ?? []), out.max_bbox_w, out.max_bbox_h,
+    out.max_straights, out.max_slopes, out.max_corners,
+    q.limit !== undefined ? out.limit : 0, q.offset !== undefined ? out.offset : 0])
     if (Number.isNaN(v)) bad('non-numeric query value');
+  if (out.lanes && !out.lanes.every((v) => Number.isInteger(v) && v > 0 && v <= 10)) bad('bad lanes');
   if (!/^-?(updated_at|created_at|name|pieces|length|lanes|bbox|straights|corners|slopes|stars|complete)$/.test(out.sort)) bad('bad sort');
   return out;
 }

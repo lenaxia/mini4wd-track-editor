@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test';
 
-/* Gallery (owner spec): Track menu → 🌍 Gallery browses ALL tracks on the
- * server with facet rows (pieces/length/lanes/footprint/straights/
- * slopes/corners/stars/updated + ✓/✖ badge — slopes their own count,
- * hairpins = 4 corners), sorts, a complete-only filter, per-browser
- * star de-dupe, Load more pagination, and the same load-adopts-binding
- * flow as "My published tracks". Tests own their rows: unique per-test
- * id namespace + afterAll cleanup — safe against a shared live server
+/* Gallery (owner spec): brand + Track menu → 🌍 Gallery browses ALL
+ * tracks on the server FULL SCREEN — facet rows (pieces/length/lanes/
+ * footprint/straights/slopes/corners/stars/updated + ✓/✖ badge),
+ * sort select, Complete-only ON BY DEFAULT (always visible), filter
+ * drawer (min length slider, lane selection, footprint caps with
+ * imperial/metric units, max counts), per-browser star de-dupe, Load
+ * more, load-adopts-binding. Tests own their rows: unique per-test id
+ * namespace + afterAll cleanup — safe against a shared live server
  * AND against fullyParallel workers re-evaluating this module. */
 
 /* serial: the pagination test floods 26 rows that would push the other
@@ -42,7 +43,28 @@ async function openGallery(page) {
   await expect(page.locator('#galleryDialog')).toBeVisible();
 }
 
-test('gallery rows render name, badge and facet line', async ({ page, request }) => {
+test('the brand opens the gallery full screen (no horizontal scroll, desktop or phone)', async ({ page, request }) => {
+  const n = nonce();
+  await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);   /* complete-only default needs one */
+  await page.goto('/');
+  /* force: the opened full-screen dialog covers the brand, which would
+   * send Playwright's actionability retry loop into a spin — one tap is
+   * what a user does */
+  await page.locator('#brand').click({ force: true });
+  const dlg = page.locator('#galleryDialog');
+  await expect(dlg).toBeVisible();
+  await expect(page.locator('.gal-row').first()).toBeVisible({ timeout: 10_000 });
+  for (const vp of [{ width: 1280, height: 800 }, { width: 390, height: 780 }]) {
+    await page.setViewportSize(vp);
+    const box = await dlg.boundingBox();
+    expect(Math.round(box.width)).toBe(vp.width);
+    expect(Math.round(box.height)).toBeLessThanOrEqual(vp.height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth));
+  }
+});
+
+test('gallery rows render name, badge and facet line (complete-off shows WIP)', async ({ page, request }) => {
   const n = nonce();
   await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);
   await seed(request, `gal-${n}-wip`, `E2E WIP ${n}`, 'Str1;100.000;100.000;0;0;0#Cor1;154.250;100.000;45;3;75#');
@@ -50,21 +72,26 @@ test('gallery rows render name, badge and facet line', async ({ page, request })
   const row = page.locator('.gal-row', { hasText: `E2E Square ${n}` });
   await expect(row).toBeVisible();
   await expect(row.locator('.gal-badge.ok')).toHaveText('\u2713');          /* server-validated complete */
-  await expect(page.locator('.gal-row', { hasText: `E2E WIP ${n}` }).locator('.gal-badge.wip')).toContainText('\u2716');
   const facets = row.locator('.gal-facets');
   await expect(facets).toContainText('4 pcs');
   await expect(facets).toContainText('1.36 m');                            /* 4 × R1C90I150 l=0.34 */
   await expect(facets).toContainText('1 lanes');
   await expect(facets).toContainText('0 str · 0 slp · 4 cor');
   await expect(row.locator('.gal-sub')).toContainText('\u2605 0');
+  /* complete-only is ON by default — the WIP badge needs the toggle OFF */
+  await page.locator('#galComplete').click();
+  const wip = page.locator('.gal-row', { hasText: `E2E WIP ${n}` });
+  await expect(wip).toBeVisible();
+  await expect(wip.locator('.gal-badge.wip')).toContainText('\u2716');
 });
 
-test('sort switch reorders by length', async ({ page, request }) => {
+test('sort select reorders by length', async ({ page, request }) => {
   const n = nonce();
   await seed(request, `gal-${n}-short`, `E2E Shortest ${n}`, SQUARE);
   await seed(request, `gal-${n}-long`, `E2E Longest ${n}`, LONG);
   await openGallery(page);
-  await page.locator('#galSorts button', { hasText: 'Length' }).click();
+  await page.locator('#galComplete').click();   /* the LONG seed dangles = WIP, hidden by the default */
+  await page.locator('#galSort').selectOption('-length');
   /* 40 × Str1 = 64.8 m — longer than this spec's short seed; relative
    * order (longest above shortest) is asserted so a shared server's other
    * rows cannot break it */
@@ -74,20 +101,62 @@ test('sort switch reorders by length', async ({ page, request }) => {
            names.indexOf(`E2E Shortest ${n}`) >= 0 &&
            names.indexOf(`E2E Longest ${n}`) < names.indexOf(`E2E Shortest ${n}`);
   }, { timeout: 10_000 }).toBe(true);
-  await expect(page.locator('#galSorts button', { hasText: 'Length' })).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.locator('#galSort').inputValue()).toBe('-length');
 });
 
-test('complete-only filter hides work-in-progress rows', async ({ page, request }) => {
+test('complete-only is the default; the toggle always stays visible', async ({ page, request }) => {
   const n = nonce();
   await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);
   await seed(request, `gal-${n}-wip`, `E2E WIP ${n}`, 'Str1;100.000;100.000;0;0;0#Cor1;154.250;100.000;45;3;75#');
   await seed(request, `gal-${n}-long`, `E2E Dangling ${n}`, LONG);
   await openGallery(page);
-  await page.locator('#galComplete').click();
   await expect(page.locator('#galComplete')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.gal-row', { hasText: `E2E WIP ${n}` })).toHaveCount(0);
   await expect(page.locator('.gal-row', { hasText: `E2E Dangling ${n}` })).toHaveCount(0); /* dangling = wip */
   await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toBeVisible();
+  await page.locator('#galComplete').click();
+  await expect(page.locator('.gal-row', { hasText: `E2E WIP ${n}` })).toBeVisible();
+});
+
+test('filter drawer: lanes, min length, reset — Complete stays visible', async ({ page, request }) => {
+  const n = nonce();
+  const fiveLane = 'Str4;100.000;100.000;0;0;0#Str4;160.000;100.000;0;0;0#';  /* 5-lane, 6 m, 0 str? -> 2 str */
+  await seed(request, `gal-${n}-five`, `E2E Five ${n}`, fiveLane);
+  await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);          /* 1-lane, 1.36 m, 4 cor */
+  await openGallery(page);
+  await page.locator('#galComplete').click();   /* fixtures dangle — test the filters, not completeness */
+
+  await page.locator('#galFilters').click();
+  await expect(page.locator('#galDrawer')).toHaveClass(/open/);
+  await expect(page.locator('#galComplete')).toBeVisible();                  /* always visible, drawer or not */
+
+  /* lanes: only 5-lane rows */
+  await page.locator('#galLanes input').nth(0).uncheck();   /* 2 lanes off */
+  await page.locator('#galLanes input').nth(1).uncheck();   /* 3 lanes off */
+  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toHaveCount(0);
+  await expect(page.locator('.gal-row', { hasText: `E2E Five ${n}` })).toBeVisible();
+  expect(await page.locator('#galFilterCount').textContent()).toBe('1');
+
+  /* min length: 5 m removes the 1.36 m square too (both lanes back on) */
+  await page.locator('#galLanes input').nth(0).check();
+  await page.locator('#galLanes input').nth(1).check();
+  await page.locator('#galMinLen').fill('5');
+  await page.locator('#galMinLen').blur();
+  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toHaveCount(0);
+  await expect(page.locator('.gal-row', { hasText: `E2E Five ${n}` })).toBeVisible();
+
+  /* max straights 0: only zero-straight rows (the square, if visible) */
+  await page.locator('#galMinLen').fill('0');
+  await page.locator('#galMinLen').blur();
+  await page.locator('#galMaxStraights').fill('0');
+  await page.locator('#galMaxStraights').blur();
+  await expect(page.locator('.gal-row', { hasText: `E2E Five ${n}` })).toHaveCount(0);
+  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toBeVisible();
+
+  await page.locator('#galReset').click();
+  await expect(page.locator('.gal-row', { hasText: `E2E Five ${n}` })).toBeVisible();
+  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toBeVisible();
+  await expect(page.locator('#galFilterCount')).toBeHidden();
 });
 
 test('stars toggle per browser: POST stars, DELETE unstars, localStorage gates', async ({ page, request }) => {
