@@ -8,6 +8,7 @@ import {
 import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
+import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow } from './storage.js';
 import { drawPieceArt } from './art.js';
 import { closeLoop, closeLoopStepping, solverSetFor, endPieceIssue } from './solver.js';
 
@@ -267,6 +268,78 @@ export function init(dimsGetter) {
   $('ioClose').addEventListener('click', () => closeDialog($('ioDialog')));
 
   $('btnLoop').addEventListener('click', () => { closeDialog($('menuDialog')); closeLoopAction(); });
+
+  /* ---------- publish / library (owner model: unpublished = local only) ---------- */
+
+  $('btnPublish').addEventListener('click', () => {
+    const pub = publishedTrack();
+    $('pubTitle').textContent = pub ? 'Rename published track' : 'Publish';
+    $('pubOk').textContent = pub ? 'Save name' : 'Publish';
+    $('pubName').value = pub ? pub.name : '';
+    closeDialog($('menuDialog'));
+    openDialog($('publishDialog'));
+    $('pubName').focus();
+  });
+  $('pubClose').addEventListener('click', () => closeDialog($('publishDialog')));
+  $('pubOk').addEventListener('click', async () => {
+    const name = $('pubName').value.trim() || 'Untitled';
+    const wasPublished = !!publishedTrack();
+    $('pubOk').disabled = true;
+    const row = await publishTrack(name, state);
+    $('pubOk').disabled = false;
+    if (!row) { toast('Server unreachable — track stays local'); return; }
+    closeDialog($('publishDialog'));
+    toast(wasPublished ? `Renamed to “${row.name}”`
+                       : `Published “${row.name}” — edits now auto-save`);
+  });
+
+  $('btnLibrary').addEventListener('click', async () => {
+    closeDialog($('menuDialog'));
+    const list = $('libList');
+    list.textContent = 'Loading…';
+    openDialog($('libraryDialog'));
+    try {
+      const res = await fetch('/api/tracks?sort=-updated_at&limit=50');
+      const page = await res.json();
+      list.textContent = '';
+      if (!page.items.length) { list.textContent = 'No published tracks yet.'; return; }
+      for (const it of page.items) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'lib-row';
+        row.dataset.id = it.id;
+        const when = new Date(it.updated_at).toLocaleString();
+        row.textContent = `${it.name} · ${it.piece_count} pcs · ${(it.length_cm / 100).toFixed(2)} m · ${when}`;
+        row.addEventListener('click', () => loadLibraryTrack(it.id));
+        list.appendChild(row);
+      }
+    } catch { list.textContent = 'Server unreachable.'; }
+  });
+  $('libClose').addEventListener('click', () => closeDialog($('libraryDialog')));
+
+  async function loadLibraryTrack(id) {
+    try {
+      const res = await fetch(`/api/tracks/${id}`);
+      if (!res.ok) { toast('Track not found on server'); return; }
+      const row = await res.json();
+      const sprites = spritesFromRow(row);
+      if (!sprites.length) { toast('Track has no pieces'); return; }
+      if (state.sprites.length && !confirm(`Load “${row.name}”? The canvas will be replaced.`)) return;
+      bindPublished(row);   /* the loaded track keeps auto-saving */
+      loadSprites(sprites); /* emits -> autosave snapshots it */
+      fitView(getDims().w, getDims().h);
+      closeDialog($('libraryDialog'));
+      toast(`Loaded “${row.name}” — ${sprites.length} pcs · edits auto-save`);
+    } catch { toast('Server unreachable'); }
+  }
+
+  $('btnNewTrack').addEventListener('click', () => {
+    closeDialog($('menuDialog'));
+    if (!confirm('Start a new track? The canvas clears; the published track stays on the server.')) return;
+    unpublishTrack();
+    clearAll();
+    toast('New track — local until you publish');
+  });
 
   $('btnHelp').addEventListener('click', () => { closeDialog($('menuDialog')); openDialog($('helpDialog')); });
   $('helpClose').addEventListener('click', () => closeDialog($('helpDialog')));
