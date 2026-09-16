@@ -125,7 +125,6 @@ test('validator blocks publishing an incomplete track', async ({ page, request }
   expect(await page.evaluate(() => window.__m4wd.state.tool)).toBe('Complete');
   await page.keyboard.press('Escape');   /* dismiss the intro dialog */
   expect(apiCalls).toEqual([]);          /* still nothing sent */
-  expect(apiCalls).toEqual([]);
 });
 
 test('a complete track publishes from the toolbar; the button becomes Save', async ({ page, request }) => {
