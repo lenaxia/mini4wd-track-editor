@@ -65,7 +65,8 @@ legacy tracks import unchanged.
 ## Development
 Module map: `pieces.js` catalog · `geometry.js` snap math · `track.js` codec ·
 `validate.js` validator · `store.js` model · `solver.js` loop-closing search · `render.js` canvas · `input.js`
-gestures · `ui.js`/`gallery.js` DOM · `storage.js`/`cache.js`/`assets.js`
+gestures · `ui.js`/`gallery.js` DOM · `tooltip.js` position-aware tips ·
+`storage.js`/`cache.js`/`assets.js`
 persistence+assets · `art.js`/`icons.js` fallback art and icons · `main.js`
 boot. `server.js`+`lib/` serve and store; `tools/` generate and verify.
 

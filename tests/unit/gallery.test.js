@@ -1,9 +1,11 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge,
-  readStarred, isStarred, addStarred, removeStarred, thumbFit,
+  GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, formatLength, completeBadge, lengthToCm,
+  readStarred, isStarred, addStarred, removeStarred, thumbFit, trackFacets,
 } from '../../src/gallery.js';
+import { facets } from '../../lib/store/facets.js';
+import { serializeForSave } from '../../src/track.js';
 
 /* Map-backed localStorage stub — node --test has no webstorage (same
  * pattern as storage.test.js). */
@@ -18,7 +20,7 @@ beforeEach(() => backing.clear());
 
 /* The server rejects unknown sort columns with a 400 (server.js
  * parseListQuery) — every offered sort must stay inside that set. */
-const SERVER_SORTS = /^-?(updated_at|created_at|name|pieces|length|lanes|bbox|straights|corners|stars|complete)$/;
+const SERVER_SORTS = /^-?(updated_at|created_at|name|pieces|length|lanes|bbox|straights|corners|slopes|stars|complete)$/;
 
 test('every gallery sort is a column the API accepts', () => {
   assert.ok(GALLERY_SORTS.length >= 5);
@@ -35,11 +37,40 @@ test('galleryQuery builds the list query; complete only when asked', () => {
     'sort=-updated_at&limit=25&offset=50&complete=true');
 });
 
-test('formatFootprint stays in cm under a meter, switches to m above', () => {
-  assert.equal(formatFootprint(95.4, 60.25), '95\u00D760 cm');
+/* the drawer's filter state -> query params (owner round 2026-09-16):
+ * min length (m), lane selection (OR), footprint max W/H (cm after unit
+ * conversion), max straights/slopes/corners */
+test('galleryQuery serializes the drawer filters', () => {
+  const q = galleryQuery({
+    sort: '-stars', complete: true, limit: 25, offset: 0,
+    filter: { minLength: 20, lanes: [3, 5], maxW: 240, maxH: 120, maxStraights: 6, maxSlopes: 2, maxCorners: 12 },
+  });
+  assert.equal(q, 'sort=-stars&limit=25&offset=0&complete=true&min_length=2000&lanes=3,5'
+    + '&max_bbox_w=240&max_bbox_h=120&max_straights=6&max_slopes=2&max_corners=12');
+  /* defaults emit nothing: all lanes selected = no lanes param, no caps */
+  const base = galleryQuery({ sort: '-stars', complete: true, limit: 25, offset: 0,
+    filter: { minLength: 0, lanes: [2, 3, 5], maxW: null, maxH: null, maxStraights: null, maxSlopes: null, maxCorners: null } });
+  assert.equal(base, 'sort=-stars&limit=25&offset=0&complete=true');
+});
+
+test('lengthToCm converts the footprint units (metric + imperial)', () => {
+  assert.equal(lengthToCm(2, 'm'), 200);
+  assert.equal(lengthToCm(240, 'cm'), 240);
+  assert.equal(lengthToCm(96, 'in'), Math.round(96 * 2.54));
+  assert.equal(lengthToCm(8, 'ft'), Math.round(8 * 30.48));
+});
+
+test('gallery lanes options are the catalog widths the owner called out', () => {
+  assert.deepEqual(GALLERY_LANES, [2, 3, 5]);
+});
+
+test('formatLength/formatFootprint follow the gallery unit (m default, ft)', () => {
+  assert.equal(formatLength(1240), '12.40 m');
+  assert.equal(formatLength(1240, 'ft'), '40.7 ft');
   assert.equal(formatFootprint(240, 95), '2.4\u00D70.95 m');
-  assert.equal(formatFootprint(154.3, 208.9), '1.54\u00D72.09 m');
-  assert.equal(formatFootprint(0, 0), '\u2014');   /* empty track, no bbox */
+  assert.equal(formatFootprint(59, 59), '0.59\u00D70.59 m');      /* decimals, no cm */
+  assert.equal(formatFootprint(240, 95, 'ft'), '7.9\u00D73.1 ft');
+  assert.equal(formatFootprint(0, 0), '\u2014');                  /* empty track, no bbox */
 });
 
 test('completeBadge: ok check, wip cross with issue count, plain cross', () => {
@@ -73,6 +104,43 @@ test('removeStarred drops one id, keeps the rest, never throws', () => {
     removeItem: () => {},
   };
   assert.doesNotThrow(() => removeStarred(broken, 'abc'));
+});
+
+/* trackFacets: the topbar/popup metadata for the LOCAL sprites — must
+ * classify exactly like the server's facet stamping (same catalog,
+ * same kinds). Owner rulings 2026-09-16: waves are straights; SLOPES
+ * ARE THEIR OWN COUNT (not interchangeable with straights);
+ * HAIRPINS/RAINBOWS COUNT AS 4 CORNERS (a 180° turn is four 45°
+ * pieces' worth). Specials excluded, lanes = max. Cross-checked
+ * against lib/store/facets.js over a serialized round-trip so the
+ * popup can never disagree with the stored row. */
+test('trackFacets matches the server facet classification', () => {
+  const sprites = [
+    { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 },
+    { name: 'Chi1', x: 200, y: 100, a: 0, c: 1, z: 0 },     /* wave -> straight */
+    { name: 'Bri1', x: 300, y: 100, a: 0, c: 2, z: 75 },    /* slope -> OWN count */
+    { name: 'Cor1', x: 400, y: 100, a: 45, c: 3, z: 0 },    /* corner (45°) */
+    { name: 'Lan2', x: 500, y: 100, a: 0, c: 0, z: 0 },     /* hairpin (rainbow) -> 4 corners */
+    { name: 'Lan1', x: 600, y: 100, a: 0, c: 0, z: 0 },     /* lane changer — excluded */
+    { name: 'Ban1', x: 700, y: 100, a: 0, c: 1, z: 0 },     /* bank — excluded */
+  ];
+  const local = trackFacets(sprites);
+  const server = facets({ track: serializeForSave(sprites) });
+  assert.deepEqual(local, {
+    pieces: server.piece_count,
+    length_cm: server.length_cm,
+    lanes: server.lanes,
+    straights: server.straights,       /* Str1 + wave only */
+    slopes: server.slopes,             /* Bri1 — counted separately */
+    corners: server.corners,           /* Cor1 + 4 for the hairpin */
+  });
+  assert.equal(local.straights, 2);
+  assert.equal(local.slopes, 1);
+  assert.equal(local.corners, 5);      /* 1 × 45° corner + 4 for the 180° */
+  assert.equal(local.pieces, 7);
+  assert.equal(local.lanes, 3);
+  assert.deepEqual(trackFacets([]),
+    { pieces: 0, length_cm: 0, lanes: 0, straights: 0, slopes: 0, corners: 0 });
 });
 
 /* thumbFit: maps track coords (cm) into a canvas box (px), center-fit

@@ -92,6 +92,49 @@ test('validation rejects garbage without crashing the server', async ({ request 
   expect(alive.status()).toBe(200);
 });
 
+/* Owner rulings 2026-09-16: slopes count SEPARATELY from straights (not
+ * interchangeable); hairpins/rainbows count as 4 corners (a 180° is
+ * four 45° pieces' worth). */
+test('facet classification: slopes separate, hairpins are 4 corners, both sortable', async ({ request }) => {
+  const id = `${PREFIX}-slope`; ids.push(id);
+  const track = 'Bri1;100.000;100.000;0;0;0#Bri1;160.000;100.000;0;0;0#Str1;220.000;100.000;0;0;0#';
+  const meta = await (await request.put(`/api/tracks/${id}`, { data: { name: 'e2e slopes', author: 'playwright', data: { track, mode: 3 } } })).json();
+  expect(meta.slopes).toBe(2);
+  expect(meta.straights).toBe(1);          /* the slopes are NOT straights */
+  expect(meta.corners).toBe(0);
+
+  const hid = `${PREFIX}-hairpin`; ids.push(hid);
+  const hmeta = await (await request.put(`/api/tracks/${hid}`, {
+    data: { name: 'e2e hairpin', author: 'playwright', data: { track: 'Lan2;200.000;200.000;0;0#', mode: 3 } },
+  })).json();
+  expect(hmeta.corners).toBe(4);           /* one rainbow = four 45° corners */
+  expect(hmeta.straights).toBe(0);
+  expect(hmeta.slopes).toBe(0);
+
+  const q = await (await request.get(`/api/tracks?author=playwright&sort=-slopes&limit=1`)).json();
+  expect(q.items[0].slopes).toBeGreaterThanOrEqual(2);
+  expect((await request.get('/api/tracks?sort=slopes')).status()).toBe(200);   /* whitelisted both ways */
+});
+
+test('list filters: lane selection (OR), footprint caps, count caps', async ({ request }) => {
+  const P = `e2e-${Date.now()}-flt`;
+  const mkTrack = (track) => ({ name: 'e2e filter', author: 'playwright', data: { track, mode: 5 } });
+  await request.put(`/api/tracks/${P}-five`, { data: mkTrack('Str4;100.000;100.000;0;0;0#Str4;160.000;100.000;0;0;0#') });  /* lanes 5, 2 str */
+  await request.put(`/api/tracks/${P}-three`, { data: { ...mkTrack('Str1;100.000;100.000;0;0;0#'.repeat(8)), data: { track: 'Str1;100.000;100.000;0;0;0#'.repeat(8), mode: 3 } } }); /* lanes 3, 8 str */
+  ids.push(`${P}-five`, `${P}-three`);
+  const lanes = await (await request.get(`/api/tracks?author=playwright&lanes=5`)).json();
+  expect(lanes.items.every((i) => i.lanes === 5)).toBe(true);
+  expect(lanes.items.some((i) => i.id === `${P}-five`)).toBe(true);
+  const maxStr = await (await request.get(`/api/tracks?author=playwright&lanes=3,5&max_straights=2`)).json();
+  expect(maxStr.items.some((i) => i.id === `${P}-five`)).toBe(true);       /* 2 straights */
+  expect(maxStr.items.some((i) => i.id === `${P}-three`)).toBe(false);    /* 8 straights */
+  const box = await (await request.get(`/api/tracks?author=playwright&lanes=5&max_bbox_w=100&max_bbox_h=100`)).json();
+  expect(box.items.some((i) => i.id === `${P}-five`)).toBe(false);        /* 121 cm wide */
+  for (const bad of ['lanes=banana', 'lanes=0', 'max_straights=x', 'max_bbox_w=y']) {
+    expect((await request.get(`/api/tracks?${bad}`)).status()).toBe(400);
+  }
+});
+
 test('star/unstar endpoint: increments, takes back, floored at 0', async ({ request }) => {
   const id = `${PREFIX}-star`; ids.push(id);
   await request.put(`/api/tracks/${id}`, { data: mk('star') });
@@ -109,6 +152,80 @@ test('DELETE removes; unknown ids 404', async ({ request }) => {
   expect(del.status()).toBe(204);
   expect((await request.get(`/api/tracks/${id}`)).status()).toBe(404);
   expect((await request.delete(`/api/tracks/${id}`)).status()).toBe(404);
+});
+
+/* Track metadata popup (owner model: phones hide the name in the stats
+ * bar — everything lives one tap away). Server fields come from the
+ * bound row; local facets classify like the server's stamping. */
+const SQUARE_CODEC = 'R1C90I150;0.000;0.000;0.000;0;0#R1C90I150;0.000;-21.500;90.000;0;0#'
+                   + 'R1C90I150;21.500;-21.500;180.000;0;0#R1C90I150;21.500;0.000;270.000;0;0#';
+
+test('stats popup shows local facets + the server row (dates, stars, validity)', async ({ page, request }) => {
+  const id = `e2e-${Date.now()}-meta`; ids.push(id);
+  await request.put(`/api/tracks/${id}`, {
+    data: { name: 'E2E Metadata Track', author: 'playwright', data: { track: SQUARE_CODEC, mode: 3 } },
+  });
+  await request.post(`/api/tracks/${id}/star`);
+  await request.post(`/api/tracks/${id}/star`);
+  const first = await (await request.get(`/api/tracks/${id}`)).json();
+
+  /* addInitScript (pre-boot storage, no prior empty load racing its
+   * debounced autosave write over the key) */
+  await page.addInitScript(([id, track]) => {
+    localStorage.setItem('m4wd.published', JSON.stringify({ id, name: 'E2E Metadata Track' }));
+    localStorage.setItem('m4wd.autosave', JSON.stringify({ mode: 3, tool: 'Pan', angle: 0, track }));
+  }, [id, SQUARE_CODEC]);
+  await page.goto('/');
+
+  await page.locator('#stats').click();
+  await expect(page.locator('#statsDialog')).toBeVisible();
+  await expect(page.locator('#statsTitle')).toHaveText('E2E Metadata Track');
+  const rows = page.locator('#statsRows');
+  await expect(rows).toContainText('1.36 m');            /* 4 × R1C90I150 */
+  await expect(rows.locator('.stat-row', { hasText: 'Pieces' }).locator('.stat-value')).toHaveText('4');
+  await expect(rows.locator('.stat-row', { hasText: 'Straights' }).locator('.stat-value')).toHaveText('0');
+  await expect(rows.locator('.stat-row', { hasText: 'Corners' }).locator('.stat-value')).toHaveText('4');
+
+  /* the (?) affordances carry the classification notes in a
+   * position-aware tooltip — never inline, never off-screen */
+  const strTip = rows.locator('.stat-row', { hasText: 'Straights' }).locator('.tip-btn');
+  await strTip.click();
+  const bubble = page.locator('.tip-bubble');
+  await expect(bubble).toBeVisible();
+  await expect(bubble).toContainText('Waves count as straights');
+  const box = await bubble.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize().width);
+  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize().height);
+  await strTip.click();                                  /* tap toggles off */
+  await expect(bubble).toHaveCount(0);
+  /* the bubble mounts INSIDE the open dialog (top layer) */
+  await page.locator('.stat-row', { hasText: 'Lanes' }).locator('.tip-btn').click();
+  await expect(bubble).toBeVisible();
+  await expect(bubble).toContainText('widest piece');
+  await expect(bubble.locator('xpath=ancestor::dialog')).toHaveId('statsDialog');
+  /* server fields land asynchronously */
+  await expect(rows).toContainText('\u2605 2');
+  await expect(rows).toContainText('\u2713 complete');
+  const published = await rows.locator('.stat-row', { hasText: 'Published' }).locator('.stat-value').textContent();
+  expect(new Date(published).getTime()).toBeGreaterThan(Date.now() - 3600_000);
+  /* not exact-equality against a fresh GET: the page is bound, so its
+   * autosave mirror may re-save (bumping updated_at) after the popup
+   * fetched — assert the popup parsed a real, recent timestamp instead */
+  const modified = await rows.locator('.stat-row', { hasText: 'Last modified' }).locator('.stat-value').textContent();
+  expect(new Date(modified).getTime()).toBeGreaterThan(Date.now() - 3600_000);
+  expect(first.stars).toBe(2);
+  await page.locator('#statsOk').click();
+  await expect(page.locator('#statsDialog')).not.toBeVisible();
+});
+
+test('unpublished track popup says local-only and hides rename', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#stats').click();
+  await expect(page.locator('#statsDialog')).toBeVisible();
+  await expect(page.locator('#statsRows')).toContainText('Not published');
+  await expect(page.locator('#statsRename')).toBeHidden();
+  await page.locator('#statsClose').click();
 });
 
 /* Owner model (worklogs 0012/0013): unpublished tracks are local-only; the
@@ -247,8 +364,10 @@ test('WIP publishes; badge flags issues; stats-bar rename keeps the row', async 
   await expect(page.locator('#toast')).toContainText('WIP');
   await expect(page.locator('#publishDialog')).not.toBeVisible();
 
-  /* rename via the stats bar: same row id, new name */
+  /* rename via the stats popup: same row id, new name */
   await page.locator('#stats').click();
+  await expect(page.locator('#statsDialog')).toBeVisible();
+  await page.locator('#statsRename').click();
   await expect(page.locator('#pubOk')).toHaveText('Save name');
   await expect(page.locator('#pubStatus')).toContainText('saved as Work-in-Progress');
   await page.locator('#pubName').fill('E2E WIP Renamed');
