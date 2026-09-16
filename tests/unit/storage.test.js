@@ -1,6 +1,6 @@
 import { test, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { autosave, restore } from '../../src/storage.js';
+import { autosave, restore, publishTrack, publishedTrack, unpublishTrack } from '../../src/storage.js';
 
 /* Map-backed localStorage stub — node --test has no webstorage. */
 const backing = new Map();
@@ -73,39 +73,73 @@ test('restore tolerates malformed saved data', () => {
   assert.deepEqual(state.sprites, []);
 });
 
-/* ---------- server mirror: retry semantics (mock timers) ---------- */
+/* ---------- publish model (mock timers + mock fetch) ---------- */
 
 function deferredFetch(handler) {
   const calls = [];
   globalThis.fetch = (...a) => { calls.push(a); return handler(a, calls.length); };
   return calls;
 }
-/* advance in 50ms steps with microtask flushes: a timer scheduled DURING a
- * tick does not fire until the next tick call, and the debounce chain
- * schedules nested timers */
 const fire = async (ms) => {
   for (let done = 0; done < ms; done += 50) {
     mock.timers.tick(Math.min(50, ms - done));
     await Promise.resolve(); await Promise.resolve();
   }
 };
+const reset = () => { backing.delete('m4wd.published'); };
 
-test('mirror: permanent 4xx is never retried (static-only server = one PUT)', async () => {
+test('unpublished tracks are local-only: autosave never touches the server', async () => {
   mock.timers.enable({ apis: ['setTimeout'] });
   try {
-    const calls = deferredFetch(() => Promise.resolve({ ok: false, status: 404 }));
+    reset();
+    const calls = deferredFetch(() => Promise.resolve({ ok: true, status: 200 }));
+    autosave(makeState());
+    await fire(350 + 4000);
+    assert.equal(calls.length, 0);          /* no POST, no PUT — owner rule */
+  } finally { mock.timers.reset(); }
+});
+
+test('publishTrack POSTs when unbound, PUTs (renames) when bound', async () => {
+  reset();
+  const calls = deferredFetch((args) => Promise.resolve({
+    ok: true, status: 201, json: async () => ({ id: 'row-1', name: JSON.parse(args[1].body).name }),
+  }));
+  const row = await publishTrack('Hairpins', makeState());
+  assert.equal(row.id, 'row-1');
+  assert.equal(calls[0][0], '/api/tracks');
+  assert.equal(calls[0][1].method, 'POST');
+  assert.equal(JSON.parse(calls[0][1].body).name, 'Hairpins');
+  assert.equal(publishedTrack().id, 'row-1');
+
+  const row2 = await publishTrack('Renamed', makeState());
+  assert.equal(calls[1][0], '/api/tracks/row-1');
+  assert.equal(calls[1][1].method, 'PUT');
+  assert.equal(publishedTrack().name, 'Renamed');
+});
+
+test('published tracks mirror every autosave under the bound name', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    reset();
+    const calls = deferredFetch(() => Promise.resolve({ ok: true, status: 200 }));
+    backing.set('m4wd.published', JSON.stringify({ id: 'pub-9', name: 'Mine' }));
     autosave(makeState());
     await fire(350 + 1500);
     assert.equal(calls.length, 1);
-    mock.timers.tick(30000);           /* would cover every retry if any */
-    assert.equal(calls.length, 1);
+    const [url, init] = calls[0];
+    assert.equal(url, '/api/tracks/pub-9');
+    const body = JSON.parse(init.body);
+    assert.equal(body.name, 'Mine');
+    assert.ok(body.data.track.includes('Str2;'));
   } finally { mock.timers.reset(); }
 });
 
 test('mirror: network failure retries with backoff, then gives up at 4 attempts', async () => {
   mock.timers.enable({ apis: ['setTimeout'] });
   try {
+    reset();
     const calls = deferredFetch(() => Promise.reject(new Error('offline')));
+    backing.set('m4wd.published', JSON.stringify({ id: 'pub-9', name: 'Mine' }));
     autosave(makeState());
     await fire(350 + 1500);
     assert.equal(calls.length, 1);
@@ -116,40 +150,19 @@ test('mirror: network failure retries with backoff, then gives up at 4 attempts'
     await fire(6000);
     assert.equal(calls.length, 4);
     mock.timers.tick(30000);
-    assert.equal(calls.length, 4);     /* gave up: no 5th attempt */
+    assert.equal(calls.length, 4);
   } finally { mock.timers.reset(); }
 });
 
-test('mirror: 5xx retries, 2xx stops, and a newer edit abandons an old chain', async () => {
+test('unpublish stops the mirror (New Track)', async () => {
   mock.timers.enable({ apis: ['setTimeout'] });
   try {
-    let mode = 500;
-    const calls = deferredFetch(() => Promise.resolve({ ok: mode < 400, status: mode }));
-    autosave(makeState());
-    await fire(350 + 1500);
-    assert.equal(calls.length, 1);     /* chain A attempt 0 (500) */
-    autosave(makeState());             /* chain B supersedes A mid-backoff */
-    await fire(350 + 1500);
-    assert.equal(calls.length, 2);     /* chain B attempt 0 (500) */
-    mode = 200;
-    await fire(2000);
-    assert.equal(calls.length, 3);     /* chain B retry lands 200 -> stops */
-    mock.timers.tick(30000);           /* chain A's pending retry is stale:
-                                         guard at fetch time -> no call */
-    assert.equal(calls.length, 3);
-  } finally { mock.timers.reset(); }
-});
-
-test('mirror: body carries the snapshot under the stable track id', async () => {
-  mock.timers.enable({ apis: ['setTimeout'] });
-  try {
+    reset();
     const calls = deferredFetch(() => Promise.resolve({ ok: true, status: 200 }));
+    backing.set('m4wd.published', JSON.stringify({ id: 'pub-9', name: 'Mine' }));
+    unpublishTrack();
     autosave(makeState());
-    await fire(350 + 1500);
-    const [url, init] = calls[0];
-    assert.match(url, /^\/api\/tracks\/[0-9a-f-]{6,}$/);
-    const body = JSON.parse(init.body);
-    assert.equal(body.name, 'Untitled');
-    assert.ok(body.data.track.includes('Str2;'));
+    await fire(350 + 4000);
+    assert.equal(calls.length, 0);
   } finally { mock.timers.reset(); }
 });

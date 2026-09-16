@@ -101,23 +101,75 @@ test('DELETE removes; unknown ids 404', async ({ request }) => {
   expect((await request.delete(`/api/tracks/${id}`)).status()).toBe(404);
 });
 
-test('autosave mirrors to the server (client sync)', async ({ page, request }) => {
+/* Owner model (worklog 0012): unpublished tracks are local-only; publishing
+ * binds a row and from then on edits auto-save to it. */
+test('unpublished edits never reach the server; publish persists and live-syncs', async ({ page, request }) => {
+  /* local-only proof is page-hermetic: this page must make ZERO
+   * /api/tracks requests while unpublished (a shared live server makes
+   * row-total deltas unsound under parallel tests) */
+  const apiCalls = [];
+  page.on('request', (r) => { if (r.url().includes('/api/tracks')) apiCalls.push(r.method()); });
+
   await page.goto('/');
   await page.locator('.chip').first().click();   /* Str1 */
   await page.click('canvas', { position: { x: 200, y: 200 } });
   await expect.poll(async () => await page.evaluate(() =>
     window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(1);
-  /* sync fires 350ms after the change, then a 1500ms debounce — on fast
-   * runners the piece poll can pass BEFORE the debounced autosave wrote
-   * m4wd.trackId; await its existence instead of reading it once */
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('m4wd.trackId')),
-    { timeout: 10_000 }).toBeTruthy();
-  const id = await page.evaluate(() => localStorage.getItem('m4wd.trackId'));
-  await expect.poll(async () => (await request.get(`/api/tracks/${id}`)).status(),
-    { timeout: 10_000 }).toBe(200);
+  expect(await page.evaluate(() => localStorage.getItem('m4wd.published'))).toBeNull();
+  await page.waitForTimeout(350 + 1500 + 500);
+  expect(apiCalls).toEqual([]);
+
+  /* publish via the Track menu */
+  await page.locator('#btnMenu').click();
+  await page.locator('#btnPublish').click();
+  await page.locator('#pubName').fill('E2E Hairpin Park');
+  await page.locator('#pubOk').click();
+  await expect.poll(async () => await page.evaluate(() =>
+    localStorage.getItem('m4wd.published')), { timeout: 10_000 }).toBeTruthy();
+
+  const id = (await page.evaluate(() => JSON.parse(localStorage.getItem('m4wd.published')).id));
   ids.push(id);
   const row = await (await request.get(`/api/tracks/${id}`)).json();
+  expect(row.name).toBe('E2E Hairpin Park');
   expect(row.piece_count).toBe(1);
+
+  /* published tracks live-sync: another piece lands in the row */
+  await page.locator('.chip').first().click();   /* re-arm (dialogs may have changed focus) */
+  await page.click('canvas', { position: { x: 320, y: 200 } });
+  await expect.poll(async () => await page.evaluate(() =>
+    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(2);
+  await expect.poll(async () => (await (await request.get(`/api/tracks/${id}`)).json()).piece_count,
+    { timeout: 10_000 }).toBe(2);
+});
+
+test('library lists published tracks and loads one onto a fresh browser', async ({ page, browser, request }) => {
+  /* publish a track from the primary context */
+  await page.goto('/');
+  await page.locator('.chip').first().click();
+  await page.click('canvas', { position: { x: 200, y: 200 } });
+  await expect.poll(async () => await page.evaluate(() =>
+    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(1);
+  await page.locator('#btnMenu').click();
+  await page.locator('#btnPublish').click();
+  await page.locator('#pubName').fill('E2E Library Track');
+  await page.locator('#pubOk').click();
+  await expect.poll(async () => await page.evaluate(() =>
+    localStorage.getItem('m4wd.published')), { timeout: 10_000 }).toBeTruthy();
+  const id = (await page.evaluate(() => JSON.parse(localStorage.getItem('m4wd.published')).id));
+  ids.push(id);
+
+  /* a FRESH browser (empty localStorage) sees it in the library and loads it */
+  const ctx = await browser.newContext();
+  const p2 = await ctx.newPage();
+  await p2.goto('/');
+  await p2.locator('#btnMenu').click();
+  await p2.locator('#btnLibrary').click();
+  await p2.locator('.lib-row', { hasText: 'E2E Library Track' }).click();
+  await expect.poll(async () => await p2.evaluate(() =>
+    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(1);
+  expect(await p2.evaluate(() => JSON.parse(localStorage.getItem('m4wd.published')).name))
+    .toBe('E2E Library Track');
+  await ctx.close();
 });
 
 test('sprite endpoint serves verified bytes proxy-safely (json transport)', async ({ request }) => {
