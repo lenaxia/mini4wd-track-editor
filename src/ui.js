@@ -8,7 +8,8 @@ import {
 import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
-import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow } from './storage.js';
+import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow,
+         forkTrack, fetchHistory, restoreRevision, isMine, mineIds } from './storage.js';
 import {
   GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge,
   isStarred, addStarred, removeStarred, thumbFit,
@@ -294,9 +295,37 @@ export function init(dimsGetter) {
 
   refreshPublishUi = function () {
     updatePublishBadge();
+    updateSharedNote();
     lastStatsText = '';   /* force the stats line to re-render with the name */
     updateStats();
   };
+
+  /* Shared-track note (worklog 0017): editing a published track this
+   * browser never saved offers the plain-language out — keep editing it
+   * for everyone, or take your own copy. Hidden once a save lands here
+   * (the id enters the Mine list) or the track is unpublished. */
+  function updateSharedNote() {
+    const pub = publishedTrack();
+    const shared = !!(pub && !isMine(pub.id));
+    const note = $('sharedNote');
+    if (note) note.hidden = !shared;
+  }
+
+  /* Copy the current canvas as your own track; the binding moves to the
+   * copy and autosave mirrors there from now on — the shared original
+   * keeps its last saved version. */
+  $('btnOwnCopy').addEventListener('click', async () => {
+    const pub = publishedTrack();
+    if (!pub) return;
+    const btn = $('btnOwnCopy');
+    btn.disabled = true;
+    const row = await forkTrack(pub, state);
+    btn.disabled = false;
+    if (!row) { toast('Server unreachable — copy not saved'); return; }
+    updateSharedNote();
+    refreshPublishUi();
+    toast(`This is your copy now — “${row.name}” — edits save here`);
+  });
 
   /* Published: the button is a live validity badge, not an action —
    * autosave persists; tap reports the verdict. Unpublished: 📤 opens
@@ -430,7 +459,7 @@ export function init(dimsGetter) {
    * must not fetch the page twice). gen: bumped by every sort/filter/open
    * so a superseded page is dropped instead of appended into the new
    * view. A dropped page leaves `loading` alone — the newer call owns it. */
-  const gal = { sort: '-updated_at', complete: false, items: [], total: 0, gen: 0, loading: false };
+  const gal = { sort: '-updated_at', complete: false, mine: false, items: [], total: 0, gen: 0, loading: false };
 
   function galRenderControls() {
     const bar = $('galSorts');
@@ -444,6 +473,7 @@ export function init(dimsGetter) {
       bar.appendChild(b);
     }
     $('galComplete').setAttribute('aria-pressed', String(gal.complete));
+    $('galMine').setAttribute('aria-pressed', String(gal.mine));
   }
 
   async function galLoad() {
@@ -574,10 +604,20 @@ export function init(dimsGetter) {
     sub.className = 'gal-sub';
     sub.textContent = `★ ${it.stars} · ${galDate(it.updated_at)}`;
     text.append(top, facets, sub);
+    if (it.parent_name) {
+      const based = document.createElement('span');
+      based.className = 'gal-based';
+      based.textContent = `based on “${it.parent_name}”`;
+      text.append(based);
+    }
     main.append(thumb, text);
     main.addEventListener('click', () => loadPublishedTrack(it.id));
     galThumb(thumb, it.id);
 
+    /* right-side actions: star (rating), copy (your own version — the
+     * original is never touched), history (restore an old version) */
+    const acts = document.createElement('span');
+    acts.className = 'gal-acts';
     const star = document.createElement('button');
     star.type = 'button';
     star.className = 'gal-star';
@@ -586,23 +626,42 @@ export function init(dimsGetter) {
     star.textContent = starred ? '★' : '☆';
     star.title = starred ? 'Starred on this device — tap to unstar' : 'Star this track';
     star.addEventListener('click', () => galStar(it, star, sub));
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'gal-act';
+    copy.title = `Make your own copy of “${it.name}” — the original is not changed`;
+    copy.textContent = 'Copy';
+    copy.addEventListener('click', () => galCopy(it, copy));
+    const his = document.createElement('button');
+    his.type = 'button';
+    his.className = 'gal-act';
+    his.title = 'Old versions of this track — restore one';
+    his.textContent = 'History';
+    his.addEventListener('click', () => openHistory(it));
+    acts.append(star, copy, his);
 
-    row.append(main, star);
+    row.append(main, acts);
     return row;
   }
 
   function galRenderList() {
     const list = $('galList');
     list.textContent = '';
-    if (!gal.items.length) {
+    /* Mine is a local filter (worklog 0017): it narrows the rows this
+     * browser saved/edited — "Load more" keeps fetching to surface more. */
+    const mine = mineIds();
+    const shown = gal.mine ? gal.items.filter((it) => mine.includes(it.id)) : gal.items;
+    if (!shown.length) {
       $('galMeta').textContent = '';
       const empty = document.createElement('p');
       empty.className = 'gal-empty';
-      empty.textContent = gal.complete ? 'No complete tracks published yet.' : 'No tracks published yet.';
+      empty.textContent = gal.mine
+        ? (gal.items.length ? 'No saved tracks in this view yet — Load more may find older ones.' : 'No tracks saved on this device yet.')
+        : gal.complete ? 'No complete tracks published yet.' : 'No tracks published yet.';
       list.appendChild(empty);
       return;
     }
-    for (const it of gal.items) list.appendChild(galRowEl(it));
+    for (const it of shown) list.appendChild(galRowEl(it));
     if (gal.items.length < gal.total) {
       const more = document.createElement('button');
       more.type = 'button';
@@ -611,7 +670,9 @@ export function init(dimsGetter) {
       more.addEventListener('click', galLoad);
       list.appendChild(more);
     }
-    $('galMeta').textContent = `${gal.items.length} of ${gal.total} track${gal.total === 1 ? '' : 's'}`;
+    $('galMeta').textContent = gal.mine
+      ? `${shown.length} of yours · ${gal.items.length} of ${gal.total} loaded`
+      : `${gal.items.length} of ${gal.total} track${gal.total === 1 ? '' : 's'}`;
   }
 
   /* One star per browser per track, reversible: the localStorage set
@@ -653,6 +714,79 @@ export function init(dimsGetter) {
   $('btnGallery').addEventListener('click', () => openGallery());
   $('galClose').addEventListener('click', () => closeDialog($('galleryDialog')));
   $('galComplete').addEventListener('click', () => { gal.complete = !gal.complete; openGallery(); });
+  /* Mine re-filters what's already loaded — no refetch (a page that
+   * holds none of yours says so and offers Load more) */
+  $('galMine').addEventListener('click', () => {
+    gal.mine = !gal.mine;
+    galRenderControls();
+    galRenderList();
+  });
+
+  /* Copy = your own version (worklog 0017): a new track forked from the
+   * row as-is. The original is never modified. */
+  async function galCopy(it, btn) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const row = await forkTrack(it);
+    btn.disabled = false;
+    toast(row
+      ? `Saved your own copy of “${it.name}” — Mine shows it`
+      : 'Server unreachable — copy not saved');
+  }
+
+  /* History dialog: list this track's old versions, Restore re-publishes
+   * one as the newest version (the current one is archived first). */
+  async function openHistory(it) {
+    const items = await fetchHistory(it.id);
+    const box = $('hisList');
+    box.textContent = '';
+    if (!items) {
+      const p = document.createElement('p');
+      p.className = 'gal-empty';
+      p.textContent = 'Server unreachable.';
+      box.appendChild(p);
+    } else if (!items.length) {
+      const p = document.createElement('p');
+      p.className = 'gal-empty';
+      p.textContent = 'No old versions yet — one is kept every time someone saves.';
+      box.appendChild(p);
+    } else {
+      for (const h of items) {
+        const row = document.createElement('div');
+        row.className = 'his-row';
+        const label = document.createElement('span');
+        label.textContent = `${galDate(h.created_at)} · “${h.name}”`;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = 'Restore';
+        b.addEventListener('click', async () => {
+          b.disabled = true;
+          const fresh = await restoreRevision(it.id, h.seq);
+          b.disabled = false;
+          if (!fresh) { toast('Server unreachable — nothing restored'); return; }
+          closeDialog($('historyDialog'));
+          /* the restored track may be open on this canvas — show the
+           * restored version immediately (its next save would otherwise
+           * stomp the restore) */
+          const pub = publishedTrack();
+          if (pub && pub.id === it.id) {
+            const sprites = spritesFromRow(fresh);
+            if (sprites.length) {
+              loadSprites(sprites);
+              fitView(getDims().w, getDims().h);
+              refreshPublishUi();
+            }
+          }
+          toast(`Restored “${fresh.name}” — the version that was current is now in History`);
+        });
+        row.append(label, b);
+        box.appendChild(row);
+      }
+    }
+    $('hisHint').textContent = `Old versions of “${it.name}” — anyone can restore one.`;
+    openDialog($('historyDialog'));
+  }
+  $('hisClose').addEventListener('click', () => closeDialog($('historyDialog')));
 
   $('btnNewTrack').addEventListener('click', () => {
     closeDialog($('menuDialog'));

@@ -155,6 +155,26 @@ function suite(label, open) {
     await s.close();
   });
 
+  /* worklog 0017: archive/history/revision + the 25-version cap */
+  test(`${label}: version history — archive, cap, newest-first, delete cascades`, async () => {
+    const s = await open(); const A = ns();
+    await s.upsert({ id: 'hv', name: 'v0', author: A, data: doc(2), _facets: facets(doc(2)) });
+    for (let i = 1; i <= 30; i++) await s.archive('hv', { id: 'hv', name: `v${i}`, data: doc(2) });
+    const items = await s.history('hv');
+    assert.equal(items.length, 25);                   /* capped: v6..v30 survive */
+    assert.ok(items[0].seq > items[1].seq);           /* newest first */
+    assert.equal(items[0].name, 'v30');
+    assert.equal(items[24].name, 'v6');
+    const snap = await s.revision('hv', items[0].seq);
+    assert.equal(snap.name, 'v30');                   /* the snapshot carries the row */
+    assert.equal(await s.revision('hv', 999999), null);
+    assert.equal(await s.revision('nope', 1), null);
+    assert.deepEqual(await s.history('nope'), []);    /* unknown id: empty, no throw */
+    assert.ok(await s.remove('hv'));
+    assert.deepEqual(await s.history('hv'), []);      /* delete takes the versions too */
+    await s.close();
+  });
+
   test(`${label}: large track bodies (10k pieces) roundtrip`, async () => {
     const s = await open(); const A = ns();
     const big = doc(10000);

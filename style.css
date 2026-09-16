@@ -249,12 +249,47 @@ button.primary:not(:disabled):active { background: #e6b84f; }
 .gal-badge.wip { color: #d9a441; }
 .gal-facets { font-size: 12px; color: #aab1bd; font-variant-numeric: tabular-nums; }
 .gal-sub { font-size: 11px; color: #9aa3af; font-variant-numeric: tabular-nums; }
+.gal-based { font-size: 11px; color: #8a93a3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* right-side card actions: star on top, Copy + History under it */
+.gal-acts { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
 .gal-star {
-  flex: 0 0 auto; width: 44px; border-radius: 10px; border: 1px solid var(--line);
-  background: var(--panel-2); color: #9aa3af; font-size: 19px; cursor: pointer;
+  flex: 0 0 auto; width: 44px; height: 34px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: #9aa3af; font-size: 17px; cursor: pointer;
 }
 .gal-star.starred { color: var(--accent); border-color: var(--accent); }
 .gal-star:disabled { opacity: .55; cursor: default; }
+.gal-act {
+  width: 64px; height: 28px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel-2); color: #aab1bd; font: inherit; font-size: 11.5px; cursor: pointer;
+}
+.gal-act:hover { color: inherit; }
+.gal-act:disabled { opacity: .55; cursor: default; }
+/* history dialog rows */
+.his-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel-2); font-size: 13px;
+}
+.his-row button {
+  font: inherit; font-size: 12px; padding: 6px 12px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel-2); color: inherit; cursor: pointer;
+}
+/* shared-track note over the canvas (worklog 0017) */
+.shared-note {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; padding: 7px 12px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel); color: #c3cad6; font-size: 12.5px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35); white-space: nowrap; z-index: 5;
+}
+.shared-note[hidden] { display: none; }
+.shared-note button {
+  font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 8px;
+  border: 1px solid var(--accent); color: var(--accent); background: transparent; cursor: pointer;
+}
+@media (max-width: 560px) {
+  .shared-note { max-width: calc(100% - 24px); white-space: normal; flex-wrap: wrap; justify-content: center; }
+}
 .gal-more {
   font: inherit; font-size: 13px; padding: 10px; border-radius: 10px;
   border: 1px solid var(--line); background: var(--panel-2); color: inherit; cursor: pointer;
