@@ -313,7 +313,8 @@ export function init(dimsGetter) {
   $('pubCancel').addEventListener('click', () => closeDialog($('publishDialog')));
   $('pubTipComplete').addEventListener('click', () => {
     closeDialog($('publishDialog'));
-    completeToolIntro();   /* same intro-first arming as the toolbar button */
+    setTool('Complete');       /* arm (this path has no data-tool binding) */
+    completeToolIntro();       /* then the once-per-session intro, if due */
   });
   $('pubOk').addEventListener('click', async () => {
     if (!renderPubStatus()) return;   /* re-validate at the moment of saving */
