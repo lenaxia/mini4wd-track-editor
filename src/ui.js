@@ -281,7 +281,7 @@ export function init(dimsGetter) {
     $('btnPublishBar').title = pub ? `Save “${pub.name}” (published)` : 'Publish track';
     lastStatsText = '';   /* force the stats line to re-render with the name */
     updateStats();
-  }
+  };
 
   function renderPubStatus() {
     const { ok, errors, warnings } = validateTrack(state.sprites);
