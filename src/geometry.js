@@ -261,6 +261,11 @@ export function externalJoint(selection, sprites) {
 
 export const LINK_RANGE = 45;  // cm — plausible jump/landing or near-miss span
 export const LINK_FACING = 50; // deg — each end must point at the other, roughly
+/* Connectivity threshold: a vertex with another this close is CONNECTED
+ * (owner cap: 1 cm absolute max). Serialization rounding is ~0.1 cm, so
+ * true welds always land inside it; a real gap reads as open. Shared by
+ * openLinks, the solver's joint exemption, and the publish validator. */
+export const CONNECTED_EPS = 1.0;
 
 /* Pairs of OPEN connection vertices that face each other within jump range
  * but are not welded: intentional jumps and landings, or near-miss joints.
@@ -275,7 +280,7 @@ export function openLinks(sprites) {
         if (q === p) continue;
         for (let j = 0; j < vertsOf(q).length; j++) {
           const w = vertexOf(q, j);
-          if (Math.hypot(v.x - w.x, v.y - w.y) <= 2) { connected = true; break; }
+          if (Math.hypot(v.x - w.x, v.y - w.y) <= CONNECTED_EPS) { connected = true; break; }
         }
         if (connected) break;
       }

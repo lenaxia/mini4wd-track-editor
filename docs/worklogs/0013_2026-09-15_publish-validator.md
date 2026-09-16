@@ -73,3 +73,11 @@ support y junctions and stuff").
 - Dialog/menu buttons gained hover + press states (the transparent
   tap-highlight makes :active the touch feedback channel — previously
   dialogs had neither).
+
+## Follow-up tracked (review, #30): canvas flag divergence
+
+The canvas's own flags (refreshFlags: JOINT_EPS 1e-6, 0.05° tangent) stay
+float-exact — a serialized track can validate clean (1 cm connectivity)
+while its on-screen weld dots read unsnapped. The hot render path is
+rightly untouched for now; unifying the paint semantics is a tracked
+follow-up.

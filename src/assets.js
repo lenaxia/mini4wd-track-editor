@@ -5,7 +5,7 @@ import { PIECES } from './pieces.js';
 import { initCache, cachedSpriteUrl } from './cache.js';
 
 const IMAGES = {};
-const BUSTER = 27;
+const BUSTER = 29;
 
 export function imageFor(name, c) { const f = PIECES[name]?.sprite || `${name}.${c}.svg`; return IMAGES[f] || null; }
 

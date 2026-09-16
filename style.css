@@ -170,7 +170,8 @@ kbd {
  * :not(:disabled)-guarded and locked controls dim. */
 .dialog-actions button:not(:disabled):hover, .menu-actions button:hover, .file-label:hover,
 button.primary:not(:disabled):hover, button.secondary:not(:disabled):hover,
-.icon-btn:hover, .lib-row:hover {
+.icon-btn:hover, .lib-row:hover, .gal-main:hover, .gal-more:hover,
+.gal-star:not(:disabled):hover, .gal-toggle:hover, .gal-sorts button:hover {
   background: #2e3140;
   border-color: #4a5160;
 }
@@ -178,7 +179,8 @@ button.primary:not(:disabled):hover { background: var(--accent); border-color: #
 button.secondary:not(:disabled):hover { background: rgba(255, 255, 255, .06); }
 .dialog-actions button:not(:disabled):active, .menu-actions button:active, .file-label:active,
 button.primary:not(:disabled):active, button.secondary:not(:disabled):active,
-.icon-btn:active, .lib-row:active {
+.icon-btn:active, .lib-row:active, .gal-main:active, .gal-more:active,
+.gal-star:not(:disabled):active, .gal-toggle:active, .gal-sorts button:active {
   transform: translateY(1px);
   background: #262a33;
 }
@@ -194,3 +196,60 @@ button.primary:not(:disabled):active { background: #e6b84f; }
 }
 .tip-cta:hover { background: rgba(125, 211, 252, .08); border-color: #7dd3fc; }
 .tip-cta:active { transform: translateY(1px); background: rgba(125, 211, 252, .14); }
+
+/* ---------- gallery (all published tracks on the server) ---------- */
+/* sort chips scroll horizontally on phones, like the palette; the
+ * [aria-pressed] rules sit after the shared hover/press block above so
+ * an active chip keeps its accent under the pointer */
+.gal-sorts {
+  display: flex; gap: 6px; margin-top: 10px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+}
+.gal-sorts button {
+  flex: 0 0 auto; font: inherit; font-size: 12px; padding: 6px 11px;
+  border-radius: 999px; border: 1px solid var(--line);
+  background: var(--panel-2); color: #c8cdd6; cursor: pointer;
+}
+.gal-sorts button[aria-pressed="true"] {
+  background: var(--accent); color: var(--accent-ink);
+  border-color: var(--accent); font-weight: 700;
+}
+.gal-toggle {
+  margin-top: 8px; font: inherit; font-size: 12px; text-align: left;
+  padding: 7px 11px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: #aab1bd; cursor: pointer;
+}
+.gal-toggle[aria-pressed="true"] { background: #2e3140; color: #4ade80; border-color: #4ade80; }
+.gal-meta { margin-top: 8px; font-size: 11px; color: #9aa3af; font-variant-numeric: tabular-nums; }
+.gal-list {
+  margin-top: 8px; max-height: 48vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.gal-row { display: flex; gap: 8px; align-items: stretch; }
+.gal-main {
+  flex: 1 1 auto; min-width: 0; text-align: left; padding: 10px 12px;
+  border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: inherit; cursor: pointer;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.gal-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.gal-name {
+  font-size: 14px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gal-badge { flex: 0 0 auto; font-size: 11px; font-variant-numeric: tabular-nums; }
+.gal-badge.ok { color: #4ade80; }
+.gal-badge.wip { color: #d9a441; }
+.gal-facets { font-size: 12px; color: #aab1bd; font-variant-numeric: tabular-nums; }
+.gal-sub { font-size: 11px; color: #9aa3af; font-variant-numeric: tabular-nums; }
+.gal-star {
+  flex: 0 0 auto; width: 44px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: #9aa3af; font-size: 19px; cursor: pointer;
+}
+.gal-star.starred { color: var(--accent); border-color: var(--accent); }
+.gal-star:disabled { opacity: .55; cursor: default; }
+.gal-more {
+  font: inherit; font-size: 13px; padding: 10px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--panel-2); color: inherit; cursor: pointer;
+}
+.gal-empty { font-size: 13px; color: #9aa3af; padding: 4px 2px; }

@@ -15,7 +15,43 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createStaticHandler } from './lib/static.js';
 import { openStore } from './lib/store/index.js';
-import { facets, MAX_TRACK_BYTES_EXPORTED } from './lib/store/facets.js';
+import { facets, MAX_TRACK_BYTES_EXPORTED, VALIDATOR_VERSION } from './lib/store/facets.js';
+import { validateTrack } from './src/validate.js';
+import { parseTrack } from './src/track.js';
+
+/* Full facets: cheap derived columns + server-side validation (complete /
+ * issues) computed on every write. Browser-computed validity is UI-only;
+ * the stored facet is authoritative. */
+function fullFacets(data) {
+  const f = facets(data);
+  let complete = false, issues = 0;
+  try {
+    const v = validateTrack(parseTrack(data.track));
+    complete = v.ok;
+    issues = v.errors.length;
+  } catch { /* unparsable reads as incomplete */ }
+  return { ...f, complete, issues, validator_version: VALIDATOR_VERSION };
+}
+
+/* Daily sweep (owner spec): re-validate rows modified in the last 24h OR
+ * stamped by an older validator — tightened rules converge through old
+ * rows without anyone re-saving. Runs at boot and every 6 hours. */
+async function sweepValidation(store) {
+  try {
+    const ids = await store.staleIds(Date.now() - 24 * 3600 * 1000, VALIDATOR_VERSION);
+    for (const id of ids) {
+      const row = await store.get(id);
+      if (!row) continue;
+      let complete = false, issues = 0;
+      try {
+        const v = validateTrack(parseTrack(row.data.track));
+        complete = v.ok; issues = v.errors.length;
+      } catch { /* keep defaults */ }
+      await store.setValidation(id, complete, issues, VALIDATOR_VERSION);
+    }
+    if (ids.length) console.log(`[sweep] revalidated ${ids.length} track(s)`);
+  } catch (e) { console.error('[sweep] failed:', e.message); }
+}
 
 const PORT = process.env.PORT || 3000;
 const MAX_BODY = 2 * 1024 * 1024;
@@ -60,7 +96,7 @@ function normalize({ id, name, author, data }) {
     author: typeof author === 'string' && author.trim() ? author.trim().slice(0, 100) : null,
     data: { track: raw, ...(data.mode !== undefined ? { mode: data.mode } : {}), ...(data.angle !== undefined ? { angle: data.angle } : {}) },
   };
-  t._facets = facets(t.data);
+  t._facets = fullFacets(t.data);
   return t;
 }
 
@@ -70,13 +106,15 @@ function parseListQuery(u) {
   const out = {
     author: typeof q.author === 'string' && q.author ? q.author.slice(0, 100) : undefined,
     min_pieces: num(q.min_pieces), max_pieces: num(q.max_pieces), min_length: num(q.min_length),
+    min_lanes: num(q.min_lanes),
+    complete: q.complete === 'true' ? true : q.complete === 'false' ? false : undefined,
     sort: typeof q.sort === 'string' && q.sort ? q.sort : '-updated_at',
     limit: Math.max(1, Math.min(100, Math.round(num(q.limit) ?? 50))),
     offset: Math.max(0, Math.round(num(q.offset) ?? 0)),
   };
   for (const v of [out.min_pieces, out.max_pieces, out.min_length, q.limit !== undefined ? out.limit : 0, q.offset !== undefined ? out.offset : 0])
     if (Number.isNaN(v)) bad('non-numeric query value');
-  if (!/^-?(updated_at|created_at|name|pieces|length)$/.test(out.sort)) bad('bad sort');
+  if (!/^-?(updated_at|created_at|name|pieces|length|lanes|bbox|straights|corners|stars|complete)$/.test(out.sort)) bad('bad sort');
   return out;
 }
 
@@ -149,6 +187,14 @@ async function main() {
         const t = normalize({ ...body, id: decodeURIComponent(m[1]) });
         return json(res, 200, await store.upsert(t));
       }
+      /* star: anonymous one-tap rating; the client de-dupes per browser */
+      const ms = /^\/api\/tracks\/([^/]+)\/star$/.exec(u);
+      if (ms && req.method === 'POST') {
+        if (!ID_RE.test(decodeURIComponent(ms[1]))) bad('bad id');
+        const stars = await store.star(decodeURIComponent(ms[1]));
+        if (stars === null) return json(res, 404, { error: 'not found' });
+        return json(res, 200, { id: decodeURIComponent(ms[1]), stars });
+      }
       if (m && req.method === 'DELETE') {
         const ok = await store.remove(decodeURIComponent(m[1]));
         if (ok) { res.writeHead(204); return res.end(); }
@@ -167,7 +213,11 @@ async function main() {
   server.on('clientError', (_, s) => s.end('HTTP/1.1 400 bad request\r\n\r\n'));
   server.listen(PORT, '0.0.0.0');
 
-  const shutdown = async () => { await store.close(); process.exit(0); };
+  sweepValidation(store);
+  const sweepTimer = setInterval(() => sweepValidation(store), 6 * 3600 * 1000);
+  sweepTimer.unref();
+
+  const shutdown = async () => { clearInterval(sweepTimer); await store.close(); process.exit(0); };
   process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
   process.on('uncaughtException', (e) => console.error('uncaught:', e.message));
 }

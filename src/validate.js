@@ -6,8 +6,8 @@
  *     - dangling end: a vertex coincident with no other piece's vertex AND
  *       not facing another open end as an intentional jump (same range/
  *       facing thresholds as geometry.openLinks)
- *     - kinked joint: coincident vertices whose tangents mismatch (same
- *       0.05° tolerance the canvas flags as _bad)
+ *     - kinked joint: connected vertices whose tangents mismatch beyond
+ *       KINK_TANGENT_TOL (0.5° — rounding-scaled for serialized tracks)
  *   warnings (allowed, shown)
  *     - crossover clearance < 75 mm (the paint-rule check; bridges and
  *       jumps are legitimate design)
@@ -17,9 +17,16 @@
  */
 
 import { PIECES, CLEARANCE_MM } from './pieces.js';
-import { vertsOf, vertexOf, outwardTangent, inwardTangent, pieceHalfExtents, LINK_RANGE, LINK_FACING } from './geometry.js';
+import { vertsOf, vertexOf, outwardTangent, inwardTangent, pieceHalfExtents, LINK_RANGE, LINK_FACING, CONNECTED_EPS } from './geometry.js';
 
-const JOINT_EPS = 1e-6;   /* same weld tolerance as the store's flags */
+/* Serialization rounds positions and angles to 3 decimals, so a true
+ * weld can sit ~0.1 cm apart after a save/share round-trip (measured on
+ * real tracks). Connectivity tolerance is the shared CONNECTED_EPS
+ * (owner cap: 1 cm absolute max) — comfortably above the observed
+ * 0.095 cm rounding noise, far below any real gap. Tangent tolerance
+ * likewise scales for rounding: 3-decimal angle error shows as ~0.1°
+ * deltas. */
+const KINK_TANGENT_TOL = 0.5;   /* deg — visible kinks, above rounding noise */
 
 const face = (t, to) => 180 - Math.abs(((t - to + 540) % 360) - 180); /* 0..180, 180=aligned */
 
@@ -38,7 +45,7 @@ export function validateTrack(sprites) {
     taken[a] = true;
     const g = [points[a]];
     for (let b = a + 1; b < points.length; b++) {
-      if (!taken[b] && Math.hypot(points[a].v.x - points[b].v.x, points[a].v.y - points[b].v.y) <= JOINT_EPS) {
+      if (!taken[b] && Math.hypot(points[a].v.x - points[b].v.x, points[a].v.y - points[b].v.y) <= CONNECTED_EPS) {
         taken[b] = true;
         g.push(points[b]);
       }
@@ -54,7 +61,7 @@ export function validateTrack(sprites) {
       const A = open[m], B = open[n];
       if (sprites[A.i] === sprites[B.i]) continue;   /* same guard as openLinks: a piece cannot jump to itself */
       const d = Math.hypot(A.v.x - B.v.x, A.v.y - B.v.y);
-      if (d > LINK_RANGE || d < 1e-6) continue;
+      if (d > LINK_RANGE) continue;
       const toB = Math.atan2(B.v.y - A.v.y, B.v.x - A.v.x) * 180 / Math.PI;
       const toA = toB + 180;
       if (face(outwardTangent(sprites[A.i], A.vi), toB) >= 180 - LINK_FACING &&
@@ -77,7 +84,7 @@ export function validateTrack(sprites) {
     if (g.length < 2) continue;
     for (const x of g) {
       const aligned = g.some((y) => y !== x && sprites[y.i] !== sprites[x.i] &&
-        Math.abs(((outwardTangent(sprites[x.i], x.vi) - inwardTangent(sprites[y.i], y.vi) + 540) % 360) - 180) <= 0.05);
+        Math.abs(((outwardTangent(sprites[x.i], x.vi) - inwardTangent(sprites[y.i], y.vi) + 540) % 360) - 180) <= KINK_TANGENT_TOL);
       if (!aligned) kinkAt.add(`(${x.v.x.toFixed(0)}, ${x.v.y.toFixed(0)})`);
     }
   }
