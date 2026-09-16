@@ -10,7 +10,7 @@ import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow } from './storage.js';
 import {
-  GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge,
+  GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, formatLength, completeBadge, lengthToCm, cmToLength,
   isStarred, addStarred, removeStarred, thumbFit, trackFacets,
 } from './gallery.js';
 import { validateTrack } from './validate.js';
@@ -438,35 +438,116 @@ export function init(dimsGetter) {
   /* ---------- gallery (ALL published tracks, not just this browser's) ---------- */
 
   const GAL_PAGE = 25;
+  /* complete-only is the owner's default view; the drawer's filter
+   * state mirrors galFilterDefaults (Reset restores them) */
+  const galFilterDefaults = () => ({
+    minLength: 0, lanes: [...GALLERY_LANES],
+    maxW: null, maxH: null, maxStraights: null, maxSlopes: null, maxCorners: null,
+  });
   /* loading: one galLoad in flight at a time (double-tap on Load more
    * must not fetch the page twice). gen: bumped by every sort/filter/open
    * so a superseded page is dropped instead of appended into the new
    * view. A dropped page leaves `loading` alone — the newer call owns it. */
-  const gal = { sort: '-updated_at', complete: false, items: [], total: 0, gen: 0, loading: false };
+  const gal = { sort: '-updated_at', complete: true, unit: 'm', filter: galFilterDefaults(), items: [], total: 0, gen: 0, loading: false };
+
+  function galFilterCount() {
+    const f = gal.filter, d = galFilterDefaults();
+    let n = 0;
+    if (f.minLength > 0) n += 1;
+    if (f.lanes.length !== d.lanes.length) n += 1;
+    for (const k of ['maxW', 'maxH', 'maxStraights', 'maxSlopes', 'maxCorners'])
+      if (f[k] != null) n += 1;
+    return n;
+  }
 
   function galRenderControls() {
-    const bar = $('galSorts');
-    bar.innerHTML = '';
+    const sel = $('galSort');
+    sel.innerHTML = '';
     for (const s of GALLERY_SORTS) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = s.label;
-      b.setAttribute('aria-pressed', String(gal.sort === s.value));
-      b.addEventListener('click', () => { if (gal.sort !== s.value) openGallery(s.value); });
-      bar.appendChild(b);
+      const opt = document.createElement('option');
+      opt.value = s.value;
+      opt.textContent = s.label;
+      opt.selected = gal.sort === s.value;
+      sel.appendChild(opt);
     }
     $('galComplete').setAttribute('aria-pressed', String(gal.complete));
+    const n = galFilterCount();
+    $('galFilterCount').hidden = n === 0;
+    $('galFilterCount').textContent = n;
+  }
+
+  /* sync the drawer's controls from gal.filter (unit keeps the cm
+   * values readable: inputs display converted, state stores cm).
+   * Lanes checkboxes are built ONCE (init) — rebuilding them on every
+   * refetch destroys the control mid-interaction (e2e: 'not stable') */
+  function galRenderDrawer() {
+    const f = gal.filter;
+    $('galMinLen').value = f.minLength;
+    galMinLenOut();
+    document.querySelectorAll('#galLanes input[type="checkbox"]').forEach((cb, i) => {
+      cb.checked = f.lanes.includes(GALLERY_LANES[i]);
+    });
+    $('galUnitM').setAttribute('aria-pressed', String(gal.unit === 'm'));
+    $('galUnitFt').setAttribute('aria-pressed', String(gal.unit === 'ft'));
+    const fromCm = (cm) => (cm == null ? '' : String(cmToLength(cm, gal.unit)));
+    document.querySelectorAll('.gal-dim-unit').forEach((n) => { n.textContent = gal.unit; });
+    $('galMaxW').value = fromCm(f.maxW);
+    $('galMaxH').value = fromCm(f.maxH);
+    $('galMaxStraights').value = f.maxStraights ?? '';
+    $('galMaxSlopes').value = f.maxSlopes ?? '';
+    $('galMaxCorners').value = f.maxCorners ?? '';
+  }
+
+  function galBuildLanes() {
+    const lanes = $('galLanes');
+    for (const n of GALLERY_LANES) {
+      const lab = document.createElement('label');
+      lab.className = 'gal-lane';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.addEventListener('change', () => {
+        gal.filter.lanes = GALLERY_LANES.filter((x) => (x === n ? cb.checked : gal.filter.lanes.includes(x)));
+        openGallery();
+      });
+      lab.append(cb, `${n} lanes`);
+      lanes.appendChild(lab);
+    }
+  }
+
+  /* the slider's scale is metres; the readout follows the unit choice */
+  function galMinLenOut() {
+    const v = gal.filter.minLength;
+    $('galMinLenOut').textContent = v > 0
+      ? (gal.unit === 'ft' ? `${Math.round(cmToLength(v * 100, 'ft'))} ft+` : `${v} m+`)
+      : 'any';
+  }
+
+  function galOpenPanel(open) {
+    $('galDrawer').classList.toggle('open', open);
+    $('galFilters').setAttribute('aria-expanded', String(open));
   }
 
   async function galLoad() {
     if (gal.loading) return;
+    /* lanes=[] cannot be expressed server-side (omitting the param
+     * means ALL lanes — the inverse of the empty selection) — render
+     * the empty state locally instead of a misleading fetch */
+    if (gal.filter.lanes.length === 0) {
+      gal.items = [];
+      gal.total = 0;
+      galRenderList();
+      $('galMeta').textContent = '';
+      return;
+    }
     gal.loading = true;
     const gen = gal.gen;
     const list = $('galList');
     if (!gal.items.length) list.textContent = 'Loading…';
     try {
       const res = await fetch(`/api/tracks?${galleryQuery({
-        sort: gal.sort, complete: gal.complete, limit: GAL_PAGE, offset: gal.items.length,
+        sort: gal.sort, complete: gal.complete, filter: gal.filter,
+        limit: GAL_PAGE, offset: gal.items.length,
       })}`);
       const page = await res.json();
       if (gen !== gal.gen) return;   /* a newer sort/filter/open owns the list now */
@@ -494,7 +575,7 @@ export function init(dimsGetter) {
   const galThumbQueue = [];
   let galThumbActive = 0;
   const GAL_THUMB_MAX = 4;
-  const GAL_THUMB_W = 80, GAL_THUMB_H = 60;
+  const GAL_THUMB_W = 400, GAL_THUMB_H = 300;
 
   function galThumb(cv, id) {
     if (galThumbCache.has(id)) {              /* negatives (null) skip the draw AND the refetch */
@@ -557,16 +638,14 @@ export function init(dimsGetter) {
     row.className = 'gal-row';
     row.dataset.id = it.id;
 
-    const main = document.createElement('button');
-    main.type = 'button';
-    main.className = 'gal-main';
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'gal-main';
     const thumb = document.createElement('canvas');
     thumb.className = 'gal-thumb';
     const dpr = getDims().dpr;
     thumb.width = GAL_THUMB_W * dpr;
     thumb.height = GAL_THUMB_H * dpr;
-    const text = document.createElement('span');
-    text.className = 'gal-text';
     const top = document.createElement('span');
     top.className = 'gal-top';
     const name = document.createElement('span');
@@ -578,18 +657,21 @@ export function init(dimsGetter) {
     mark.textContent = badge.text;
     mark.title = badge.title;
     top.append(name, mark);
+    /* ?? 0: rows written before a facet column existed read undefined —
+     * a long-running store must not render 'undefined slp' */
     const facets = document.createElement('span');
     facets.className = 'gal-facets';
-    facets.textContent = `${it.piece_count} pcs · ${(it.length_cm / 100).toFixed(2)} m · ${it.lanes} lanes`
-      + ` · ${formatFootprint(it.bbox_w_cm, it.bbox_h_cm)} · ${it.straights} str · ${it.slopes} slp · ${it.corners} cor`;
+    facets.textContent = `${it.piece_count} pcs · ${formatLength(it.length_cm, gal.unit)} · ${it.lanes} lanes`
+      + ` · ${formatFootprint(it.bbox_w_cm, it.bbox_h_cm, gal.unit)}`
+      + ` · ${it.straights ?? 0} straights · ${it.slopes ?? 0} slopes · ${it.corners ?? 0} corners`;
     const sub = document.createElement('span');
     sub.className = 'gal-sub';
-    sub.textContent = `★ ${it.stars} · ${galDate(it.updated_at)}`;
-    text.append(top, facets, sub);
-    main.append(thumb, text);
-    main.addEventListener('click', () => loadPublishedTrack(it.id));
+    sub.textContent = `★ ${it.stars ?? 0} · ${galDate(it.updated_at)}`;
+    card.append(thumb, top, facets, sub);
+    card.addEventListener('click', () => loadPublishedTrack(it.id));
     galThumb(thumb, it.id);
 
+    /* the star lives INSIDE the card, over the thumbnail's corner */
     const star = document.createElement('button');
     star.type = 'button';
     star.className = 'gal-star';
@@ -597,9 +679,9 @@ export function init(dimsGetter) {
     star.classList.toggle('starred', starred);
     star.textContent = starred ? '★' : '☆';
     star.title = starred ? 'Starred on this device — tap to unstar' : 'Star this track';
-    star.addEventListener('click', () => galStar(it, star, sub));
+    star.addEventListener('click', (e) => { e.stopPropagation(); galStar(it, star, sub); });
 
-    row.append(main, star);
+    row.append(card, star);
     return row;
   }
 
@@ -610,7 +692,8 @@ export function init(dimsGetter) {
       $('galMeta').textContent = '';
       const empty = document.createElement('p');
       empty.className = 'gal-empty';
-      empty.textContent = gal.complete ? 'No complete tracks published yet.' : 'No tracks published yet.';
+      empty.textContent = gal.filter.lanes.length === 0 ? 'No lanes selected — tick at least one in Filters.'
+        : gal.complete ? 'No complete tracks published yet.' : 'No tracks published yet.';
       list.appendChild(empty);
       return;
     }
@@ -658,13 +741,79 @@ export function init(dimsGetter) {
     gal.items = [];
     gal.total = 0;
     galRenderControls();
+    galRenderDrawer();
     galLoad();
     openDialog($('galleryDialog'));
   }
 
-  $('btnGallery').addEventListener('click', () => openGallery());
-  $('galClose').addEventListener('click', () => closeDialog($('galleryDialog')));
+  galBuildLanes();
+  /* (?) affordances on the filter fields (reusable tooltip system) —
+   * AFTER the title text; the controls sit BELOW the title row */
+  /* title row ("Footprint max (?)") with the controls BELOW it */
+  const titleTip = (field, text) => {
+    const title = document.createElement('span');
+    title.className = 'gal-field-title';
+    const label = field.firstChild;           /* the title text node */
+    title.append(label.textContent.trim() + ' ', tipBtn(text));
+    field.replaceChild(title, label);
+  };
+  const minLenTitle = (field, text) => {
+    const title = document.createElement('span');
+    title.className = 'gal-field-title';
+    const out = field.querySelector('output');
+    title.append('Min length: ', tipBtn(text), ' ', out);
+    field.replaceChild(title, field.firstChild);
+  };
+  minLenTitle($('galMinLenField'), 'Only show tracks at least this long.');
+  $('galLanes').querySelector('legend').append(tipBtn('Which lane widths to show — 2-lane rucdoc, 3-lane Japan Cup, 5-lane WIDE.'));
+  titleTip($('galFootField'), 'Tracks must fit within this maximum footprint (width \u00D7 height).');
+  titleTip($('galAtMostField'), 'Upper limits on piece counts. Hairpins and rainbows count as 4 corners.');
+
+  /* the brand IS a gallery shortcut (owner round); fresh opens and
+   * dialog-close reset the panel — filter changes keep it open (the
+   * owner adjusts several filters in a row) */
+  const openGalleryFresh = () => { galOpenPanel(false); openGallery(); };
+  $('brand').addEventListener('click', openGalleryFresh);
+  $('btnGallery').addEventListener('click', openGalleryFresh);
+  /* toolbar globe beside Publish — the gallery was hard to find (owner) */
+  $('btnGalleryBar').addEventListener('click', openGalleryFresh);
+  $('galClose').addEventListener('click', () => { galOpenPanel(false); closeDialog($('galleryDialog')); });
+  $('galleryDialog').addEventListener('close', () => galOpenPanel(false));   /* Esc/backdrop path */
+  $('galSort').addEventListener('change', (e) => openGallery(e.target.value));
   $('galComplete').addEventListener('click', () => { gal.complete = !gal.complete; openGallery(); });
+  /* the Filters button TOGGLES the panel (owner round 2) */
+  $('galFilters').addEventListener('click', () => galOpenPanel(!$('galDrawer').classList.contains('open')));
+  $('galDone').addEventListener('click', () => galOpenPanel(false));
+  /* unit switch: re-render cards and drawer conversions — data is
+   * already in gal.items, no refetch */
+  $('galUnitM').addEventListener('click', () => { gal.unit = 'm'; galRenderDrawer(); galRenderList(); });
+  $('galUnitFt').addEventListener('click', () => { gal.unit = 'ft'; galRenderDrawer(); galRenderList(); });
+  $('galMinLen').addEventListener('input', (e) => {
+    gal.filter.minLength = +e.target.value;
+    galMinLenOut();
+  });
+  $('galMinLen').addEventListener('change', () => openGallery());
+  /* footprint + count caps: inputs are in the chosen unit (state is cm);
+   * empty = any. Fires on blur/Enter, not per keystroke. */
+  const galCap = (inputId, key, toCm) => {
+    $(inputId).addEventListener('change', (e) => {
+      const v = e.target.value;
+      gal.filter[key] = v === '' ? null
+        : (toCm ? lengthToCm(Math.max(0, +v), gal.unit) : Math.max(0, Math.round(+v)));
+      openGallery();
+    });
+  };
+  galCap('galMaxW', 'maxW', true);
+  galCap('galMaxH', 'maxH', true);
+  galCap('galMaxStraights', 'maxStraights', false);
+  galCap('galMaxSlopes', 'maxSlopes', false);
+  galCap('galMaxCorners', 'maxCorners', false);
+
+  $('galReset').addEventListener('click', () => {
+    gal.filter = galFilterDefaults();
+    galRenderDrawer();
+    openGallery();
+  });
 
   $('btnNewTrack').addEventListener('click', () => {
     closeDialog($('menuDialog'));

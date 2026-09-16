@@ -116,6 +116,25 @@ test('facet classification: slopes separate, hairpins are 4 corners, both sortab
   expect((await request.get('/api/tracks?sort=slopes')).status()).toBe(200);   /* whitelisted both ways */
 });
 
+test('list filters: lane selection (OR), footprint caps, count caps', async ({ request }) => {
+  const P = `e2e-${Date.now()}-flt`;
+  const mkTrack = (track) => ({ name: 'e2e filter', author: 'playwright', data: { track, mode: 5 } });
+  await request.put(`/api/tracks/${P}-five`, { data: mkTrack('Str4;100.000;100.000;0;0;0#Str4;160.000;100.000;0;0;0#') });  /* lanes 5, 2 str */
+  await request.put(`/api/tracks/${P}-three`, { data: { ...mkTrack('Str1;100.000;100.000;0;0;0#'.repeat(8)), data: { track: 'Str1;100.000;100.000;0;0;0#'.repeat(8), mode: 3 } } }); /* lanes 3, 8 str */
+  ids.push(`${P}-five`, `${P}-three`);
+  const lanes = await (await request.get(`/api/tracks?author=playwright&lanes=5`)).json();
+  expect(lanes.items.every((i) => i.lanes === 5)).toBe(true);
+  expect(lanes.items.some((i) => i.id === `${P}-five`)).toBe(true);
+  const maxStr = await (await request.get(`/api/tracks?author=playwright&lanes=3,5&max_straights=2`)).json();
+  expect(maxStr.items.some((i) => i.id === `${P}-five`)).toBe(true);       /* 2 straights */
+  expect(maxStr.items.some((i) => i.id === `${P}-three`)).toBe(false);    /* 8 straights */
+  const box = await (await request.get(`/api/tracks?author=playwright&lanes=5&max_bbox_w=100&max_bbox_h=100`)).json();
+  expect(box.items.some((i) => i.id === `${P}-five`)).toBe(false);        /* 121 cm wide */
+  for (const bad of ['lanes=banana', 'lanes=0', 'max_straights=x', 'max_bbox_w=y']) {
+    expect((await request.get(`/api/tracks?${bad}`)).status()).toBe(400);
+  }
+});
+
 test('star/unstar endpoint: increments, takes back, floored at 0', async ({ request }) => {
   const id = `${PREFIX}-star`; ids.push(id);
   await request.put(`/api/tracks/${id}`, { data: mk('star') });
