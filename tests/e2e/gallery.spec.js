@@ -312,3 +312,88 @@ test('double-tapping Load more never appends a page twice', async ({ page, reque
   const names = await page.locator('.gal-row .gal-name').allTextContents();
   expect(new Set(names).size).toBe(names.length);   /* no duplicated page */
 });
+
+/* ---------- worklog 0017: Copy, History, Mine ---------- */
+
+test('Copy forks the row: your copy appears with a "based on" line; the original is untouched', async ({ page, request }) => {
+  const n = nonce();
+  const parentId = await seed(request, `gal-${n}-orig`, `E2E CopyOrig ${n}`, SQUARE);
+  await openGallery(page);
+  const row = page.locator('.gal-row', { hasText: `E2E CopyOrig ${n}` });
+  await row.locator('.gal-act', { hasText: 'Copy' }).click();
+  await expect(page.locator('#toast')).toContainText('your own copy');
+
+  /* the fork exists server-side, carries server-resolved lineage, and the
+   * original still holds its own track body */
+  const list = await (await request.get('/api/tracks?sort=-created_at&limit=5')).json();
+  const fork = list.items.find((x) => x.parent_id === parentId);
+  expect(fork).toBeTruthy();
+  expect(fork.parent_name).toBe(`E2E CopyOrig ${n}`);
+  expect(fork.root_id).toBe(parentId);
+  ids.push(fork.id);
+  const orig = await (await request.get(`/api/tracks/${parentId}`)).json();
+  expect(orig.parent_id).toBeNull();          /* the original was not re-linked */
+
+  /* the fresh copy shows in the gallery with the based-on line and is mine */
+  await page.reload();
+  await page.locator('#btnMenu').click();
+  await page.locator('#btnGallery').click();
+  const forkRow = page.locator('.gal-row', { hasText: `E2E CopyOrig ${n}` }).filter({ has: page.locator('.gal-based') });
+  await expect(forkRow).toBeVisible();
+  await expect(forkRow.locator('.gal-based')).toContainText(`based on “E2E CopyOrig ${n}”`);
+});
+
+test('History dialog restores an older version onto the head', async ({ page, request }) => {
+  const n = nonce();
+  const id = await seed(request, `gal-${n}-hist`, `E2E HistA ${n}`, SQUARE);
+  /* a second save archives HistA as a version, head becomes HistB (an
+   * open chain = WIP — the default complete-only filter must come off) */
+  await request.put(`/api/tracks/${id}`, { data: { name: `E2E HistB ${n}`, data: { track: LONG, mode: 3 } } });
+  await openGallery(page);
+  await page.locator('#galComplete').click();
+  const row = page.locator('.gal-row', { hasText: `E2E HistB ${n}` });
+  /* load it onto the canvas first — restore-while-bound is the path
+   * that once crashed on meta-only upsert rows (PR #40 review) */
+  await row.locator('.gal-main').click();
+  await expect(page.locator('#toast')).toContainText('Loaded');
+  await page.locator('#btnMenu').click();
+  await page.locator('#btnGallery').click();
+  /* gal.complete persists across opens — only toggle if it's on */
+  if (await page.locator('#galComplete').getAttribute('aria-pressed') === 'true') {
+    await page.locator('#galComplete').click();
+  }
+  await page.locator('.gal-row', { hasText: `E2E HistB ${n}` }).locator('.gal-act', { hasText: 'History' }).click();
+  await expect(page.locator('#historyDialog')).toBeVisible();
+  const hisRow = page.locator('.his-row', { hasText: `E2E HistA ${n}` });
+  await expect(hisRow).toBeVisible();
+  await hisRow.locator('button').click();
+  await expect(page.locator('#toast')).toContainText('Restored');
+  /* the bound canvas shows the restored version immediately — the stats
+   * bar reports the square's 4 pieces (HistB had 40) */
+  await expect(page.locator('#stats')).toContainText('4 pcs');
+  /* head is the restored square again (4 pieces, original name) */
+  const head = await (await request.get(`/api/tracks/${id}`)).json();
+  expect(head.name).toBe(`E2E HistA ${n}`);
+  expect(head.piece_count).toBe(4);
+});
+
+test('Mine chip narrows the list to tracks this browser saved', async ({ page, request }) => {
+  const n = nonce();
+  await seed(request, `gal-${n}-mine`, `E2E MineYes ${n}`, SQUARE);
+  await seed(request, `gal-${n}-other`, `E2E MineNo ${n}`, SQUARE);
+  await openGallery(page);
+  /* copy MineYes — the browser's Mine list then holds the fork, not the seed */
+  const row = page.locator('.gal-row', { hasText: `E2E MineYes ${n}` });
+  await row.locator('.gal-act', { hasText: 'Copy' }).click();
+  await expect(page.locator('#toast')).toContainText('your own copy');
+  /* the fork joins the list on the next gallery open */
+  await page.reload();
+  await page.locator('#btnMenu').click();
+  await page.locator('#btnGallery').click();
+  await expect(page.locator('#galleryDialog')).toBeVisible();
+  await page.locator('#galMine').click();
+  await expect(page.locator('#galMine')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.gal-list .gal-row', { hasText: `E2E MineNo ${n}` })).toHaveCount(0);
+  await expect(page.locator('.gal-list .gal-row', { hasText: `E2E MineYes ${n}` })).toBeVisible();
+  await expect(page.locator('#galMeta')).toContainText('of yours');
+});

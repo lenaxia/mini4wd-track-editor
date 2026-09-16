@@ -395,3 +395,112 @@ test('WIP publishes; badge flags issues; stats-bar rename keeps the row', async 
   await expect.poll(async () => (await (await request.get(`/api/tracks/${id}`)).json()).name,
     { timeout: 10_000 }).toBe('E2E WIP Renamed');
 });
+
+/* ---------- version history + copies + lineage (worklog 0017) ---------- */
+
+test('saving an existing track archives the previous version; history lists it', async ({ request }) => {
+  const id = `${PREFIX}-hist`; ids.push(id);
+  await request.put(`/api/tracks/${id}`, { data: mk('hist v1') });
+  const v2 = await request.put(`/api/tracks/${id}`, { data: mk('hist v2', { tail: 'Str1;200.000;100.000;0;0;0#' }) });
+  expect(v2.status()).toBe(200);
+
+  const hist = await request.get(`/api/tracks/${id}/history`);
+  expect(hist.status()).toBe(200);
+  const { items } = await hist.json();
+  expect(items.length).toBe(1);
+  expect(items[0].name).toBe('e2e hist v1');
+
+  const snap = await request.get(`/api/tracks/${id}/history/${items[0].seq}`);
+  const row = await snap.json();
+  expect(row.data.track).not.toContain('Str1;200.000');
+});
+
+test('restore re-publishes an old version and archives the current one', async ({ request }) => {
+  const id = `${PREFIX}-restore`; ids.push(id);
+  await request.put(`/api/tracks/${id}`, { data: mk('restore A') });
+  await request.put(`/api/tracks/${id}`, { data: mk('restore B', { tail: 'Str1;200.000;100.000;0;0;0#' }) });
+  const { items } = await (await request.get(`/api/tracks/${id}/history`)).json();
+  expect(items[0].name).toBe('e2e restore A');
+
+  const res = await request.post(`/api/tracks/${id}/history/${items[0].seq}/restore`);
+  expect(res.status()).toBe(200);
+  const head = await res.json();
+  expect(head.name).toBe('e2e restore A');
+  expect(head.piece_count).toBe(2);   /* facets re-derived from the snapshot */
+
+  /* the stomped version survived in history — restore is never destructive */
+  const after = await (await request.get(`/api/tracks/${id}/history`)).json();
+  expect(after.items.length).toBe(2);
+  expect(after.items.map((x) => x.name)).toEqual(['e2e restore B', 'e2e restore A']);
+});
+
+test('restore of an unknown revision or track 404s', async ({ request }) => {
+  const id = `${PREFIX}-restore404`; ids.push(id);
+  await request.put(`/api/tracks/${id}`, { data: mk('r404') });
+  expect((await request.post(`/api/tracks/${id}/history/99999/restore`)).status()).toBe(404);
+  expect((await request.post(`/api/tracks/${PREFIX}-nope/history/1/restore`)).status()).toBe(404);
+  expect((await request.get(`/api/tracks/${PREFIX}-nope/history`)).status()).toBe(404);
+});
+
+test('history is capped at 25 versions', async ({ request }) => {
+  const id = `${PREFIX}-cap`; ids.push(id);
+  for (let i = 0; i < 28; i++) {
+    await request.put(`/api/tracks/${id}`, { data: mk(`cap ${i}`) });
+  }
+  const { items } = await (await request.get(`/api/tracks/${id}/history`)).json();
+  expect(items.length).toBeLessThanOrEqual(25);
+  expect(items.length).toBeGreaterThanOrEqual(23);   /* 27 archives, pruned to 25 */
+});
+
+test('fork (parent_id) records server-resolved lineage; spoofed lineage fields are ignored', async ({ request }) => {
+  const parent = await request.post('/api/tracks', { data: mk('fork parent') });
+  const p = await parent.json(); ids.push(p.id);
+
+  /* client tries to smuggle its own root_id/parent_name — server decides */
+  const fr = await request.post('/api/tracks', {
+    data: { ...mk('fork child'), parent_id: p.id, root_id: 'spoofed-root', parent_name: 'Fake Parent' },
+  });
+  expect(fr.status()).toBe(201);
+  const child = await fr.json(); ids.push(child.id);
+  expect(child.parent_id).toBe(p.id);
+  expect(child.root_id).toBe(p.id);            /* parent has no root → itself */
+  expect(child.parent_name).toBe('e2e fork parent');
+  expect(child.parent_name).not.toBe('Fake Parent');
+
+  /* grandchild joins the same root */
+  const g = await (await request.post('/api/tracks', { data: { ...mk('fork grand'), parent_id: child.id } })).json();
+  ids.push(g.id);
+  expect(g.root_id).toBe(p.id);
+  expect(g.parent_name).toBe('e2e fork child');
+
+  /* a fork of a missing parent 404s; the body is not created */
+  const miss = await request.post('/api/tracks', { data: { ...mk('fork ghost'), parent_id: `${PREFIX}-ghost` } });
+  expect(miss.status()).toBe(404);
+});
+
+test('updating a fork keeps its born lineage (no re-linking via POST-with-id)', async ({ request }) => {
+  const parent = await (await request.post('/api/tracks', { data: mk('keep parent') })).json(); ids.push(parent.id);
+  const child = await (await request.post('/api/tracks', { data: { ...mk('keep child'), parent_id: parent.id } })).json();
+  ids.push(child.id);
+
+  /* re-POST with the child's id + a different parent_id must not re-link */
+  const hijack = await request.post('/api/tracks', {
+    data: { ...mk('keep hijack'), id: child.id, parent_id: `${PREFIX}-someone` },
+  });
+  expect(hijack.status()).toBe(201);
+  const after = await hijack.json();
+  expect(after.parent_id).toBe(parent.id);
+  expect(after.name).toBe('e2e keep hijack');   /* content update did land */
+});
+
+test('PUT-create stores no client lineage (lineage is POST-fork-only)', async ({ request }) => {
+  const id = `${PREFIX}-putcreate`; ids.push(id);
+  const res = await request.put(`/api/tracks/${id}`, {
+    data: { ...mk('putcreate'), parent_id: `${PREFIX}-fake`, root_id: `${PREFIX}-fakeroot` },
+  });
+  expect(res.status()).toBe(200);
+  const row = await res.json();
+  expect(row.parent_id).toBeNull();
+  expect(row.root_id).toBeNull();
+  expect(row.parent_name).toBeNull();
+});
