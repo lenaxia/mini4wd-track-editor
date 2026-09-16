@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 /* Gallery (owner spec): Track menu → 🌍 Gallery browses ALL tracks on the
- * server with facet rows (pieces/length/lanes/footprint/straights/corners/
- * stars/updated + ✓/✖ badge), sorts, a complete-only filter, per-browser
+ * server with facet rows (pieces/length/lanes/footprint/straights/
+ * slopes/corners/stars/updated + ✓/✖ badge — slopes their own count,
+ * hairpins = 4 corners), sorts, a complete-only filter, per-browser
  * star de-dupe, Load more pagination, and the same load-adopts-binding
  * flow as "My published tracks". Tests own their rows: unique per-test
  * id namespace + afterAll cleanup — safe against a shared live server
