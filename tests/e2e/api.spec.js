@@ -226,7 +226,7 @@ test('WIP publishes; badge flags issues; stats-bar rename keeps the row', async 
   expect(row.complete).toBe(false);          /* the facet, not a gate */
   expect(row.issues).toBeGreaterThan(0);
 
-  /* badge: 💾 with the red ring (debounced 600ms after the last edit) */
+  /* badge: save-check icon with the red ring (debounced 600ms after the last edit) */
   /* the badge must show content-save-check specifically — cloud-upload forever would be the regression */
   await expect(page.locator('#btnPublishBar svg path')).toHaveAttribute('d', /^M17 3H5C3\.9 3 3 3\.9/);
   await expect.poll(async () => page.evaluate(() =>
