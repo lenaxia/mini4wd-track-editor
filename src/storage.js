@@ -89,6 +89,9 @@ export async function publishTrack(name, state) {
  * not touch the binding — the canvas holds something else and autosave
  * would overwrite the fresh copy with it. Returns the new row, or null
  * (server unreachable / parent gone). */
+/* Result shape for the write helpers: { ok, row?, status? } — `null`
+ * only for a network failure. Callers can tell "gone" (404: parent
+ * deleted, version pruned) from "unreachable" and say so. */
 export async function forkTrack(row, state) {
   let data, name = row.name;
   if (state) {
@@ -99,7 +102,7 @@ export async function forkTrack(row, state) {
     /* gallery list rows are metadata-only — pull the body once */
     try {
       const res = await fetch(`/api/tracks/${row.id}`);
-      if (!res.ok) return null;
+      if (!res.ok) return { ok: false, status: res.status };
       const full = await res.json();
       data = full.data;
       name = full.name;
@@ -111,16 +114,16 @@ export async function forkTrack(row, state) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, parent_id: row.id, data }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { ok: false, status: res.status };
     const fresh = await res.json();
     if (state) writePub({ id: fresh.id, name: fresh.name });
     rememberMine(fresh.id);
-    return fresh;
+    return { ok: true, row: fresh };
   } catch { return null; }
 }
 
-/* Version history (worklog 0017). history() never throws; both return
- * null/[] when the server is unreachable. */
+/* Version history (worklog 0020). history() never throws; both return
+ * null / { ok: false, status } when the server answers badly. */
 export async function fetchHistory(id) {
   try {
     const res = await fetch(`/api/tracks/${id}/history`);
@@ -129,12 +132,16 @@ export async function fetchHistory(id) {
   } catch { return null; }
 }
 
+/* The restore response is the upsert result — meta-only, uniform across
+ * drivers — so the full row is refetched before it reaches the canvas. */
 export async function restoreRevision(id, seq) {
   try {
     const res = await fetch(`/api/tracks/${id}/history/${seq}/restore`, { method: 'POST' });
-    if (!res.ok) return null;
+    if (!res.ok) return { ok: false, status: res.status };
+    const full = await fetch(`/api/tracks/${id}`);
+    if (!full.ok) return { ok: false, status: full.status };
     rememberMine(id);
-    return await res.json();
+    return { ok: true, row: await full.json() };
   } catch { return null; }
 }
 
@@ -162,7 +169,12 @@ function syncToServer(id, name, snapshot) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, data: snapshot }),
     }).then((r) => {
-      if (gen === syncGen && r.ok) rememberMine(id);   /* a save landed: it's mine now */
+      if (gen === syncGen && r.ok) {
+        rememberMine(id);   /* a save landed: it's mine now */
+        /* the shared-track note must hide the moment this happens, not
+         * at the next unrelated refresh — tell the DOM layer */
+        try { globalThis.dispatchEvent(new CustomEvent('m4wd:saved', { detail: id })); } catch (_) {}
+      }
       if (gen === syncGen && !r.ok && RETRYABLE(r.status) && attempt < 3)
         setTimeout(() => put(attempt + 1), 2000 * (attempt + 1));
     }).catch(() => {

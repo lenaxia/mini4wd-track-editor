@@ -21,7 +21,7 @@ no email, no signup — and no permanent locks that rot into cruft.
    an abandoned track is a frozen original, not dead weight; the
    community continues on the copy. No expiry, no sweeps.
 4. **Mine list is local.** The browser remembers which track ids it
-   published/forked/edited (`m4wd_mine`, capped 500). Gallery "Mine"
+   published/forked/edited (`m4wd.mine`, capped 500). Gallery "Mine"
    chip filters the loaded page client-side. No identity involved.
 5. **Stage 2 (next PR): optional tripcodes.** `name#phrase` at publish
    → byline `name!hash`; may lock the track to the phrase (copy stays
@@ -63,7 +63,7 @@ no email, no signup — and no permanent locks that rot into cruft.
   vocabulary in chrome.
 
 **Not changed:** facets/sweep (heads only), publish binding, WIP warn,
-stars. Busters: main.js v64, style.css v13.
+stars. Busters: main.js v70, style.css v18 (union over main's v69/v17 after the merge).
 
 ## Tests
 

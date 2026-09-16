@@ -472,3 +472,15 @@ test('updating a fork keeps its born lineage (no re-linking via POST-with-id)', 
   expect(after.parent_id).toBe(parent.id);
   expect(after.name).toBe('e2e keep hijack');   /* content update did land */
 });
+
+test('PUT-create stores no client lineage (lineage is POST-fork-only)', async ({ request }) => {
+  const id = `${PREFIX}-putcreate`; ids.push(id);
+  const res = await request.put(`/api/tracks/${id}`, {
+    data: { ...mk('putcreate'), parent_id: `${PREFIX}-fake`, root_id: `${PREFIX}-fakeroot` },
+  });
+  expect(res.status()).toBe(200);
+  const row = await res.json();
+  expect(row.parent_id).toBeNull();
+  expect(row.root_id).toBeNull();
+  expect(row.parent_name).toBeNull();
+});

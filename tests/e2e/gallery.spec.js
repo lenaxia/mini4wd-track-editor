@@ -344,12 +344,25 @@ test('History dialog restores an older version onto the head', async ({ page, re
   await openGallery(page);
   await page.locator('#galComplete').click();
   const row = page.locator('.gal-row', { hasText: `E2E HistB ${n}` });
-  await row.locator('.gal-act', { hasText: 'History' }).click();
+  /* load it onto the canvas first — restore-while-bound is the path
+   * that once crashed on meta-only upsert rows (PR #40 review) */
+  await row.locator('.gal-main').click();
+  await expect(page.locator('#toast')).toContainText('Loaded');
+  await page.locator('#btnMenu').click();
+  await page.locator('#btnGallery').click();
+  /* gal.complete persists across opens — only toggle if it's on */
+  if (await page.locator('#galComplete').getAttribute('aria-pressed') === 'true') {
+    await page.locator('#galComplete').click();
+  }
+  await page.locator('.gal-row', { hasText: `E2E HistB ${n}` }).locator('.gal-act', { hasText: 'History' }).click();
   await expect(page.locator('#historyDialog')).toBeVisible();
   const hisRow = page.locator('.his-row', { hasText: `E2E HistA ${n}` });
   await expect(hisRow).toBeVisible();
   await hisRow.locator('button').click();
   await expect(page.locator('#toast')).toContainText('Restored');
+  /* the bound canvas shows the restored version immediately — the stats
+   * bar reports the square's 4 pieces (HistB had 40) */
+  await expect(page.locator('#stats')).toContainText('4 pcs');
   /* head is the restored square again (4 pieces, original name) */
   const head = await (await request.get(`/api/tracks/${id}`)).json();
   expect(head.name).toBe(`E2E HistA ${n}`);

@@ -230,9 +230,13 @@ async function main() {
           await store.archive(t.id, prev);
           /* lineage never changes on update — the track keeps the
            * parent it was born with (copies are new tracks, not re-links) */
-          t.parent_id = prev.parent_id ?? null;
-          t.root_id = prev.root_id ?? null;
-          t.parent_name = prev.parent_name ?? null;
+          Object.assign(t, { parent_id: prev.parent_id ?? null, root_id: prev.root_id ?? null, parent_name: prev.parent_name ?? null });
+        } else {
+          /* PUT-create: lineage is decided exclusively by the POST fork
+           * path — a client-sent parent_id/root_id is never stored */
+          t.parent_id = null;
+          t.root_id = null;
+          t.parent_name = null;
         }
         return json(res, 200, await store.upsert(t));
       }

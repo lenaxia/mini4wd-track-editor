@@ -322,6 +322,9 @@ export function init(dimsGetter) {
     const note = $('sharedNote');
     if (note) note.hidden = !shared;
   }
+  /* the debounced save of a shared track lands in storage.js — it tells
+   * us here so the note hides immediately, not at the next refresh */
+  globalThis.addEventListener('m4wd:saved', updateSharedNote);
 
   /* Copy the current canvas as your own track; the binding moves to the
    * copy and autosave mirrors there from now on — the shared original
@@ -331,12 +334,13 @@ export function init(dimsGetter) {
     if (!pub) return;
     const btn = $('btnOwnCopy');
     btn.disabled = true;
-    const row = await forkTrack(pub, state);
+    const r = await forkTrack(pub, state);
     btn.disabled = false;
-    if (!row) { toast('Server unreachable — copy not saved'); return; }
+    if (!r) { toast('Server unreachable — copy not saved'); return; }
+    if (!r.ok) { toast('Copy not saved — the original is gone from the server'); return; }
     updateSharedNote();
     refreshPublishUi();
-    toast(`This is your copy now — “${row.name}” — edits save here`);
+    toast(`This is your copy now — “${r.row.name}” — edits save here`);
   });
 
   /* Published: the button is a live validity badge, not an action —
@@ -857,11 +861,14 @@ export function init(dimsGetter) {
   async function galCopy(it, btn) {
     if (btn.disabled) return;
     btn.disabled = true;
-    const row = await forkTrack(it);
+    const r = await forkTrack(it);
     btn.disabled = false;
-    toast(row
-      ? `Saved your own copy of “${it.name}” — Mine shows it`
-      : 'Server unreachable — copy not saved');
+    if (!r) { toast('Server unreachable — copy not saved'); return; }
+    if (!r.ok) {
+      toast(r.status === 404 ? 'That track is gone from the server — reopen the gallery' : 'Copy not saved');
+      return;
+    }
+    toast(`Saved your own copy of “${it.name}” — Mine shows it`);
   }
 
   /* History dialog: list this track's old versions, Restore re-publishes
@@ -891,9 +898,14 @@ export function init(dimsGetter) {
         b.textContent = 'Restore';
         b.addEventListener('click', async () => {
           b.disabled = true;
-          const fresh = await restoreRevision(it.id, h.seq);
+          const r = await restoreRevision(it.id, h.seq);
           b.disabled = false;
-          if (!fresh) { toast('Server unreachable — nothing restored'); return; }
+          if (!r) { toast('Server unreachable — nothing restored'); return; }
+          if (!r.ok) {
+            toast(r.status === 404 ? 'That version is no longer available — reopen History' : 'Restore failed');
+            return;
+          }
+          const fresh = r.row;   /* refetched full row — data is present on every driver */
           closeDialog($('historyDialog'));
           /* the restored track may be open on this canvas — show the
            * restored version immediately (its next save would otherwise
