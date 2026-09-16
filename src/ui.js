@@ -441,7 +441,7 @@ export function init(dimsGetter) {
   /* complete-only is the owner's default view; the drawer's filter
    * state mirrors galFilterDefaults (Reset restores them) */
   const galFilterDefaults = () => ({
-    minLength: 0, lanes: [...GALLERY_LANES],
+    minLength: 0, maxLength: 0, lanes: [...GALLERY_LANES],
     maxW: null, maxH: null, maxStraights: null, maxSlopes: null, maxCorners: null,
   });
   /* loading: one galLoad in flight at a time (double-tap on Load more
@@ -453,7 +453,7 @@ export function init(dimsGetter) {
   function galFilterCount() {
     const f = gal.filter, d = galFilterDefaults();
     let n = 0;
-    if (f.minLength > 0) n += 1;
+    if (f.minLength > 0 || f.maxLength > 0) n += 1;
     if (f.lanes.length !== d.lanes.length) n += 1;
     for (const k of ['maxW', 'maxH', 'maxStraights', 'maxSlopes', 'maxCorners'])
       if (f[k] != null) n += 1;
@@ -483,7 +483,8 @@ export function init(dimsGetter) {
   function galRenderDrawer() {
     const f = gal.filter;
     $('galMinLen').value = f.minLength;
-    galMinLenOut();
+    $('galMaxLen').value = f.maxLength || 200;
+    galLenOut();
     document.querySelectorAll('#galLanes input[type="checkbox"]').forEach((cb, i) => {
       cb.checked = f.lanes.includes(GALLERY_LANES[i]);
     });
@@ -515,12 +516,19 @@ export function init(dimsGetter) {
     }
   }
 
-  /* the slider's scale is metres; the readout follows the unit choice */
-  function galMinLenOut() {
-    const v = gal.filter.minLength;
-    $('galMinLenOut').textContent = v > 0
-      ? (gal.unit === 'ft' ? `${Math.round(cmToLength(v * 100, 'ft'))} ft+` : `${v} m+`)
-      : 'any';
+  /* the slider scale is metres (0..200); the readout follows the unit */
+  function galLenOut() {
+    const f = gal.filter;
+    const fmt = (m) => (gal.unit === 'ft' ? `${Math.round(cmToLength(m * 100, 'ft'))} ft` : `${m} m`);
+    let txt = 'any';
+    if (f.minLength > 0 && f.maxLength > 0 && f.maxLength < 200) txt = `${fmt(f.minLength)}\u2013${fmt(f.maxLength)}`;
+    else if (f.minLength > 0) txt = `${fmt(f.minLength)}+`;
+    else if (f.maxLength > 0 && f.maxLength < 200) txt = `\u2264 ${fmt(f.maxLength)}`;
+    $('galMinLenOut').textContent = txt;
+    /* highlight between the thumbs */
+    const a = (f.minLength / 200) * 100, b = ((f.maxLength || 200) / 200) * 100;
+    $('galRangeFill').style.left = `${a}%`;
+    $('galRangeFill').style.width = `${b - a}%`;
   }
 
   function galOpenPanel(open) {
@@ -758,13 +766,11 @@ export function init(dimsGetter) {
     field.replaceChild(title, label);
   };
   const minLenTitle = (field, text) => {
-    const title = document.createElement('span');
-    title.className = 'gal-field-title';
-    const out = field.querySelector('output');
-    title.append('Min length: ', tipBtn(text), ' ', out);
-    field.replaceChild(title, field.firstChild);
+    /* the markup ships the title span with the live output inside —
+     * the (?) rides in front of it */
+    field.querySelector('.gal-field-title').prepend(tipBtn(text));
   };
-  minLenTitle($('galMinLenField'), 'Only show tracks at least this long.');
+  minLenTitle($('galMinLenField'), 'Show tracks in this length range — drag either end.');
   $('galLanes').querySelector('legend').append(tipBtn('Which lane widths to show — 2-lane rucdoc, 3-lane Japan Cup, 5-lane WIDE.'));
   titleTip($('galFootField'), 'Tracks must fit within this maximum footprint (width \u00D7 height) — a track laid the other way round still fits.');
   titleTip($('galAtMostField'), 'Upper limits on piece counts. Hairpins and rainbows count as 4 corners.');
@@ -788,11 +794,25 @@ export function init(dimsGetter) {
    * already in gal.items, no refetch */
   $('galUnitM').addEventListener('click', () => { gal.unit = 'm'; galRenderDrawer(); galRenderList(); });
   $('galUnitFt').addEventListener('click', () => { gal.unit = 'ft'; galRenderDrawer(); galRenderList(); });
-  $('galMinLen').addEventListener('input', (e) => {
-    gal.filter.minLength = +e.target.value;
-    galMinLenOut();
-  });
+  /* two thumbs: each pushes the other past itself; values snap so
+   * min <= max always holds */
+  const galRangeInput = (which) => (e) => {
+    const v = +e.target.value;
+    if (which === 'min') {
+      gal.filter.minLength = Math.min(v, gal.filter.maxLength || 200);
+      if (v > (gal.filter.maxLength || 200)) gal.filter.maxLength = v;
+    } else {
+      gal.filter.maxLength = Math.max(v, gal.filter.minLength);
+      if (v < gal.filter.minLength) gal.filter.minLength = v;
+    }
+    $('galMinLen').value = gal.filter.minLength;
+    $('galMaxLen').value = gal.filter.maxLength || 200;
+    galLenOut();
+  };
+  $('galMinLen').addEventListener('input', galRangeInput('min'));
+  $('galMaxLen').addEventListener('input', galRangeInput('max'));
   $('galMinLen').addEventListener('change', () => openGallery());
+  $('galMaxLen').addEventListener('change', () => openGallery());
   /* footprint + count caps: inputs are in the chosen unit (state is cm);
    * empty = any. Fires on blur/Enter, not per keystroke. */
   const galCap = (inputId, key, toCm) => {

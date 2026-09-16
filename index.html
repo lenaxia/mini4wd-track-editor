@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Mini4WD Track Editor</title>
   <meta name="description" content="Touch-first Mini4WD track editor — design, validate and publish circuits on phone or desktop.">
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
   <header id="topbar">
@@ -179,9 +179,14 @@
           <button id="galUnitM" type="button" class="gal-seg" aria-pressed="true">Metres (m)</button
           ><button id="galUnitFt" type="button" class="gal-seg" aria-pressed="false">Feet (ft)</button>
         </div>
-        <label class="gal-panel-row" id="galMinLenField">Min length: <output id="galMinLenOut" for="galMinLen">any</output>
-          <input id="galMinLen" type="range" min="0" max="200" step="5" value="0">
-        </label>
+        <div class="gal-panel-row" id="galMinLenField">Length range
+          <span class="gal-field-title"><output id="galMinLenOut">any</output></span>
+          <div class="gal-range">
+            <div class="gal-range-track"><div class="gal-range-fill" id="galRangeFill"></div></div>
+            <input id="galMinLen" type="range" min="0" max="200" step="5" value="0" aria-label="Minimum length">
+            <input id="galMaxLen" type="range" min="0" max="200" step="5" value="200" aria-label="Maximum length">
+          </div>
+        </div>
         <fieldset class="gal-panel-row" id="galLanes">
           <legend>Lanes</legend>
         </fieldset>
@@ -222,6 +227,6 @@
 
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=70"></script>
+  <script type="module" src="src/main.js?v=71"></script>
 </body>
 </html>

@@ -155,6 +155,21 @@ function suite(label, open) {
     await s.close();
   });
 
+  test(`${label}: min/max length compose`, async () => {
+    const s = await open(); const A = ns();
+    const shortD = { track: 'Str1;100.000;100.000;0;0;0#' };              /* 1.62 m */
+    const longD = { track: 'Str1;100.000;100.000;0;0;0#'.repeat(12) };    /* 19.4 m */
+    await s.upsert({ id: 'ln1', name: 'short', author: A, data: shortD, _facets: facets(shortD) });
+    await s.upsert({ id: 'ln2', name: 'long', author: A, data: longD, _facets: facets(longD) });
+    const both = await s.list({ author: A, min_length: 100, max_length: 500 });
+    assert.deepEqual(both.items.map((i) => i.id), ['ln1']);
+    const maxOnly = await s.list({ author: A, max_length: 200 });   /* ln1 is 162 cm */
+    assert.deepEqual(maxOnly.items.map((i) => i.id), ['ln1']);
+    const minOnly = await s.list({ author: A, min_length: 1000 });
+    assert.deepEqual(minOnly.items.map((i) => i.id), ['ln2']);
+    await s.close();
+  });
+
   test(`${label}: footprint caps are rotation-free (W×H or H×W fits)`, async () => {
     const s = await open(); const A = ns();
     /* facet bboxes: wide 138×36, tall 54×120 (Str1 w54/h36, centers 84

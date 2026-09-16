@@ -167,6 +167,11 @@ test('filter drawer: lanes, min length, reset — Complete stays visible', async
   await expect(page.locator('#galMinLenOut')).toHaveText('16 ft+');
   await page.locator('#galUnitM').click();
   await expect(page.locator('#galMinLenOut')).toHaveText('5 m+');
+  /* two-ended: cap the top at 10 m — the 6 m row stays, longer tracks go */
+  await page.locator('#galMaxLen').fill('10');
+  await expect(page.locator('#galMinLenOut')).toHaveText('5 m\u201310 m');
+  await expect(page.locator('.gal-row', { hasText: `E2E Five ${n}` })).toBeVisible();
+  await page.locator('#galMaxLen').fill('200');
 
   /* max straights 0: only zero-straight rows (the square, if visible) */
   await page.locator('#galMinLen').fill('0');

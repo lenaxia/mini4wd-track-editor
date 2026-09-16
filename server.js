@@ -114,6 +114,7 @@ function parseListQuery(u) {
   const out = {
     author: typeof q.author === 'string' && q.author ? q.author.slice(0, 100) : undefined,
     min_pieces: num(q.min_pieces), max_pieces: num(q.max_pieces), min_length: num(q.min_length),
+    max_length: num(q.max_length),
     min_lanes: num(q.min_lanes),
     lanes: lanes && lanes.length ? lanes : undefined,
     max_bbox_w: num(q.max_bbox_w), max_bbox_h: num(q.max_bbox_h),
@@ -123,7 +124,7 @@ function parseListQuery(u) {
     limit: Math.max(1, Math.min(100, Math.round(num(q.limit) ?? 50))),
     offset: Math.max(0, Math.round(num(q.offset) ?? 0)),
   };
-  for (const v of [out.min_pieces, out.max_pieces, out.min_length, out.min_lanes,
+  for (const v of [out.min_pieces, out.max_pieces, out.min_length, out.max_length, out.min_lanes,
     ...(out.lanes ?? []), out.max_bbox_w, out.max_bbox_h,
     out.max_straights, out.max_slopes, out.max_corners,
     q.limit !== undefined ? out.limit : 0, q.offset !== undefined ? out.offset : 0])
