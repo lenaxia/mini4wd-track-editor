@@ -776,6 +776,8 @@ export function init(dimsGetter) {
   const openGalleryFresh = () => { galOpenPanel(false); openGallery(); };
   $('brand').addEventListener('click', openGalleryFresh);
   $('btnGallery').addEventListener('click', openGalleryFresh);
+  /* toolbar globe beside Publish — the gallery was hard to find (owner) */
+  $('btnGalleryBar').addEventListener('click', openGalleryFresh);
   $('galClose').addEventListener('click', () => { galOpenPanel(false); closeDialog($('galleryDialog')); });
   document.querySelectorAll('dialog').forEach((d) => d.addEventListener('close', () => {
     if (d.id === 'galleryDialog') galOpenPanel(false);   /* Esc/backdrop path */

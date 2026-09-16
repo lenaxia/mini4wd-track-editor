@@ -43,6 +43,17 @@ async function openGallery(page) {
   await expect(page.locator('#galleryDialog')).toBeVisible();
 }
 
+test('the toolbar globe opens the gallery (discoverability, owner round 3)', async ({ page, request }) => {
+  const n = nonce();
+  await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);
+  await page.goto('/');
+  await page.locator('#btnGalleryBar').click();
+  await expect(page.locator('#galleryDialog')).toBeVisible();
+  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toBeVisible({ timeout: 10_000 });
+  await page.locator('#galClose').click();
+  await expect(page.locator('#galleryDialog')).not.toBeVisible();
+});
+
 test('the brand opens the gallery full screen (no horizontal scroll, desktop or phone)', async ({ page, request }) => {
   const n = nonce();
   await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);   /* complete-only default needs one */
