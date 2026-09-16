@@ -42,6 +42,10 @@ body {
 .stats {
   margin-left: auto; font-variant-numeric: tabular-nums;
   font-size: 12px; color: #aab1bd; white-space: nowrap;
+  /* the working track's name lives here (rename affordance): it may
+   * grow long, but the mode selector and menu are owner-mandated
+   * always-visible — the title ellipsizes instead of pushing them out */
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
 .icon-btn {
   border: 1px solid var(--line); background: var(--panel-2); color: inherit;
