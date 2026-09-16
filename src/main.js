@@ -1,5 +1,5 @@
 /*
- * Mini4WD Track Editor — mobile-friendly fork (proof of concept)
+ * Mini4WD Track Editor — touch-first track design, validation and publishing.
  *
  * Piece geometry, snapping algorithm and the track serialization format are
  * derived from the "Mini4WD Online Track Editor" client code:

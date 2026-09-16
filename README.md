@@ -1,158 +1,88 @@
-# Mini4WD Track Editor — mobile-friendly fork (proof of concept)
+# Mini4WD Track Editor
 
-A touch-first reimplementation of [Mini4WD Online Track Editor](https://mini4wd-track-editor.pimentoso.com)
-by Pimentoso. **No build step, no runtime dependencies** — vanilla ES modules
-served statically (ES modules require http, so use `serve.js`; `file://` no
-longer works).
+Design Mini4WD circuits on your phone. Touch-first, no build step, no
+frameworks — open it and lay track.
 
-## What this proves
+## The editor
 
-### a) Replicating / forking the original — YES
+- **Tap to place.** Pick a piece, tap the canvas — it drops in and welds
+  to nearby track ends (green dots mean connected). Keep your finger
+  down to drag it into exact position first; release to commit.
+- **Everything is movable.** Drag single pieces or rubber-band a group;
+  groups snap as a unit. Rotate around the joint you're connected to, or
+  around the group's center. Undo everything, always.
+- **Elevation is real.** Raise and lower in 10 mm steps; slopes chain
+  levels automatically; bridges over lower track render see-through with
+  a warning when 75 mm clearance isn't met.
+- **Complete the loop.** Leave a gap, select the two open ends, tap
+  Complete — the shortest run of straights and corners fills it. If nothing
+  fits, the tool offers to remove pieces until something does, then
+  closes it.
+- **Made for thumbs.** Two-finger pan and pinch zoom, bottom toolbar,
+  scrollable palette, safe-area aware. On desktop: full keyboard parity
+  (1-9 pieces, Q/W/E tools, Z/X rotate, R undo, F fit, Space pan).
+- **Two track systems.** Regulation 3-lane and 5-lane Tamiya pieces
+  (11.5 cm lanes, official lap lengths) and rucdoc 1/2/3-lane
+  3D-printed pieces — every sprite generated as crisp vector art on the
+  same grid, so mixed systems align at the joints.
 
-| Component | Original | Status for a fork |
-|---|---|---|
-| Editor logic (`editor.js`) | JavaScript, **MIT licensed** (© 2016 Michele Ferri) | ✅ Legally reusable — piece catalog, snapping, serialization all extracted |
-| Track format | `Name;x;y;angle;color;z#…` (1 px = 1 cm) | ✅ Fully decoded; legacy tracks import unchanged (5-field parses to z=0); writes add the elevation field — see `docs/design/orient-elevation.md` §3 |
-| Save/Load | Rails: `POST /save` → 6-char code, `GET /load/CODE.js` | ✅ Trivial to re-implement; this PoC replaces it with URL-hash sharing + localStorage + file export |
-| Gallery / API | `GET /api/tracks/:code` JSON | ✅ Easy to add later; original API has no CORS headers, so live import needs a tiny proxy |
-| Piece artwork | PNGs of Tamiya track pieces | ✅ Reused (`assets/`) with attribution — © Tamiya inc. |
-| Server source (Rails app) | **Closed** (no public repo) | 🔁 Rewritten from observed behavior; only ~4 endpoints exist |
+## Sharing and saving
 
-### b) Mobile-friendly editor — YES (the original is not)
+- **Share links** encode the whole track in the URL — no server needed.
+- **Local until you publish.** Work stays on your device; publishing
+  names it and saves it to the server, and from then on every edit
+  auto-saves.
+- **Know before you publish.** The save button is a live health check:
+  green ring = complete and consistent, red = issues (dangling ends,
+  kinked joints), listed when you tap. Incomplete tracks still publish —
+  marked Work-in-Progress.
+- **Gallery.** Browse every published track: sort by length, lane count,
+  footprint (limited room?), straight/corner counts (limited parts?),
+  stars, or newest. Filter to finished circuits only. Star what you
+  like; tap any track to load it and keep editing it as your own.
 
-The original is desktop-only: `onmousemove`/`onclick`/`mousewheel`, no touch handlers,
-fixed 800×600 canvas, 190 px sidebar — you literally cannot place a piece on a phone.
-This PoC implements:
-
-- **Tap to place**: pick a piece in the palette, then tap the canvas — the piece is
-  placed immediately and snaps to nearby track ends (green dots = connected).
-  Keep the finger/mouse down and drag to fine-position it before releasing.
-- **Figma-style flow — place → move → click away to deselect**: after each placement
-  the tool reverts to ✥ Move with the new piece selected; drag it to adjust, tap
-  empty space to deselect. Hold <kbd>Shift</kbd> on release to keep the piece armed
-  for rapid stamping.
-- **Pan tool ✋ / <kbd>H</kbd>** is the default tool (drag to look around without placing
-  anything); <kbd>Esc</kbd> always returns to it
-- **Multi-select & group move**: rubber-band drag on empty space, ctrl/cmd+click to
-  toggle pieces, drag any selected piece to move the group (with group snapping),
-  ⟲/⟳ rotate the selection around its centroid, <kbd>Del</kbd> deletes it
-- **Two-finger pan & pinch-zoom**, zoom buttons, auto-fit (`⤢`)
-- Bottom toolbar + horizontally scrollable piece palette, safe-area aware, `100dvh`
-- Rotate ⟲⟳ buttons (mouse-wheel/Z/X on desktop), Move / Delete / Color tools with
-  visible tap targets, undo history, desktop keyboard parity (1-9, Q/W/E, Z/X, R, F)
-- devicePixelRatio-correct canvas rendering
-
-## Piece catalog (from the MIT source)
-
-All 3-lane (Japan Cup) and 5-lane (WIDE) pieces with exact footprints, official lap
-lengths, color counts and snap vertices: Str1/2, Cor1, Lan1/2, Chi1, Bri1/2, Ban1 and
-Str3-6, Cor2-5, Lan3/4, Chi2, Bri3/4, Ban2.
-
-## Compatibility
-
-- `serialize()` / `parseTrack()` speak the original format exactly.
-  Test: importing `/load/CMNPX6.js` content and re-exporting reproduces the same string
-  (58 pieces, 86.88 m — the site reports "58 pieces, 87 m").
-- Import dialog also accepts a pasted `/load/CODE.js` response body.
-- Share links: `#t=<base64url>` — the whole track lives in the URL, no server needed.
-
-## Architecture
-
-```
-index.html            app shell (entry: <script type="module" src="src/main.js">)
-src/
-  pieces.js           piece catalog + constants (pure data)
-  geometry.js         rot/vertex/snap/fit math (pure, DOM-free)
-  track.js            serialize/parseTrack/share codec (v2 writes, legacy import, pure)
-  art.js              procedural sprite fallback (pure canvas ops)
-  assets.js           sprite preloading
-  storage.js          localStorage autosave/restore
-  store.js            model: state + actions + subscriptions (DOM-free)
-  render.js           canvas view (subscribes to the store)
-  input.js            Pointer Events gesture machine + keyboard
-  ui.js               DOM shell: palette, toolbar, dialogs, stats
-  main.js             boot/wiring (+ window.__m4wd test hook)
-serve.js              zero-dependency static server (no API)
-server.js             full server: static + /api/tracks storage
-lib/                  static serving + storage drivers (sqlite/pg/memory)
-tests/
-  unit/               node --test (track codec, geometry, pieces, store)
-  e2e/                Playwright specs (see TESTPLAN.md)
-playwright.config.js
-package.json          dev tooling only — the app itself has no deps, no build
-```
-
-Dependency direction (acyclic): `main → render → input → ui → store →
-geometry/track/storage → pieces`. Pure modules (`pieces`, `geometry`,
-`track`, `store`) import nothing DOM-bound and run under plain node — that
-is what makes the unit layer possible.
-
-## Test plan & framework
-
-See [TESTPLAN.md](TESTPLAN.md). Two automated layers:
-
-- **Unit** — Node's built-in runner (`node --test`), zero dependencies:
-  codec-v2 round-trips + legacy import, snapping math, catalog integrity, store actions.
-- **E2E** — Playwright (dev-only dependency): gesture flows (place → move →
-  click-away deselect), chaining/snapping, undo, rotate, import, share
-  links, touch placement. Assertions read the model via `window.__m4wd`,
-  never pixel-diffed. Multi-touch pinch stays manual (see plan).
-
-## Run it
+## Running it
 
 ```sh
-node serve.js              # static only (port 3000) — no API, no state
-node server.js             # or: npm run server — adds /api/tracks storage
-npm test                   # unit tests (node --test)
-npx playwright install chromium   # once
-npm run test:e2e           # e2e (auto-starts server.js with a memory store)
-# open http://localhost:3000 (works great in Chrome DevTools device mode)
+node serve.js        # editor only (port 3000)
+node server.js       # editor + track storage (sqlite by default)
 ```
 
-### Track storage (server.js)
+Self-hosting: `docker compose up` runs the published image
+(`ghcr.io/lenaxia/mini4wd-track-editor`, built from `v*` tags, amd64 +
+arm64) with a sqlite volume; add `--profile postgres` for postgres.
+Storage is a document core with indexed facets (length, lanes, footprint,
+piece counts, completeness, stars) — search scales, tracks stay opaque.
 
-`server.js` serves the editor plus a small track library API
-(`GET/POST/PUT/DELETE /api/tracks`, `GET /api/health`). The schema is a
-relational shell around a document core: the track body is one JSON
-document; searchable facets (author, piece count, lanes, length, bbox)
-are indexed columns derived server-side from the catalog. Drivers:
-`STORE=sqlite` (default; `node:sqlite`, zero dependencies, WAL at
-`SQLITE_PATH` or `./data/tracks.db`), `STORE=postgres` (requires
-`DATABASE_URL`; imports the sole runtime dependency `pg` lazily), and
-`STORE=memory` (tests). The editor keeps localStorage as the source of
-truth and mirrors saves best-effort — serve it statically and storage
-simply no-ops. Docker: `docker compose up` (sqlite volume) or the
-postgres profile (see docker-compose.yml).
+Track format: `Name;x;y;angle;color;z#…` (1 px = 1 cm, z in mm);
+legacy tracks import unchanged.
 
-## Attribution & credits
+## Development
+Module map: `pieces.js` catalog · `geometry.js` snap math · `track.js` codec ·
+`validate.js` validator · `store.js` model · `solver.js` loop-closing search · `render.js` canvas · `input.js`
+gestures · `ui.js`/`gallery.js` DOM · `storage.js`/`cache.js`/`assets.js`
+persistence+assets · `art.js`/`icons.js` fallback art and icons · `main.js`
+boot. `server.js`+`lib/` serve and store; `tools/` generate and verify.
 
-- **[Mini4WD Online Track Editor](https://mini4wd-track-editor.pimentoso.com)**
-  by **Pimentoso (Michele Ferri)** — the original website this project is based on.
-  This fork reuses its concept, track data format, and piece catalog, and is a
-  touch-friendly reimplementation of its editor. The original client code is
-  **MIT licensed (© 2016 Michele Ferri)**; the license notice is preserved at the
-  top of `editor.js`.
-- **Tamiya** — "Mini4WD" and all track piece designs and artwork are property of
-  Tamiya inc. The sprites in `assets/` originate from the original editor.
+```sh
+npm test             # unit (node --test, zero deps)
+npm run test:e2e     # Playwright suite
+```
 
-## Legal notes
+`tools/render-pipeline/` regenerates every sprite from the catalog
+(`INVARIANTS.md` is the art contract); `tools/verify/` checks lane
+geometry and golden rasters. Pure modules run under plain node, which is
+also how the server validates tracks. CI runs the suites, a live-postgres
+conformance check, and a real docker build-and-boot smoke on every PR.
 
-- The original editor JS is MIT (notice preserved at the top of `editor.js`).
-- "Mini4WD" and track piece designs/artwork are Tamiya's. The sprite PNGs in
-  `assets/` come from the original editor's assets and are used for a personal
-  evaluation fork; replace them if you plan to redistribute.
-- This is an independent fan tool, same spirit as the original's footer.
-
-## Roadmap to full parity
-
-1. Tiny backend (any stack) for short codes + gallery: `POST /save {track}` → code,
-   `GET /load/:code.js`, view counter, `GET /api/tracks/:code` JSON
-2. CORS proxy for importing existing pimentoso tracks by code
-3. Print/PDF view page, piece-count breakdown panel
-4. PWA manifest + offline (it's already a single-page static app)
 ## Credits
 
-- rucdoc track system (1L/2L/3L 3D-printed pieces): MIT (c) rucdoc —
-  thangs.com/designer/rucdoc. Catalog data measured from his published
-  models; the shipped sprites are vector redraws in the original
-  editor's illustrated style.
+- **Pimentoso (Michele Ferri)** — track format, piece catalog, and
+  snapping algorithm derive from his MIT-licensed Mini4WD Online Track
+  Editor (© 2016); notices preserved in source headers.
+- **rucdoc** — 1/2/3-lane 3D-printed track system, MIT (c) rucdoc;
+  sprites are original vector redraws from his published dimensions.
+- **Tamiya** — "Mini4WD" and track piece designs are property of Tamiya
+  inc. Independent fan tool.
+- Icons: [Material Design Icons](https://github.com/Templarian/MaterialDesign-SVG),
+  MIT (© 2014-2025 Austin Andrews), vendored inline.

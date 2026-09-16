@@ -6,8 +6,9 @@ referenced by `.github/prompts/` (lenaxia/ai-workflows consumer).
 ## What this repo is
 
 A touch-first, **zero-runtime-dependency, no-build static web app** for
-designing Tamiya Mini4WD race tracks — a mobile-friendly fork of the Mini4WD
-Online Track Editor by Pimentoso. Vanilla ES modules served statically; see
+designing, validating and publishing Mini4WD race tracks (format/catalog
+derive from Pimentoso's MIT-licensed editor — see README credits). Vanilla
+ES modules served statically; see
 the module map in README.md. `package.json` holds dev tooling (test runners)
 plus the server-only `pg` dependency for `STORE=postgres` — the editor app's
 import graph stays zero-dependency and must run from a plain static file

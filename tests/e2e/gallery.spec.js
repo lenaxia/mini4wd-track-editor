@@ -140,7 +140,8 @@ test('tapping a row loads it and adopts the publication binding', async ({ page,
     window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(4);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('m4wd.published')).name))
     .toBe(`E2E Square ${n}`);
-  await expect(page.locator('#btnPublishBar')).toHaveText('\uD83D\uDCBE');  /* 💾 Save */
+  /* published: the save-check icon replaces the cloud-upload glyph */
+  await expect(page.locator('#btnPublishBar svg path')).toHaveAttribute('d', /^M17 3H5C3\.9 3 3 3\.9/);
   await expect(page.locator('#galleryDialog')).not.toBeVisible();
 });
 
