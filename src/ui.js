@@ -379,7 +379,11 @@ export function init(dimsGetter) {
   /* ---------- gallery (ALL published tracks, not just this browser's) ---------- */
 
   const GAL_PAGE = 25;
-  const gal = { sort: '-updated_at', complete: false, items: [], total: 0 };
+  /* loading: one galLoad in flight at a time (double-tap on Load more
+   * must not fetch the page twice). gen: bumped by every sort/filter/open
+   * so a superseded page is dropped instead of appended into the new
+   * view. A dropped page leaves `loading` alone — the newer call owns it. */
+  const gal = { sort: '-updated_at', complete: false, items: [], total: 0, gen: 0, loading: false };
 
   function galRenderControls() {
     const bar = $('galSorts');
@@ -396,6 +400,9 @@ export function init(dimsGetter) {
   }
 
   async function galLoad() {
+    if (gal.loading) return;
+    gal.loading = true;
+    const gen = gal.gen;
     const list = $('galList');
     if (!gal.items.length) list.textContent = 'Loading…';
     try {
@@ -403,12 +410,16 @@ export function init(dimsGetter) {
         sort: gal.sort, complete: gal.complete, limit: GAL_PAGE, offset: gal.items.length,
       })}`);
       const page = await res.json();
+      if (gen !== gal.gen) return;   /* a newer sort/filter/open owns the list now */
       gal.items.push(...page.items);
       gal.total = page.total;
       galRenderList();
     } catch {
+      if (gen !== gal.gen) return;
       list.textContent = 'Server unreachable.';
       $('galMeta').textContent = '';
+    } finally {
+      if (gen === gal.gen) gal.loading = false;
     }
   }
 
@@ -500,6 +511,8 @@ export function init(dimsGetter) {
 
   function openGallery(sort) {
     if (sort) gal.sort = sort;
+    gal.gen += 1;            /* invalidate any in-flight page */
+    gal.loading = false;     /* …and free the lock it may hold */
     closeDialog($('menuDialog'));
     gal.items = [];
     gal.total = 0;

@@ -135,3 +135,18 @@ test('load more paginates through the whole catalog', async ({ page, request }) 
   const m = /^(\d+) of (\d+) tracks?$/.exec(await page.locator('#galMeta').textContent());
   expect(+m[1]).toBe(Math.min(50, +m[2]));   /* second page loaded, nothing skipped */
 });
+
+test('double-tapping Load more never appends a page twice', async ({ page, request }) => {
+  const n = nonce();
+  for (let i = 25; i >= 0; i--) {
+    await seed(request, `gal-${n}-more${String(i).padStart(2, '0')}`, `E2E More ${String(i).padStart(2, '0')} ${n}`, SQUARE);
+  }
+  await openGallery(page);
+  await expect.poll(async () => page.locator('#galList .gal-row').count(), { timeout: 10_000 }).toBe(25);
+  /* two clicks back-to-back: the second must not fire a duplicate page
+   * fetch while the first is in flight (touch is the primary target) */
+  await page.locator('.gal-more').dblclick();
+  await expect(page.locator('.gal-row', { hasText: `E2E More 25 ${n}` })).toBeVisible();
+  const names = await page.locator('.gal-row .gal-name').allTextContents();
+  expect(new Set(names).size).toBe(names.length);   /* no duplicated page */
+});
