@@ -109,8 +109,13 @@ export async function spriteBundle() {
   try {
     const canonical = Object.keys(manifest).sort().map((k) => `${k}:${manifest[k]}`).join('\n');
     const digest = await blobSha(new Blob([canonical]));
-    const res = await fetch(`/api/sprites?h=${digest}`);
-    if (!res.ok) return null;
+    /* same bound as the per-file path: a tarpitting proxy must not
+     * stall the whole sprite path — bail to per-file after the race */
+    const res = await Promise.race([
+      fetch(`/api/sprites?h=${digest}`),
+      new Promise((resolve) => setTimeout(() => resolve(null), CACHE_BOUND_MS)),
+    ]);
+    if (!res || !res.ok) return null;
     const files = (await res.json())?.files;
     if (!files || typeof files !== 'object') return null;
     const out = new Map();
