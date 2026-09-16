@@ -63,7 +63,7 @@ no email, no signup — and no permanent locks that rot into cruft.
   vocabulary in chrome.
 
 **Not changed:** facets/sweep (heads only), publish binding, WIP warn,
-stars. Busters: main.js v70, style.css v18 (union over main's v69/v17 after the merge).
+stars. Busters: main.js v71, style.css v19 — v70/v18 were burned by main's b71946b mid-merge, so the second union bumps past them.
 
 ## Tests
 
