@@ -59,8 +59,8 @@ jobs:
 
       - name: Smoke test the published image (amd64)
         run: |
-          docker pull ${{ env.IMAGE }}:latest
-          docker run -d --name app -p 3000:3000 ${{ env.IMAGE }}:latest
+          docker pull ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
+          docker run -d --name app -p 3000:3000 ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health >/dev/null && break; sleep 1; done
           curl -sf http://localhost:3000/ >/dev/null
           curl -sf http://localhost:3000/style.css >/dev/null
