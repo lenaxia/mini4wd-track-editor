@@ -1,8 +1,11 @@
 /* Gallery — pure helpers for browsing every published track on the
  * server. The DOM lives in ui.js (same split as the codec in track.js):
- * sort menu, list-query building, row formatting, and the per-browser
- * star de-dupe. There is no auth — "one star per browser per track" is
- * enforced client-side via localStorage, the server counter is public. */
+ * sort menu, list-query building, row formatting, the per-browser star
+ * de-dupe (star/unstar), and the card-preview fit math. There is no
+ * auth — "one star per browser per track" is enforced client-side via
+ * localStorage, the server counter is public. */
+
+import { PIECES } from './pieces.js';
 
 export const GALLERY_SORTS = [
   { value: '-updated_at', label: 'Newest' },
@@ -66,4 +69,41 @@ export function addStarred(ls = globalThis.localStorage, id) {
   ids.push(id);
   try { ls.setItem(STAR_KEY, JSON.stringify(ids)); } catch (_) {}
   return ids;
+}
+
+/* Un-star: drops the id so the browser may star again. Same never-throws
+ * contract. */
+export function removeStarred(ls = globalThis.localStorage, id) {
+  const ids = readStarred(ls).filter((x) => x !== id);
+  try { ls.setItem(STAR_KEY, JSON.stringify(ids)); } catch (_) {}
+  return ids;
+}
+
+/* ---------- card preview fit (track cm -> canvas px) ---------- */
+
+/* Center-fit transform for the gallery card thumbnails: bbox over every
+ * piece's rotated footprint, then a uniform scale into the padded box.
+ * Returns { scale, cx, cy } where canvas x = cx + scale * trackX, or
+ * null for an empty track. Pure math — ui.js owns the drawing. */
+export function thumbFit(sprites, boxW, boxH, pad = 4) {
+  if (!sprites.length) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of sprites) {
+    const def = PIECES[p.name];
+    if (!def) continue;
+    const r = (p.a || 0) * Math.PI / 180;
+    const c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
+    /* axis-aligned bbox of the rotated w x h rect */
+    const hw = (def.w * c + def.h * s) / 2;
+    const hh = (def.w * s + def.h * c) / 2;
+    minX = Math.min(minX, p.x - hw); maxX = Math.max(maxX, p.x + hw);
+    minY = Math.min(minY, p.y - hh); maxY = Math.max(maxY, p.y + hh);
+  }
+  if (!Number.isFinite(minX)) return null;   /* no catalog pieces at all */
+  const scale = Math.min((boxW - 2 * pad) / (maxX - minX), (boxH - 2 * pad) / (maxY - minY));
+  return {
+    scale,
+    cx: boxW / 2 - scale * (minX + maxX) / 2,
+    cy: boxH / 2 - scale * (minY + maxY) / 2,
+  };
 }
