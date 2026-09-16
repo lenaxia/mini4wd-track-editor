@@ -320,8 +320,27 @@ test('Copy forks the row: your copy appears with a "based on" line; the original
   const parentId = await seed(request, `gal-${n}-orig`, `E2E CopyOrig ${n}`, SQUARE);
   await openGallery(page);
   const row = page.locator('.gal-row', { hasText: `E2E CopyOrig ${n}` });
-  await row.locator('.gal-act', { hasText: 'Copy' }).click();
+  await row.locator('.gal-kebab').click();
+  await row.locator('.gal-menu button', { hasText: 'Save my own copy' }).click();
   await expect(page.locator('#toast')).toContainText('your own copy');
+
+  /* kebab behavior: reopens, a tap elsewhere closes it — including a
+   * star (which stops propagation; the closer runs in capture phase) */
+  await row.locator('.gal-kebab').click();
+  await expect(row.locator('.gal-menu')).toBeVisible();
+  await page.locator('#galMeta').click();
+  await expect(row.locator('.gal-menu')).toBeHidden();
+  await row.locator('.gal-kebab').click();
+  await expect(row.locator('.gal-menu')).toBeVisible();
+  await row.locator('.gal-star').click();
+  await expect(row.locator('.gal-menu')).toBeHidden();
+  await expect(row.locator('.gal-star')).toHaveClass(/starred/);   /* the tap still starred */
+  /* Esc layers: closes the menu, the gallery itself stays open */
+  await row.locator('.gal-kebab').click();
+  await expect(row.locator('.gal-menu')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(row.locator('.gal-menu')).toBeHidden();
+  await expect(page.locator('#galleryDialog')).toBeVisible();
 
   /* the fork exists server-side, carries server-resolved lineage, and the
    * original still holds its own track body */
@@ -362,7 +381,9 @@ test('History dialog restores an older version onto the head', async ({ page, re
   if (await page.locator('#galComplete').getAttribute('aria-pressed') === 'true') {
     await page.locator('#galComplete').click();
   }
-  await page.locator('.gal-row', { hasText: `E2E HistB ${n}` }).locator('.gal-act', { hasText: 'History' }).click();
+  const hrow = page.locator('.gal-row', { hasText: `E2E HistB ${n}` });
+  await hrow.locator('.gal-kebab').click();
+  await hrow.locator('.gal-menu button', { hasText: 'History' }).click();
   await expect(page.locator('#historyDialog')).toBeVisible();
   const hisRow = page.locator('.his-row', { hasText: `E2E HistA ${n}` });
   await expect(hisRow).toBeVisible();
@@ -384,7 +405,8 @@ test('Mine chip narrows the list to tracks this browser saved', async ({ page, r
   await openGallery(page);
   /* copy MineYes — the browser's Mine list then holds the fork, not the seed */
   const row = page.locator('.gal-row', { hasText: `E2E MineYes ${n}` });
-  await row.locator('.gal-act', { hasText: 'Copy' }).click();
+  await row.locator('.gal-kebab').click();
+  await row.locator('.gal-menu button', { hasText: 'Save my own copy' }).click();
   await expect(page.locator('#toast')).toContainText('your own copy');
   /* the fork joins the list on the next gallery open */
   await page.reload();

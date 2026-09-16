@@ -729,28 +729,74 @@ export function init(dimsGetter) {
     star.title = starred ? 'Starred on this device — tap to unstar' : 'Star this track';
     star.addEventListener('click', (e) => { e.stopPropagation(); galStar(it, star, sub); });
 
-    /* Copy + History (worklog 0020): your own version of the row / old
-     * versions with one-tap restore. Siblings of the card — buttons
-     * cannot nest inside the card <button>. */
-    const acts = document.createElement('span');
-    acts.className = 'gal-acts';
+    /* Kebab menu (worklog 0021): Copy + History live behind ⋮ on the
+     * card's thumbnail, beside the star. The card is a <button>, so the
+     * kebab is a sibling overlay like the star — never nested. */
+    const kebab = document.createElement('button');
+    kebab.type = 'button';
+    kebab.className = 'gal-kebab';
+    kebab.title = 'Track actions';
+    kebab.setAttribute('aria-label', `Actions for “${it.name}”`);
+    kebab.setAttribute('aria-expanded', 'false');
+    kebab.innerHTML = icon('dots-vertical', 20);
+    const menu = document.createElement('span');
+    menu.className = 'gal-menu';
+    menu.setAttribute('role', 'menu');
+    menu.hidden = true;
     const copy = document.createElement('button');
     copy.type = 'button';
-    copy.className = 'gal-act';
+    copy.setAttribute('role', 'menuitem');
     copy.title = `Make your own copy of “${it.name}” — the original is not changed`;
-    copy.textContent = 'Copy';
-    copy.addEventListener('click', (e) => { e.stopPropagation(); galCopy(it, copy); });
+    copy.textContent = 'Save my own copy';
+    copy.addEventListener('click', (e) => { e.stopPropagation(); closeGalMenus(); galCopy(it, copy); });
     const his = document.createElement('button');
     his.type = 'button';
-    his.className = 'gal-act';
+    his.setAttribute('role', 'menuitem');
     his.title = 'Old versions of this track — restore one';
     his.textContent = 'History';
-    his.addEventListener('click', (e) => { e.stopPropagation(); openHistory(it); });
-    acts.append(copy, his);
+    his.addEventListener('click', (e) => { e.stopPropagation(); closeGalMenus(); openHistory(it); });
+    menu.append(copy, his);
+    kebab.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = menu.hidden;
+      closeGalMenus();
+      menu.hidden = !open;
+      kebab.setAttribute('aria-expanded', String(!menu.hidden));
+    });
 
-    row.append(card, star, acts);
+    row.append(card, star, kebab, menu);
     return row;
   }
+
+  /* one open kebab menu at a time. The closer runs in CAPTURE phase so
+   * widgets that stopPropagation (the star) still count as outside
+   * taps; the kebab and its own menu are exempt (they manage their
+   * own state). List scroll closes too. Registered once at init. */
+  function closeGalMenus() {
+    document.querySelectorAll('.gal-menu:not([hidden])').forEach((m) => {
+      m.hidden = true;
+      const k = m.parentElement?.querySelector('.gal-kebab');
+      if (k) k.setAttribute('aria-expanded', 'false');
+    });
+  }
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.gal-menu') || e.target.closest('.gal-kebab')) return;
+    closeGalMenus();
+  }, true);
+  /* Esc layers: menu first, gallery stays open. Capture phase fires
+   * before the dialog-closer (bubble) and before the <dialog>'s native
+   * Esc-cancel; preventDefault suppresses that native close. */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const open = document.querySelector('.gal-menu:not([hidden])');
+    if (!open) return;
+    e.preventDefault();
+    e.stopPropagation();
+    closeGalMenus();
+    const k = open.parentElement?.querySelector('.gal-kebab');
+    if (k) k.focus();
+  }, true);
+  $('galList').addEventListener('scroll', closeGalMenus, { passive: true });
 
   function galRenderList() {
     const list = $('galList');
