@@ -465,19 +465,28 @@ export function init(dimsGetter) {
 
   /* ---------- card previews (lazy per-row track fetch) ----------
    * List rows carry no track body (metadata only by design), so each
-   * card pulls its row once, parses it and draws a thumbnail; results
-   * are cached for the session and at most 4 fetches run at a time.
-   * A row that left the DOM (sort switch) is skipped at draw time. */
-  const galThumbCache = new Map();   /* id -> sprites */
+   * card pulls its row once, parses it and draws a thumbnail. Results
+   * (including negatives — 404s and empty parses) are cached for the
+   * session; an in-flight id is shared by every canvas waiting on it,
+   * and at most 4 fetches run at a time. Canvases that left the DOM
+   * (sort switch) are skipped at draw time. */
+  const galThumbCache = new Map();     /* id -> sprites | null (negative) */
+  const galThumbPending = new Map();   /* id -> canvas[] waiting on the fetch */
   const galThumbQueue = [];
   let galThumbActive = 0;
   const GAL_THUMB_MAX = 4;
   const GAL_THUMB_W = 80, GAL_THUMB_H = 60;
 
   function galThumb(cv, id) {
-    const cached = galThumbCache.get(id);
-    if (cached) { galDrawThumb(cv, cached); return; }
-    galThumbQueue.push([id, cv]);
+    if (galThumbCache.has(id)) {              /* negatives (null) skip the draw AND the refetch */
+      const cached = galThumbCache.get(id);
+      if (cached) galDrawThumb(cv, cached);
+      return;
+    }
+    const waiters = galThumbPending.get(id);
+    if (waiters) { waiters.push(cv); return; }   /* join the in-flight fetch */
+    galThumbPending.set(id, [cv]);
+    galThumbQueue.push(id);
     /* microtask: rows are queued before their container appends them —
      * pump once the render loop has connected the canvases */
     queueMicrotask(galThumbPump);
@@ -485,20 +494,19 @@ export function init(dimsGetter) {
 
   function galThumbPump() {
     while (galThumbActive < GAL_THUMB_MAX && galThumbQueue.length) {
-      const [id, cv] = galThumbQueue.shift();
-      if (!cv.isConnected) continue;   /* row already gone */
+      const id = galThumbQueue.shift();
+      const waiters = (galThumbPending.get(id) || []).filter((cv) => cv.isConnected);
+      if (!waiters.length) { galThumbPending.delete(id); continue; }   /* nobody left to draw */
       galThumbActive += 1;
       fetch(`/api/tracks/${id}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((row) => {
           const sprites = row ? spritesFromRow(row) : [];
-          if (sprites.length) {
-            galThumbCache.set(id, sprites);
-            if (cv.isConnected) galDrawThumb(cv, sprites);
-          }
+          galThumbCache.set(id, sprites.length ? sprites : null);   /* negatives cache too */
+          for (const cv of waiters) galDrawThumb(cv, sprites);
         })
         .catch(() => {})
-        .finally(() => { galThumbActive -= 1; galThumbPump(); });
+        .finally(() => { galThumbActive -= 1; galThumbPending.delete(id); galThumbPump(); });
     }
   }
 
@@ -518,7 +526,7 @@ export function init(dimsGetter) {
       g.rotate((p.a || 0) * Math.PI / 180);
       const img = imageFor(p.name, p.c || 0);
       if (img && img.complete && img.naturalWidth) g.drawImage(img, -def.w / 2, -def.h / 2, def.w, def.h);
-      else drawPieceArt(g, p.name, p.c || 0);   /* fallback until sprites load */
+      else drawPieceArt(g, p.name, p.c || 0);   /* boot race / missing sprite; drawn once, no later repaint */
       g.restore();
     }
   }
