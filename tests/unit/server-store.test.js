@@ -157,7 +157,8 @@ function suite(label, open) {
 
   test(`${label}: footprint caps are rotation-free (W×H or H×W fits)`, async () => {
     const s = await open(); const A = ns();
-    /* facet bboxes: wide 184×36 and tall 36×184 — the same layout turned */
+    /* facet bboxes: wide 138×36, tall 54×120 (Str1 w54/h36, centers 84
+     * apart) — the same layout turned; huge 354×336 exceeds both ways */
     const wide = { track: 'Str1;100.000;100.000;0;0;0#Str1;184.000;100.000;0;0;0#' };
     const tall = { track: 'Str1;100.000;100.000;0;0;0#Str1;100.000;184.000;0;0;0#' };
     const huge = { track: 'Str1;100.000;100.000;0;0;0#Str1;400.000;400.000;0;0;0#' };

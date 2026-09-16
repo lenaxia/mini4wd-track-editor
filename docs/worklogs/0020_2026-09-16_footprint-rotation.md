@@ -10,11 +10,12 @@ At Most text boxes arent lined up, please line them up."
 
 A room constraint is the same room turned through 90°: a track now
 matches max W×H if EITHER orientation fits — `(w≤W && h≤H) || (w≤H &&
-h≤W)` — in all three drivers. A single cap means "no side longer than
-N" (`MIN(w,h) ≤ cap` / `LEAST` / `Math.min`). The footprint tooltip
-says so. Pinned in the store-conformance suite (a tall 36×184 track
-matches 200×100) and at the HTTP level (wide matches direct, tall
-matches turned, 121×120 exceeds both ways).
+h≤W)` — in all three drivers. A single cap keeps the rotation-free
+analog of the old per-axis filter: at least one side ≤ N
+(`MIN(w,h) ≤ cap` / `LEAST` / `Math.min`). The footprint tooltip
+says so. Pinned in the store-conformance suite (a tall 54×120 track
+matches 200×100) and at the HTTP level (138×36 direct, 54×120 turned,
+120×60 direct, 354×336 exceeds both ways).
 
 ## Filter box alignment
 

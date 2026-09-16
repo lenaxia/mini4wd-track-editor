@@ -130,20 +130,26 @@ test('list filters: lane selection (OR), footprint caps, count caps', async ({ r
   expect(maxStr.items.some((i) => i.id === `${P}-three`)).toBe(false);    /* 8 straights */
   const box = await (await request.get(`/api/tracks?author=playwright&lanes=5&max_bbox_w=100&max_bbox_h=100`)).json();
   expect(box.items.some((i) => i.id === `${P}-five`)).toBe(false);        /* 121 cm wide */
-  /* footprint caps are rotation-free: W×H and H×W are the same room turned */
+  /* footprint caps are rotation-free: W×H and H×W are the same room
+   * turned. Str1 spans: wide pair 138×36, tall pair 54×120 (catalog
+   * w54/h36, centers 84 cm apart on one axis) */
   const wide = await request.put(`/api/tracks/${P}-wide`, {
     data: { name: 'e2e wide', author: 'playwright', data: { track: 'Str1;100.000;100.000;0;0;0#Str1;184.000;100.000;0;0;0#', mode: 3 } },
   });
   const tall = await request.put(`/api/tracks/${P}-tall`, {
     data: { name: 'e2e tall', author: 'playwright', data: { track: 'Str1;100.000;100.000;0;0;0#Str1;100.000;184.000;0;0;0#', mode: 3 } },
   });
-  ids.push(`${P}-wide`, `${P}-tall`);
-  expect((await wide.json()).bbox_w_cm).toBeGreaterThan(150);
-  expect((await tall.json()).bbox_h_cm).toBeGreaterThan(150);
+  await request.put(`/api/tracks/${P}-huge`, {
+    data: { name: 'e2e huge', author: 'playwright', data: { track: 'Str1;100.000;100.000;0;0;0#Str1;400.000;400.000;0;0;0#', mode: 3 } },
+  });
+  ids.push(`${P}-wide`, `${P}-tall`, `${P}-huge`);
+  expect((await wide.json()).bbox_w_cm).toBe(138);
+  expect((await tall.json()).bbox_h_cm).toBe(120);
   const turned = await (await request.get(`/api/tracks?author=playwright&max_bbox_w=200&max_bbox_h=100`)).json();
-  expect(turned.items.some((i) => i.id === `${P}-wide`)).toBe(true);      /* 184×36 direct */
-  expect(turned.items.some((i) => i.id === `${P}-tall`)).toBe(true);      /* 36×184 fits turned */
-  expect(turned.items.some((i) => i.id === `${P}-five`)).toBe(false);     /* 121×120 exceeds both ways */
+  expect(turned.items.some((i) => i.id === `${P}-wide`)).toBe(true);      /* 138×36 direct */
+  expect(turned.items.some((i) => i.id === `${P}-tall`)).toBe(true);      /* 54×120 fits turned */
+  expect(turned.items.some((i) => i.id === `${P}-five`)).toBe(true);      /* 120×60 fits direct */
+  expect(turned.items.some((i) => i.id === `${P}-huge`)).toBe(false);     /* 354×336 exceeds both ways */
   for (const bad of ['lanes=banana', 'lanes=0', 'max_straights=x', 'max_bbox_w=y']) {
     expect((await request.get(`/api/tracks?${bad}`)).status()).toBe(400);
   }
