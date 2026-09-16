@@ -106,10 +106,10 @@ test('DELETE removes; unknown ids 404', async ({ request }) => {
  * and from then on the button becomes Save and edits auto-save. */
 const SQUARE_B64 = 'UjFDOTBJMTUwOzAuMDAwOzAuMDAwOzAuMDAwOzA7MCNSMUM5MEkxNTA7MC4wMDA7LTIxLjUwMDs5MC4wMDA7MDswI1IxQzkwSTE1MDsyMS41MDA7LTIxLjUwMDsxODAuMDAwOzA7MCNSMUM5MEkxNTA7MjEuNTAwOzAuMDAwOzI3MC4wMDA7MDswIw';
 
-test('validator blocks publishing an incomplete track', async ({ page, request }) => {
-  const apiCalls = [];
-  page.on('request', (r) => { if (r.url().includes('/api/tracks')) apiCalls.push(r.method()); });
-
+/* Owner model (worklogs 0012/0013/0015): completeness is a facet, not a
+ * gate — incomplete tracks publish as Work-in-Progress with a warning;
+ * the published button becomes a live validity badge. */
+test('an incomplete track publishes as Work-in-Progress; the button badges validity', async ({ page, request }) => {
   await page.goto('/');
   await page.locator('.chip').first().click();   /* Str1 — two dangling ends */
   await page.click('canvas', { position: { x: 200, y: 200 } });
@@ -118,13 +118,12 @@ test('validator blocks publishing an incomplete track', async ({ page, request }
 
   await page.locator('#btnPublishBar').click();
   await expect(page.locator('#pubStatus')).toContainText('Dangling end');
-  expect(await page.locator('#pubOk').isDisabled()).toBe(true);
-  expect(await page.locator('#pubName').isDisabled()).toBe(true);   /* violations lock the name too */
+  await expect(page.locator('#pubStatus')).toContainText('Work-in-Progress');   /* warn, not lock */
+  expect(await page.locator('#pubOk').isDisabled()).toBe(false);
   await expect(page.locator('#pubTipComplete')).toBeVisible();      /* suggest the Complete tool */
   await page.locator('#pubTipComplete').click();   /* tip arms Complete */
   expect(await page.evaluate(() => window.__m4wd.state.tool)).toBe('Complete');
   await page.keyboard.press('Escape');   /* dismiss the intro dialog */
-  expect(apiCalls).toEqual([]);          /* still nothing sent */
 });
 
 test('a complete track publishes from the toolbar; the button becomes Save', async ({ page, request }) => {

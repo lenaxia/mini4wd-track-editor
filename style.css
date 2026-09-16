@@ -253,3 +253,10 @@ button.primary:not(:disabled):active { background: #e6b84f; }
   border: 1px solid var(--line); background: var(--panel-2); color: inherit; cursor: pointer;
 }
 .gal-empty { font-size: 13px; color: #9aa3af; padding: 4px 2px; }
+
+/* publish/save toolbar badge: live validity ring around the button */
+#btnPublishBar.pub-ok { box-shadow: 0 0 0 2px #4ade80 inset; }
+#btnPublishBar.pub-bad { box-shadow: 0 0 0 2px #e05263 inset; }
+/* the stats bar's track name is the rename affordance */
+#stats { cursor: default; }
+#stats[title='Rename published track'] { cursor: pointer; }

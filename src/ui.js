@@ -87,6 +87,7 @@ export function buildPalette() {
 }
 
 let refreshPublishUi = () => {};
+let updatePublishBadge = () => {};
 
 /* ---------- store-driven sync ---------- */
 
@@ -98,6 +99,7 @@ function updateStats() {
   for (const p of state.sprites) len += PIECES[p.name].l;
   const pub = publishedTrack();
   const txt = `${pub ? pub.name + ' \u00B7 ' : ''}${len.toFixed(2)} m \u00B7 ${state.sprites.length} pcs`;
+  $('stats').title = pub ? 'Rename published track' : '';
   if (txt === lastStatsText) return; /* avoid DOM writes from the render loop */
   lastStatsText = txt;
   $('stats').textContent = txt;
@@ -113,6 +115,7 @@ function syncToolUi() {
   $('modeCycle').textContent = `${label} \u25B8`;
 }
 
+let badgeTimer = null;
 function onStoreChange() {
   if (state.mode !== lastMode) {
     lastMode = state.mode;
@@ -121,6 +124,8 @@ function onStoreChange() {
     syncToolUi();
   }
   updateStats();
+  clearTimeout(badgeTimer);   /* live validity badge (published only) */
+  badgeTimer = setTimeout(updatePublishBadge, 600);
 }
 
 /* ---------- import / share ---------- */
@@ -277,11 +282,29 @@ export function init(dimsGetter) {
   /* ---------- publish / save / library (unpublished = local only) ---------- */
 
   refreshPublishUi = function () {
-    const pub = publishedTrack();
-    $('btnPublishBar').textContent = pub ? '💾' : '📤';
-    $('btnPublishBar').title = pub ? `Save “${pub.name}” (published)` : 'Publish track';
+    updatePublishBadge();
     lastStatsText = '';   /* force the stats line to re-render with the name */
     updateStats();
+  };
+
+  /* Published: the button is a live validity badge, not an action —
+   * autosave persists; tap reports the verdict. Unpublished: 📤 opens
+   * the publish dialog. The stats-bar name renames (dialog, rename mode). */
+  updatePublishBadge = function () {
+    const pub = publishedTrack();
+    const btn = $('btnPublishBar');
+    if (!pub) {
+      btn.textContent = '📤';
+      btn.title = 'Publish track';
+      btn.classList.remove('pub-ok', 'pub-bad');
+      return;
+    }
+    const { ok, errors } = validateTrack(state.sprites);
+    btn.textContent = '💾';
+    btn.title = ok ? `“${pub.name}” — complete and saved`
+                   : `“${pub.name}” — ${errors.length} issue(s); autosaves as Work-in-Progress`;
+    btn.classList.toggle('pub-ok', ok);
+    btn.classList.toggle('pub-bad', !ok);
   };
 
   function renderPubStatus() {
@@ -291,10 +314,10 @@ export function init(dimsGetter) {
     for (const e of errors) rows.push(`<div style="color:#e05263">✖ ${e}</div>`);
     for (const w of warnings) rows.push(`<div style="color:#d9a441">⚠ ${w}</div>`);
     if (ok && !warnings.length) rows.push('<div style="color:#4ade80">✓ track is complete and consistent</div>');
+    /* completeness is a facet, not a gate (owner model): incomplete
+     * tracks publish as Work-in-Progress — warn, never lock */
+    if (!ok) rows.push(`<div style="color:#d9a441">▸ will publish as Work-in-Progress (${errors.length} issue${errors.length === 1 ? '' : 's'})</div>`);
     box.innerHTML = rows.join('');
-    /* violations lock the whole save action: no name, no confirm */
-    $('pubOk').disabled = !ok;
-    $('pubName').disabled = !ok;
     /* dangling ends have a tool for exactly that */
     $('pubTipComplete').style.display = errors.some((e) => /Dangling/.test(e)) ? 'block' : 'none';
     return ok;
@@ -302,9 +325,16 @@ export function init(dimsGetter) {
 
   $('btnPublishBar').addEventListener('click', () => {
     const pub = publishedTrack();
-    $('pubTitle').textContent = pub ? `Save “${pub.name}”` : 'Publish track';
-    $('pubOk').textContent = pub ? 'Save' : 'Publish';
-    $('pubName').value = pub ? pub.name : '';
+    if (pub) {
+      /* status tap: verdict toast, no dialog (autosave already persists) */
+      const { ok, errors } = validateTrack(state.sprites);
+      toast(ok ? `“${pub.name}” — complete and saved`
+               : `“${pub.name}” — WIP: ${errors[0] ?? ''}`);
+      return;
+    }
+    $('pubTitle').textContent = 'Publish track';
+    $('pubOk').textContent = 'Publish';
+    $('pubName').value = '';
     renderPubStatus();
     closeDialog($('menuDialog'));
     openDialog($('publishDialog'));
@@ -318,7 +348,7 @@ export function init(dimsGetter) {
     completeToolIntro();       /* then the once-per-session intro, if due */
   });
   $('pubOk').addEventListener('click', async () => {
-    if (!renderPubStatus()) return;   /* re-validate at the moment of saving */
+    renderPubStatus();                /* refresh the status at save time */
     const name = $('pubName').value.trim() || 'Untitled';
     const wasPublished = !!publishedTrack();
     $('pubOk').disabled = true;
@@ -564,7 +594,18 @@ export function init(dimsGetter) {
     setMode(order[(order.indexOf(state.mode) + 1) % order.length]);
   });
 
-  refreshPublishUi();   /* restored binding shows Save + stats name on boot */
+  $('stats').addEventListener('click', () => {
+    const pub = publishedTrack();
+    if (!pub) return;
+    $('pubTitle').textContent = `Rename “${pub.name}”`;
+    $('pubOk').textContent = 'Save name';
+    $('pubName').value = pub.name;
+    renderPubStatus();
+    openDialog($('publishDialog'));
+    $('pubName').focus();
+  });
+
+  refreshPublishUi();   /* restored binding shows the badge + stats name on boot */
 
   window.addEventListener('beforeunload', (e) => {
     if (state.sprites.length) { e.preventDefault(); e.returnValue = ''; }
