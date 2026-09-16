@@ -763,9 +763,6 @@ export function init(dimsGetter) {
       menu.hidden = !open;
       kebab.setAttribute('aria-expanded', String(!menu.hidden));
     });
-    menu.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { closeGalMenus(); kebab.focus(); }
-    });
 
     row.append(card, star, kebab, menu);
     return row;
@@ -786,7 +783,19 @@ export function init(dimsGetter) {
     if (e.target.closest('.gal-menu') || e.target.closest('.gal-kebab')) return;
     closeGalMenus();
   }, true);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeGalMenus(); });
+  /* Esc layers: menu first, gallery stays open. Capture phase fires
+   * before the dialog-closer (bubble) and before the <dialog>'s native
+   * Esc-cancel; preventDefault suppresses that native close. */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const open = document.querySelector('.gal-menu:not([hidden])');
+    if (!open) return;
+    e.preventDefault();
+    e.stopPropagation();
+    closeGalMenus();
+    const k = open.parentElement?.querySelector('.gal-kebab');
+    if (k) k.focus();
+  }, true);
   $('galList').addEventListener('scroll', closeGalMenus, { passive: true });
 
   function galRenderList() {

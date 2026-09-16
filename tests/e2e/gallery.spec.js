@@ -335,6 +335,12 @@ test('Copy forks the row: your copy appears with a "based on" line; the original
   await row.locator('.gal-star').click();
   await expect(row.locator('.gal-menu')).toBeHidden();
   await expect(row.locator('.gal-star')).toHaveClass(/starred/);   /* the tap still starred */
+  /* Esc layers: closes the menu, the gallery itself stays open */
+  await row.locator('.gal-kebab').click();
+  await expect(row.locator('.gal-menu')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(row.locator('.gal-menu')).toBeHidden();
+  await expect(page.locator('#galleryDialog')).toBeVisible();
 
   /* the fork exists server-side, carries server-resolved lineage, and the
    * original still holds its own track body */
