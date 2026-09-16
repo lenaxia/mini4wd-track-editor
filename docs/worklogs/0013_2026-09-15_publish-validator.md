@@ -49,3 +49,16 @@ support y junctions and stuff").
   positive on weaves; needs silhouette-true checks — candidate: reuse the
   verify harness's raster probes). Junction count surfaces when split
   pieces exist.
+
+## Review round additions
+
+- Share links (`#t=`) now open as LOCAL copies: the boot path drops the
+  publication binding before the first autosave, so a browser's published
+  row can never be overwritten with shared content. Trade-off: opening
+  your own share link also unbinds — reopen your published tracks from
+  the library, which adopts the binding properly.
+- `refreshFlags` moved to the validator's per-vertex kink rule, so
+  junction-bearing tracks no longer paint red canvas markers while the
+  publish dialog reports them complete.
+- LINK_RANGE/LINK_FACING exported from geometry.js; CLEARANCE_MM
+  imported from pieces.js (no mirroring constants).
