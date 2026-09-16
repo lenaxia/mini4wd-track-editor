@@ -47,10 +47,11 @@ async function sweepValidation(store) {
         const v = validateTrack(parseTrack(row.data.track));
         complete = v.ok; issues = v.errors.length;
       } catch { /* keep defaults */ }
-      await store.setValidation(id, complete, issues, VALIDATOR_VERSION);
-      /* classification rules change with the version stamp — converge
-       * the facet columns too (slopes, hairpin-180°s) without re-saves */
+      /* facets FIRST, version stamp LAST: a crash between the two
+       * leaves the row still-stale (retried next sweep) instead of
+       * stamped-with-stale-facets forever */
       await store.setFacets(id, fullFacets(row.data));
+      await store.setValidation(id, complete, issues, VALIDATOR_VERSION);
     }
     if (ids.length) console.log(`[sweep] revalidated ${ids.length} track(s)`);
   } catch (e) { console.error('[sweep] failed:', e.message); }

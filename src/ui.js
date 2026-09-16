@@ -737,7 +737,7 @@ export function init(dimsGetter) {
       statRow('Pieces', String(f.pieces)),
       statRow('Straights', String(f.straights), null, 'Waves count as straights — a wave is a straight piece with a bump.'),
       statRow('Slopes', String(f.slopes), null, 'Slopes change elevation and are NOT interchangeable with straight pieces — they count separately.'),
-      statRow('Corners', String(f.corners), null, 'A hairpin or rainbow is a full 180° turn — four 45° corners\u2019 worth, so it counts as 4.'),
+      statRow('Corners', String(f.corners), null, 'A 180° piece (rainbow, burning changer) counts as 4 — four 45° corners\u2019 worth.'),
       statRow('Lanes', String(f.lanes || '—'), null, 'The widest piece used — 3-lane (Japan Cup), 5-lane (WIDE) or the 1–3-lane rucdoc system.'),
     );
     $('statsRename').style.display = pub ? '' : 'none';

@@ -60,3 +60,16 @@ as it takes 4× 45° pieces to make a 180".
 
 - 90° corners: 1 or 2? Owner call; the sweep converges whichever way.
 - Popup could surface the sweep-stamped facets for parity checking.
+
+## Review round additions
+
+- BLOCKING: pg.js was missing setFacets (the sweep would have thrown
+  under STORE=postgres on the first stale row — after stamping the
+  version, permanently skipping it). Added, mirroring sqlite.
+- Sweep ordering is now crash-safe: setFacets first, the
+  VALIDATOR_VERSION stamp last — a crash between the two leaves the
+  row still-stale (retried next boot) instead of converged-with-
+  stale-facets forever.
+- Corners tooltip names the actual catalog pieces ("a 180° piece
+  (rainbow, burning changer) counts as 4") instead of a label that
+  does not exist in the catalog.
