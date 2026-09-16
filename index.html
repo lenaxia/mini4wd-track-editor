@@ -61,6 +61,9 @@
       <button id="btnExport" type="button">⬇ Export track file</button>
       <label class="file-label">⬆ Import track file<input type="file" id="fileImport" accept=".txt,.m4t,text/plain"></label>
       <button id="btnImportText" type="button">📋 Paste / import code</button>
+      <button id="btnPublish" type="button">⬆ Publish to server</button>
+      <button id="btnLibrary" type="button">📖 My published tracks</button>
+      <button id="btnNewTrack" type="button">✚ New track (clears canvas)</button>
       <button id="btnLoop" type="button">🔁 Close loop (2 selected pieces)</button>
       <button id="btnDeleteAll" type="button">🗑 Delete all pieces</button>
       <button id="btnHelp" type="button">❓ Help &amp; shortcuts</button>
@@ -123,8 +126,30 @@
     </div>
   </dialog>
 
+  <dialog id="publishDialog">
+    <div class="dialog-head">
+      <h2 id="pubTitle">Publish</h2>
+      <button id="pubClose" class="icon-btn" type="button" aria-label="Close">✕</button>
+    </div>
+    <p class="io-hint">Publishing saves this track to the server under a name; from then on your edits save automatically. Unpublished tracks stay on this device only.</p>
+    <input id="pubName" type="text" maxlength="200" placeholder="Track name"
+           style="width:100%;margin-top:10px;background:#14161a;color:#dfe3ea;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;">
+    <div class="dialog-actions">
+      <button id="pubOk" type="button" class="primary">Publish</button>
+    </div>
+  </dialog>
+
+  <dialog id="libraryDialog">
+    <div class="dialog-head">
+      <h2>My published tracks</h2>
+      <button id="libClose" class="icon-btn" type="button" aria-label="Close">✕</button>
+    </div>
+    <p class="io-hint">Tap a track to load it onto the canvas — it stays published and keeps auto-saving.</p>
+    <div id="libList" class="menu-actions" style="margin-top:10px;max-height:50vh;overflow-y:auto;"></div>
+  </dialog>
+
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=50"></script>
+  <script type="module" src="src/main.js?v=51"></script>
 </body>
 </html>
