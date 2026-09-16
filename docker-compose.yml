@@ -6,7 +6,8 @@
 # the sqlite default, so plain `up` never needs the db service)
 services:
   app:
-    build: .
+    # build: .          # local dev
+    image: ghcr.io/lenaxia/mini4wd-track-editor:latest   # published image
     ports: ["3000:3000"]
     volumes: ["track-data:/data"]
     environment:
