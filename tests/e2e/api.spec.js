@@ -92,6 +92,30 @@ test('validation rejects garbage without crashing the server', async ({ request 
   expect(alive.status()).toBe(200);
 });
 
+/* Owner rulings 2026-09-16: slopes count SEPARATELY from straights (not
+ * interchangeable); hairpins/rainbows count as 4 corners (a 180° is
+ * four 45° pieces' worth). */
+test('facet classification: slopes separate, hairpins are 4 corners, both sortable', async ({ request }) => {
+  const id = `${PREFIX}-slope`; ids.push(id);
+  const track = 'Bri1;100.000;100.000;0;0;0#Bri1;160.000;100.000;0;0;0#Str1;220.000;100.000;0;0;0#';
+  const meta = await (await request.put(`/api/tracks/${id}`, { data: { name: 'e2e slopes', author: 'playwright', data: { track, mode: 3 } } })).json();
+  expect(meta.slopes).toBe(2);
+  expect(meta.straights).toBe(1);          /* the slopes are NOT straights */
+  expect(meta.corners).toBe(0);
+
+  const hid = `${PREFIX}-hairpin`; ids.push(hid);
+  const hmeta = await (await request.put(`/api/tracks/${hid}`, {
+    data: { name: 'e2e hairpin', author: 'playwright', data: { track: 'Lan2;200.000;200.000;0;0#', mode: 3 } },
+  })).json();
+  expect(hmeta.corners).toBe(4);           /* one rainbow = four 45° corners */
+  expect(hmeta.straights).toBe(0);
+  expect(hmeta.slopes).toBe(0);
+
+  const q = await (await request.get(`/api/tracks?author=playwright&sort=-slopes&limit=1`)).json();
+  expect(q.items[0].slopes).toBeGreaterThanOrEqual(2);
+  expect((await request.get('/api/tracks?sort=slopes')).status()).toBe(200);   /* whitelisted both ways */
+});
+
 test('star/unstar endpoint: increments, takes back, floored at 0', async ({ request }) => {
   const id = `${PREFIX}-star`; ids.push(id);
   await request.put(`/api/tracks/${id}`, { data: mk('star') });
@@ -149,7 +173,7 @@ test('stats popup shows local facets + the server row (dates, stars, validity)',
   await strTip.click();
   const bubble = page.locator('.tip-bubble');
   await expect(bubble).toBeVisible();
-  await expect(bubble).toContainText('Waves and slopes count as straights');
+  await expect(bubble).toContainText('Waves count as straights');
   const box = await bubble.boundingBox();
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize().width);

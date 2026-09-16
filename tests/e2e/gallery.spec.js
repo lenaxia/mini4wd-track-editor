@@ -54,7 +54,7 @@ test('gallery rows render name, badge and facet line', async ({ page, request })
   await expect(facets).toContainText('4 pcs');
   await expect(facets).toContainText('1.36 m');                            /* 4 × R1C90I150 l=0.34 */
   await expect(facets).toContainText('1 lanes');
-  await expect(facets).toContainText('0 str · 4 cor');
+  await expect(facets).toContainText('0 str · 0 slp · 4 cor');
   await expect(row.locator('.gal-sub')).toContainText('\u2605 0');
 });
 

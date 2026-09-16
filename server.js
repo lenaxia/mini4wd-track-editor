@@ -48,6 +48,9 @@ async function sweepValidation(store) {
         complete = v.ok; issues = v.errors.length;
       } catch { /* keep defaults */ }
       await store.setValidation(id, complete, issues, VALIDATOR_VERSION);
+      /* classification rules change with the version stamp — converge
+       * the facet columns too (slopes, hairpin-180°s) without re-saves */
+      await store.setFacets(id, fullFacets(row.data));
     }
     if (ids.length) console.log(`[sweep] revalidated ${ids.length} track(s)`);
   } catch (e) { console.error('[sweep] failed:', e.message); }
@@ -114,7 +117,7 @@ function parseListQuery(u) {
   };
   for (const v of [out.min_pieces, out.max_pieces, out.min_length, q.limit !== undefined ? out.limit : 0, q.offset !== undefined ? out.offset : 0])
     if (Number.isNaN(v)) bad('non-numeric query value');
-  if (!/^-?(updated_at|created_at|name|pieces|length|lanes|bbox|straights|corners|stars|complete)$/.test(out.sort)) bad('bad sort');
+  if (!/^-?(updated_at|created_at|name|pieces|length|lanes|bbox|straights|corners|slopes|stars|complete)$/.test(out.sort)) bad('bad sort');
   return out;
 }
 

@@ -581,7 +581,7 @@ export function init(dimsGetter) {
     const facets = document.createElement('span');
     facets.className = 'gal-facets';
     facets.textContent = `${it.piece_count} pcs · ${(it.length_cm / 100).toFixed(2)} m · ${it.lanes} lanes`
-      + ` · ${formatFootprint(it.bbox_w_cm, it.bbox_h_cm)} · ${it.straights} str · ${it.corners} cor`;
+      + ` · ${formatFootprint(it.bbox_w_cm, it.bbox_h_cm)} · ${it.straights} str · ${it.slopes} slp · ${it.corners} cor`;
     const sub = document.createElement('span');
     sub.className = 'gal-sub';
     sub.textContent = `★ ${it.stars} · ${galDate(it.updated_at)}`;
@@ -735,8 +735,9 @@ export function init(dimsGetter) {
     rows.append(
       statRow('Length', `${(f.length_cm / 100).toFixed(2)} m`),
       statRow('Pieces', String(f.pieces)),
-      statRow('Straights', String(f.straights), null, 'Waves and slopes count as straights — they are straight pieces with a bump or a level change.'),
-      statRow('Corners', String(f.corners), null, 'Hairpins and rainbow curves count as corners.'),
+      statRow('Straights', String(f.straights), null, 'Waves count as straights — a wave is a straight piece with a bump.'),
+      statRow('Slopes', String(f.slopes), null, 'Slopes change elevation and are NOT interchangeable with straight pieces — they count separately.'),
+      statRow('Corners', String(f.corners), null, 'A hairpin or rainbow is a full 180° turn — four 45° corners\u2019 worth, so it counts as 4.'),
       statRow('Lanes', String(f.lanes || '—'), null, 'The widest piece used — 3-lane (Japan Cup), 5-lane (WIDE) or the 1–3-lane rucdoc system.'),
     );
     $('statsRename').style.display = pub ? '' : 'none';
