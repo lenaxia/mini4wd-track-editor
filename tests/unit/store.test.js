@@ -5,7 +5,8 @@ import {
   setTool, setMode, rotate, bumpLevel, deleteSelected, removePiece, cycleColor,
   clearAll, loadSprites, subscribe, addPieces, applySolution,
 } from '../../src/store.js';
-import { vertexOf } from '../../src/geometry.js';
+import * as geometry from '../../src/geometry.js';
+const { vertexOf } = geometry;
 import { parseTrack } from '../../src/track.js';
 
 function reset() {
@@ -357,4 +358,22 @@ test('bumpLevel treats 0 mm as a stop point (5 -> 0, never -5)', () => {
   state.zArm = 5;
   bumpLevel(-1);
   assert.equal(state.zArm, 0); /* armed path too */
+});
+
+/* per-vertex _bad rule (worklog 0013): a junction vertex with a
+ * tangentially-aligned partner is NOT kinked, even though other pairs at
+ * that point mismatch — regression pin for the all-pairs -> per-vertex
+ * change (fails on the pre-fix all-pairs flagging). */
+test('junction vertices do not flag _bad on the canvas', () => {
+  const { orientAngle, vertsOf, rot } = geometry;
+  const A = { name: 'Str1', x: 0, y: 0, a: 0, c: 0, z: 0 };
+  const B = { name: 'Str1', x: 54, y: 0, a: 0, c: 0, z: 0 };
+  const C = { name: 'Cor1', x: 0, y: 0, a: 0, c: 0, z: 0 };
+  C.a = orientAngle(A, 1, C, 0);
+  const v = vertsOf(C)[0];
+  const r = rot(v[0], v[1], C.a);
+  C.x = 27 - r.x; C.y = -r.y;
+  addPieces([A, B, C]);   /* emit() -> refreshFlags() with the per-vertex rule */
+  assert.equal(state.sprites.every((p) => !p._bad), true);
+  clearAll();
 });

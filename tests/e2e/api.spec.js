@@ -101,56 +101,63 @@ test('DELETE removes; unknown ids 404', async ({ request }) => {
   expect((await request.delete(`/api/tracks/${id}`)).status()).toBe(404);
 });
 
-/* Owner model (worklog 0012): unpublished tracks are local-only; publishing
- * binds a row and from then on edits auto-save to it. */
-test('unpublished edits never reach the server; publish persists and live-syncs', async ({ page, request }) => {
-  /* local-only proof is page-hermetic: this page must make ZERO
-   * /api/tracks requests while unpublished (a shared live server makes
-   * row-total deltas unsound under parallel tests) */
+/* Owner model (worklogs 0012/0013): unpublished tracks are local-only; the
+ * toolbar Publish is gated by the track validator; publishing binds the row
+ * and from then on the button becomes Save and edits auto-save. */
+const SQUARE_B64 = 'UjFDOTBJMTUwOzAuMDAwOzAuMDAwOzAuMDAwOzA7MCNSMUM5MEkxNTA7MC4wMDA7LTIxLjUwMDs5MC4wMDA7MDswI1IxQzkwSTE1MDsyMS41MDA7LTIxLjUwMDsxODAuMDAwOzA7MCNSMUM5MEkxNTA7MjEuNTAwOzAuMDAwOzI3MC4wMDA7MDswIw';
+
+test('validator blocks publishing an incomplete track', async ({ page, request }) => {
   const apiCalls = [];
   page.on('request', (r) => { if (r.url().includes('/api/tracks')) apiCalls.push(r.method()); });
 
   await page.goto('/');
-  await page.locator('.chip').first().click();   /* Str1 */
+  await page.locator('.chip').first().click();   /* Str1 — two dangling ends */
   await page.click('canvas', { position: { x: 200, y: 200 } });
   await expect.poll(async () => await page.evaluate(() =>
     window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(1);
-  expect(await page.evaluate(() => localStorage.getItem('m4wd.published'))).toBeNull();
-  await page.waitForTimeout(350 + 1500 + 500);
-  expect(apiCalls).toEqual([]);
 
-  /* publish via the Track menu */
-  await page.locator('#btnMenu').click();
-  await page.locator('#btnPublish').click();
-  await page.locator('#pubName').fill('E2E Hairpin Park');
+  await page.locator('#btnPublishBar').click();
+  await expect(page.locator('#pubStatus')).toContainText('Dangling end');
+  expect(await page.locator('#pubOk').isDisabled()).toBe(true);
+  await page.locator('#pubCancel').click();   /* explicit cancel, nothing sent */
+  expect(apiCalls).toEqual([]);
+});
+
+test('a complete track publishes from the toolbar; the button becomes Save', async ({ page, request }) => {
+  const apiCalls = [];
+  page.on('request', (r) => { if (r.url().includes('/api/tracks')) apiCalls.push(r.method()); });
+
+  await page.goto(`/#t=${SQUARE_B64}`);       /* exact closed square */
+  await expect.poll(async () => await page.evaluate(() =>
+    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(4);
+
+  await page.locator('#btnPublishBar').click();
+  await expect(page.locator('#pubStatus')).toContainText('complete and consistent');
+  await page.locator('#pubName').fill('E2E Square Circuit');
   await page.locator('#pubOk').click();
   await expect.poll(async () => await page.evaluate(() =>
     localStorage.getItem('m4wd.published')), { timeout: 10_000 }).toBeTruthy();
+  await expect(page.locator('#btnPublishBar')).toHaveText('💾');
 
   const id = (await page.evaluate(() => JSON.parse(localStorage.getItem('m4wd.published')).id));
   ids.push(id);
   const row = await (await request.get(`/api/tracks/${id}`)).json();
-  expect(row.name).toBe('E2E Hairpin Park');
-  expect(row.piece_count).toBe(1);
-
-  /* published tracks live-sync: another piece lands in the row */
-  await page.locator('.chip').first().click();   /* re-arm (dialogs may have changed focus) */
-  await page.click('canvas', { position: { x: 320, y: 200 } });
-  await expect.poll(async () => await page.evaluate(() =>
-    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(2);
-  await expect.poll(async () => (await (await request.get(`/api/tracks/${id}`)).json()).piece_count,
-    { timeout: 10_000 }).toBe(2);
+  expect(row.name).toBe('E2E Square Circuit');
+  expect(row.piece_count).toBe(4);
+  /* a fast publish can beat the boot autosave's debounce: the mirror PUT
+   * of the identical snapshot may land after the POST — quiesce, then
+   * assert shape (POST first, no DELETE) rather than strict equality */
+  await page.waitForTimeout(350 + 1500 + 500);
+  expect(apiCalls[0]).toBe('POST');
+  expect(apiCalls.includes('DELETE')).toBe(false);
 });
 
 test('library lists published tracks and loads one onto a fresh browser', async ({ page, browser, request }) => {
-  /* publish a track from the primary context */
-  await page.goto('/');
-  await page.locator('.chip').first().click();
-  await page.click('canvas', { position: { x: 200, y: 200 } });
+  /* publish a complete track from the primary context */
+  await page.goto(`/#t=${SQUARE_B64}`);
   await expect.poll(async () => await page.evaluate(() =>
-    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(1);
-  await page.locator('#btnMenu').click();
-  await page.locator('#btnPublish').click();
+    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(4);
+  await page.locator('#btnPublishBar').click();
   await page.locator('#pubName').fill('E2E Library Track');
   await page.locator('#pubOk').click();
   await expect.poll(async () => await page.evaluate(() =>
@@ -166,7 +173,7 @@ test('library lists published tracks and loads one onto a fresh browser', async 
   await p2.locator('#btnLibrary').click();
   await p2.locator('.lib-row', { hasText: 'E2E Library Track' }).click();
   await expect.poll(async () => await p2.evaluate(() =>
-    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(1);
+    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(4);
   expect(await p2.evaluate(() => JSON.parse(localStorage.getItem('m4wd.published')).name))
     .toBe('E2E Library Track');
   await ctx.close();
