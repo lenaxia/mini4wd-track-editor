@@ -175,6 +175,23 @@ function suite(label, open) {
     await s.close();
   });
 
+  test(`${label}: footprint caps are rotation-free (W×H or H×W fits)`, async () => {
+    const s = await open(); const A = ns();
+    /* facet bboxes: wide 138×36, tall 54×120 (Str1 w54/h36, centers 84
+     * apart) — the same layout turned; huge 354×336 exceeds both ways */
+    const wide = { track: 'Str1;100.000;100.000;0;0;0#Str1;184.000;100.000;0;0;0#' };
+    const tall = { track: 'Str1;100.000;100.000;0;0;0#Str1;100.000;184.000;0;0;0#' };
+    const huge = { track: 'Str1;100.000;100.000;0;0;0#Str1;400.000;400.000;0;0;0#' };
+    await s.upsert({ id: 'fp1', name: 'wide', author: A, data: wide, _facets: facets(wide) });
+    await s.upsert({ id: 'fp2', name: 'tall', author: A, data: tall, _facets: facets(tall) });
+    await s.upsert({ id: 'fp3', name: 'huge', author: A, data: huge, _facets: facets(huge) });
+    const both = await s.list({ author: A, max_bbox_w: 200, max_bbox_h: 100 });
+    assert.deepEqual(both.items.map((i) => i.id).sort(), ['fp1', 'fp2']);   /* tall fits turned */
+    const oneCap = await s.list({ author: A, max_bbox_w: 100 });
+    assert.deepEqual(oneCap.items.map((i) => i.id).sort(), ['fp1', 'fp2']); /* shorter side ≤ 100 */
+    await s.close();
+  });
+
   test(`${label}: setFacets converges a row without re-saving (sweep path)`, async () => {
     const s = await open(); const A = ns();
     await s.upsert({ id: 'sf1', name: 'flat', author: A, data: doc(2), _facets: facets(doc(2)) });

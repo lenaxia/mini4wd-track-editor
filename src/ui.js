@@ -833,7 +833,7 @@ export function init(dimsGetter) {
   };
   minLenTitle($('galMinLenField'), 'Only show tracks at least this long.');
   $('galLanes').querySelector('legend').append(tipBtn('Which lane widths to show — 2-lane rucdoc, 3-lane Japan Cup, 5-lane WIDE.'));
-  titleTip($('galFootField'), 'Tracks must fit within this maximum footprint (width \u00D7 height).');
+  titleTip($('galFootField'), 'Tracks must fit within this maximum footprint (width \u00D7 height) — a track laid the other way round still fits.');
   titleTip($('galAtMostField'), 'Upper limits on piece counts. Hairpins and rainbows count as 4 corners.');
 
   /* the brand IS a gallery shortcut (owner round); fresh opens and
