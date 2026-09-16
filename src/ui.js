@@ -12,7 +12,7 @@ import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFro
          forkTrack, fetchHistory, restoreRevision, isMine, mineIds } from './storage.js';
 import {
   GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, formatLength, completeBadge, lengthToCm, cmToLength,
-  isStarred, addStarred, removeStarred, thumbFit, trackFacets,
+  isStarred, addStarred, removeStarred, thumbFit, trackFacets, formatVersionTime,
 } from './gallery.js';
 import { validateTrack } from './validate.js';
 import { tipBtn, initTooltips } from './tooltip.js';
@@ -944,7 +944,7 @@ export function init(dimsGetter) {
         const row = document.createElement('div');
         row.className = 'his-row';
         const label = document.createElement('span');
-        label.textContent = `${galDate(h.created_at)} · “${h.name}”`;
+        label.textContent = `${formatVersionTime(h.created_at)} · “${h.name}”`;
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = 'Restore';

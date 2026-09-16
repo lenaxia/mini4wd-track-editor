@@ -172,3 +172,14 @@ export function thumbFit(sprites, boxW, boxH, pad = 4) {
     cy: boxH / 2 - scale * (minY + maxY) / 2,
   };
 }
+
+/* History-row timestamp (worklog 0022): time-only today, weekday + time
+ * this week, date + time beyond. Pure — pinned in tests/unit/gallery. */
+export function formatVersionTime(t, now = Date.now()) {
+  const d = new Date(t), n = new Date(now);
+  const hm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const sameDay = d.toDateString() === n.toDateString();
+  if (sameDay) return hm;
+  if (now - t < 7 * 24 * 3600 * 1000) return `${d.toLocaleDateString([], { weekday: 'short' })} ${hm}`;
+  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${hm}`;
+}

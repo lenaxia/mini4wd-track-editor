@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createStaticHandler } from './lib/static.js';
 import { openStore } from './lib/store/index.js';
+import { shouldArchive } from './lib/store/retention.js';
 import { facets, MAX_TRACK_BYTES_EXPORTED, VALIDATOR_VERSION } from './lib/store/facets.js';
 import { validateTrack } from './src/validate.js';
 import { parseTrack } from './src/track.js';
@@ -203,8 +204,10 @@ async function main() {
         const prev = await store.get(t.id);
         if (prev) {
           /* POST-to-existing is an update: version it and keep the
-           * lineage it was born with — body lineage is never trusted */
-          await store.archive(t.id, prev);
+           * lineage it was born with — body lineage is never trusted.
+           * Only a head that was STABLE gets a snapshot (worklog 0022) —
+           * rapid-fire saves coalesce into the burst-start entry. */
+          if (shouldArchive(prev.updated_at)) await store.archive(t.id, prev);
           Object.assign(t, { parent_id: prev.parent_id ?? null, root_id: prev.root_id ?? null, parent_name: prev.parent_name ?? null });
         } else if (body.parent_id) {
           /* Fork: lineage resolved server-side from the parent row */
@@ -228,7 +231,7 @@ async function main() {
         const t = normalize({ ...body, id: decodeURIComponent(m[1]) });
         const prev = await store.get(t.id);
         if (prev) {
-          await store.archive(t.id, prev);
+          if (shouldArchive(prev.updated_at)) await store.archive(t.id, prev);   /* stability rule, worklog 0022 */
           /* lineage never changes on update — the track keeps the
            * parent it was born with (copies are new tracks, not re-links) */
           Object.assign(t, { parent_id: prev.parent_id ?? null, root_id: prev.root_id ?? null, parent_name: prev.parent_name ?? null });
@@ -261,7 +264,7 @@ async function main() {
         if (!cur) return json(res, 404, { error: 'not found' });
         const snap = await store.revision(id, Number(mres[2]));
         if (!snap) return json(res, 404, { error: 'revision not found' });
-        await store.archive(id, cur);
+        if (shouldArchive(cur.updated_at)) await store.archive(id, cur);
         const t = normalize({ id, name: snap.name, author: snap.author, data: snap.data });
         /* snapshot lineage is server-stored data — restore carries it home */
         t.parent_id = snap.parent_id ?? null;

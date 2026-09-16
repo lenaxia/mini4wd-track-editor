@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, formatLength, completeBadge, lengthToCm,
-  readStarred, isStarred, addStarred, removeStarred, thumbFit, trackFacets,
+  readStarred, isStarred, addStarred, removeStarred, thumbFit, trackFacets, formatVersionTime,
 } from '../../src/gallery.js';
 import { facets } from '../../lib/store/facets.js';
 import { serializeForSave } from '../../src/track.js';
@@ -189,4 +189,13 @@ test('starred storage never throws: corrupt json, private mode', () => {
   assert.deepEqual(readStarred(broken), []);
   assert.doesNotThrow(() => addStarred(broken, 'abc'));
   assert.equal(isStarred(broken, 'abc'), false);
+});
+
+/* worklog 0022: history timestamps */
+test('formatVersionTime: time today, weekday within the week, date beyond', () => {
+  const now = Date.now();
+  const t = (ageMs) => now - ageMs;
+  assert.match(formatVersionTime(t(30 * 60_000)), /^\d{1,2}:\d{2}/);            /* 30 min ago → HH:MM */
+  assert.match(formatVersionTime(t(2 * 24 * 3600_000)), /^[A-Za-z]{3} \d{1,2}:\d{2}/);  /* 2 days → Wed 14:05 */
+  assert.match(formatVersionTime(t(30 * 24 * 3600_000)), /^[A-Za-z]{3} \d{1,2} \d{1,2}:\d{2}/); /* a month back */
 });

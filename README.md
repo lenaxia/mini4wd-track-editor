@@ -46,8 +46,10 @@ frameworks — open it and lay track.
   stars, or newest. Filter to finished circuits only, or to the tracks
   this device saved (Mine). Star what you like; tap any track to load it
   and keep editing it. No accounts anywhere.
-- **Nothing is ever lost.** Every save of a shared track keeps the old
-  version — History lists them and anyone can restore one with a tap.
+- **Nothing is ever lost.** Saves of a shared track keep snapshots of how
+  it looked before — History lists them with timestamps and anyone can
+  restore one with a tap. Rapid edits collapse into one snapshot per
+  session, and about a week of history is kept, so the list stays useful.
   **Copy** makes your own version of any track (shown as "based on" it)
   without touching the original, so abandoned tracks never block anyone.
 

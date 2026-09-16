@@ -398,9 +398,15 @@ test('WIP publishes; badge flags issues; stats-bar rename keeps the row', async 
 
 /* ---------- version history + copies + lineage (worklog 0017) ---------- */
 
-test('saving an existing track archives the previous version; history lists it', async ({ request }) => {
+/* The e2e webserver runs with M4WD_STABLE_MS=50 (webserver.mjs) so the
+ * stability rule is observable without wall-clock waits: a version must
+ * be the head for ≥50ms before a save archives it. */
+const settle = () => new Promise((r) => setTimeout(r, 80));
+
+test('saving a STABLE track archives it; rapid burst saves do not (worklog 0022)', async ({ request }) => {
   const id = `${PREFIX}-hist`; ids.push(id);
   await request.put(`/api/tracks/${id}`, { data: mk('hist v1') });
+  await settle();   /* v1 becomes stable */
   const v2 = await request.put(`/api/tracks/${id}`, { data: mk('hist v2', { tail: 'Str1;200.000;100.000;0;0;0#' }) });
   expect(v2.status()).toBe(200);
 
@@ -413,25 +419,39 @@ test('saving an existing track archives the previous version; history lists it',
   const snap = await request.get(`/api/tracks/${id}/history/${items[0].seq}`);
   const row = await snap.json();
   expect(row.data.track).not.toContain('Str1;200.000');
+
+  /* burst: a second save inside the stability window archives nothing */
+  const id2 = `${PREFIX}-burst`; ids.push(id2);
+  await request.put(`/api/tracks/${id2}`, { data: mk('burst 1') });
+  await request.put(`/api/tracks/${id2}`, { data: mk('burst 2') });   /* immediately */
+  const burst = await (await request.get(`/api/tracks/${id2}/history`)).json();
+  /* CI pacing may let one save cross the 50ms window — a burst this
+     quick can never produce more than one */
+  expect(burst.items.length).toBeLessThanOrEqual(1);
 });
 
 test('restore re-publishes an old version and archives the current one', async ({ request }) => {
   const id = `${PREFIX}-restore`; ids.push(id);
   await request.put(`/api/tracks/${id}`, { data: mk('restore A') });
+  await settle();   /* A must be stable before B's save archives it */
   await request.put(`/api/tracks/${id}`, { data: mk('restore B', { tail: 'Str1;200.000;100.000;0;0;0#' }) });
   const { items } = await (await request.get(`/api/tracks/${id}/history`)).json();
   expect(items[0].name).toBe('e2e restore A');
 
+  await settle();   /* B stable: restore archives it */
   const res = await request.post(`/api/tracks/${id}/history/${items[0].seq}/restore`);
   expect(res.status()).toBe(200);
   const head = await res.json();
   expect(head.name).toBe('e2e restore A');
   expect(head.piece_count).toBe(2);   /* facets re-derived from the snapshot */
 
-  /* the stomped version survived in history — restore is never destructive */
+  /* the stomped version survived in history — restore is never
+   * destructive. Note the pruning elegance (worklog 0022): the entry
+   * we restored FROM is now redundant (its content is the head again),
+   * so the tier ladder drops it and keeps exactly the undo: B. */
   const after = await (await request.get(`/api/tracks/${id}/history`)).json();
-  expect(after.items.length).toBe(2);
-  expect(after.items.map((x) => x.name)).toEqual(['e2e restore B', 'e2e restore A']);
+  expect(after.items.length).toBe(1);
+  expect(after.items.map((x) => x.name)).toEqual(['e2e restore B']);
 });
 
 test('restore of an unknown revision or track 404s', async ({ request }) => {
@@ -442,14 +462,14 @@ test('restore of an unknown revision or track 404s', async ({ request }) => {
   expect((await request.get(`/api/tracks/${PREFIX}-nope/history`)).status()).toBe(404);
 });
 
-test('history is capped at 25 versions', async ({ request }) => {
+test('rapid saves collapse: 28 saves in one burst leave at most a couple of snapshots', async ({ request }) => {
   const id = `${PREFIX}-cap`; ids.push(id);
   for (let i = 0; i < 28; i++) {
     await request.put(`/api/tracks/${id}`, { data: mk(`cap ${i}`) });
   }
   const { items } = await (await request.get(`/api/tracks/${id}/history`)).json();
-  expect(items.length).toBeLessThanOrEqual(25);
-  expect(items.length).toBeGreaterThanOrEqual(23);   /* 27 archives, pruned to 25 */
+  /* all saves inside the 50ms stability window: no archives at all */
+  expect(items.length).toBeLessThanOrEqual(2);
 });
 
 test('fork (parent_id) records server-resolved lineage; spoofed lineage fields are ignored', async ({ request }) => {
