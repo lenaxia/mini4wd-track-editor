@@ -129,7 +129,7 @@ const CORNER_KINDS = new Set(['corner']);
 const HAIRPIN_KINDS = new Set(['hairpin']);
 const SLOPE_KINDS = new Set(['slope']);
 /* mirrors lib/store/facets.js — 45 unless listed (see there) */
-const SWEEP_DEG = { Cor3: 90, Cor4: 90, R1C90I150: 90 };
+const SWEEP_DEG = { Cor3: 90, Cor4: 90, Cor5: 90, R1C90I150: 90 };
 
 export function trackFacets(sprites) {
   let pieces = 0, lengthCm = 0, lanes = 0, straights = 0, slopes = 0, corners = 0;
