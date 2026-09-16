@@ -119,8 +119,12 @@ test('validator blocks publishing an incomplete track', async ({ page, request }
   await page.locator('#btnPublishBar').click();
   await expect(page.locator('#pubStatus')).toContainText('Dangling end');
   expect(await page.locator('#pubOk').isDisabled()).toBe(true);
-  await page.locator('#pubCancel').click();   /* explicit cancel, nothing sent */
-  expect(apiCalls).toEqual([]);
+  expect(await page.locator('#pubName').isDisabled()).toBe(true);   /* violations lock the name too */
+  await expect(page.locator('#pubTipComplete')).toBeVisible();      /* suggest the Complete tool */
+  await page.locator('#pubTipComplete').click();   /* tip arms Complete */
+  expect(await page.evaluate(() => window.__m4wd.state.tool)).toBe('Complete');
+  await page.keyboard.press('Escape');   /* dismiss the intro dialog */
+  expect(apiCalls).toEqual([]);          /* still nothing sent */
 });
 
 test('a complete track publishes from the toolbar; the button becomes Save', async ({ page, request }) => {
