@@ -16,7 +16,7 @@
 import { PIECES, CLEARANCE_MM, SNAP_RADIUS } from './pieces.js';
 import {
   rad, rot, solveGeo, vertsOf, vertexOf, levelAt,
-  inwardTangent, outwardTangent,
+  inwardTangent, outwardTangent, CONNECTED_EPS,
 } from './geometry.js';
 
 /* Per-family piece sets (owner ruling: straights + 45-degree corners only,
@@ -49,7 +49,7 @@ export function endPieceIssue(sprites, p) {
   return open.length === 0 ? 'no-open' : 'multi-open';
 }
 
-const OPEN_EPS = 2;       // cm — a vertex with another this close is connected
+const OPEN_EPS = CONNECTED_EPS; // cm — the shared connectivity threshold (owner cap)
 const INSET = 1;          // cm adjacency margin (mirrors store.bboxOverlap)
 /* Joint exemption width: the app's own chained welds drift ~0.01 cm per
  * piece (orientAngle/rot floats), so a hand-built ring's ends sit ~0.1 cm
