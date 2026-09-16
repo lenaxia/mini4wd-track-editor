@@ -799,12 +799,13 @@ export function init(dimsGetter) {
   const galRangeInput = (which) => (e) => {
     const v = +e.target.value;
     if (which === 'min') {
-      gal.filter.minLength = Math.min(v, gal.filter.maxLength || 200);
+      gal.filter.minLength = v;
       if (v > (gal.filter.maxLength || 200)) gal.filter.maxLength = v;
     } else {
-      gal.filter.maxLength = Math.max(v, gal.filter.minLength);
+      gal.filter.maxLength = v;
       if (v < gal.filter.minLength) gal.filter.minLength = v;
     }
+    if (gal.filter.maxLength >= 200) gal.filter.maxLength = 0;   /* 0 = any cap */
     $('galMinLen').value = gal.filter.minLength;
     $('galMaxLen').value = gal.filter.maxLength || 200;
     galLenOut();

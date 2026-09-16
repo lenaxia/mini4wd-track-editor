@@ -312,7 +312,7 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
 }
 .gal-range input[type="range"]::-moz-range-thumb {
   pointer-events: auto;
-  width: 18px; height: 18px; border-radius: 50%;
+  width: 22px; height: 22px; border-radius: 50%;   /* matches -webkit travel + the 11px track inset */
   background: var(--accent); border: 2px solid #1a1a1a; cursor: grab;
 }
 .gal-range-track {

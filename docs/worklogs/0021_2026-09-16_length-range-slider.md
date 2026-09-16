@@ -31,3 +31,17 @@ their parts bin.
   requests; GitHub quota untouched (5000/5000 core remaining, 0 used
   at check time). The workflow oddities we saw were dropped
   `synchronize` deliveries and one 18s infra fail — both self-resolved.
+
+## Review round
+
+- The thumb-push logic was inverted (the dragged thumb took the OTHER
+  thumb's old value and trailed the pointer a step forever; a max
+  dragged to 0 left a phantom 5 m cap). Fixed as reviewed: assign the
+  dragged value first, then push the other past it.
+- max >= 200 canonicalizes to 0 ("any") in the handler — one End
+  keystroke no longer leaves the badge counting a no-op cap.
+- The both-ends e2e now seeds a 19.4 m row and pins its disappearance
+  under a 10 m cap (the old assertion was vacuous — only the 6 m row
+  was live).
+- -moz-range-thumb sized to match -webkit (22px): the fill and thumbs
+  align in Firefox too. Touch-target size stays a follow-up.
