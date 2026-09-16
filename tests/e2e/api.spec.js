@@ -119,6 +119,8 @@ test('validator blocks publishing an incomplete track', async ({ page, request }
   await page.locator('#btnPublishBar').click();
   await expect(page.locator('#pubStatus')).toContainText('Dangling end');
   expect(await page.locator('#pubOk').isDisabled()).toBe(true);
+  expect(await page.locator('#pubName').isDisabled()).toBe(true);   /* violations lock the name too */
+  await expect(page.locator('#pubTipComplete')).toBeVisible();      /* suggest the Complete tool */
   await page.locator('#pubCancel').click();   /* explicit cancel, nothing sent */
   expect(apiCalls).toEqual([]);
 });

@@ -163,3 +163,20 @@ kbd {
   gap: 12px; margin-bottom: 6px;
 }
 .dialog-head h2 { margin: 0; }
+
+/* ---------- dialog/menu button feedback (hover + press) ----------
+ * The global -webkit-tap-highlight-color makes :active the only touch
+ * feedback channel — every clickable gets both states. */
+.dialog-actions button:hover, .menu-actions button:hover, .file-label:hover,
+button.primary:hover, button.secondary:hover, .icon-btn:hover, .lib-row:hover {
+  background: #2e3140;
+  border-color: #4a5160;
+}
+button.primary:hover { background: var(--accent); border-color: #ffd97a; }
+button.secondary:hover { background: rgba(255, 255, 255, .06); }
+.dialog-actions button:active, .menu-actions button:active, .file-label:active,
+button.primary:active, button.secondary:active, .icon-btn:active, .lib-row:active {
+  transform: translateY(1px);
+  background: #262a33;
+}
+button.primary:active { background: #e6b84f; }

@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Mini4WD Track Editor — mobile fork (PoC)</title>
   <meta name="description" content="Touch-first fork of the Mini4WD Online Track Editor. Same track format, works on phones.">
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <header id="topbar">
@@ -43,11 +43,12 @@
       <button class="tool" data-tool="Delete" type="button" title="Delete (W)">🗑</button>
       <button class="tool" data-tool="Color"  type="button" title="Change color (E)"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="6.5" r="4" fill="#e05263"/><circle cx="6.5" cy="16" r="4" fill="#2ea89b"/><circle cx="17.5" cy="16" r="4" fill="#4f8fdd"/></svg></button>
       <button class="tool" id="btnComplete" data-tool="Complete" type="button" title="Complete track — tap two ends (L)">🏁</button>
-      <button class="tool" id="btnPublishBar" type="button" title="Publish / save track">📤</button>
       <span class="sep"></span>
       <button class="tool" id="btnUndo"  type="button" title="Undo (R)">↩</button>
       <button class="tool" id="btnLvlUp"   type="button" title="Raise level +10mm (PageUp)">▲</button>
       <button class="tool" id="btnLvlDown" type="button" title="Lower level −10mm (PageDown)">▼</button>
+      <span class="sep"></span>
+      <button class="tool" id="btnPublishBar" type="button" title="Publish / save track">📤</button>
     </div>
     <div id="palette" class="palette" role="radiogroup" aria-label="Track pieces"></div>
   </footer>
@@ -135,6 +136,7 @@
     <input id="pubName" type="text" maxlength="200" placeholder="Track name"
            style="width:100%;margin-top:10px;background:#14161a;color:#dfe3ea;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;">
     <div id="pubStatus" style="margin-top:10px;font-size:12px;line-height:1.6;"></div>
+    <button id="pubTipComplete" type="button" class="secondary" style="display:none;width:100%;margin-top:8px;font:inherit;font-size:13px;text-align:left;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:#7dd3fc;cursor:pointer;">🏁 Close the gap with Complete track — select two ends and it fills the run</button>
     <div class="dialog-actions">
       <button id="pubCancel" type="button" class="secondary">Cancel</button>
       <button id="pubOk" type="button" class="primary">Publish</button>
@@ -152,6 +154,6 @@
 
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=52"></script>
+  <script type="module" src="src/main.js?v=53"></script>
 </body>
 </html>

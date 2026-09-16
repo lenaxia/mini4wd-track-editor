@@ -62,3 +62,14 @@ support y junctions and stuff").
   publish dialog reports them complete.
 - LINK_RANGE/LINK_FACING exported from geometry.js; CLEARANCE_MM
   imported from pieces.js (no mirroring constants).
+
+## Owner round: toolbar placement + dialog gating + button feedback
+
+- Publish moved to the far right of the toolbar behind a vertical
+  separator (it is a track-level action, not a piece tool).
+- Violations now lock the entire save action: Confirm AND the name field
+  disable together; dangling-end errors surface a one-tap suggestion that
+  arms the Complete tool and closes the dialog.
+- Dialog/menu buttons gained hover + press states (the transparent
+  tap-highlight makes :active the touch feedback channel — previously
+  dialogs had neither).

@@ -291,7 +291,11 @@ export function init(dimsGetter) {
     for (const w of warnings) rows.push(`<div style="color:#d9a441">⚠ ${w}</div>`);
     if (ok && !warnings.length) rows.push('<div style="color:#4ade80">✓ track is complete and consistent</div>');
     box.innerHTML = rows.join('');
+    /* violations lock the whole save action: no name, no confirm */
     $('pubOk').disabled = !ok;
+    $('pubName').disabled = !ok;
+    /* dangling ends have a tool for exactly that */
+    $('pubTipComplete').style.display = errors.some((e) => /Dangling/.test(e)) ? 'block' : 'none';
     return ok;
   }
 
@@ -307,6 +311,11 @@ export function init(dimsGetter) {
   });
   $('pubClose').addEventListener('click', () => closeDialog($('publishDialog')));
   $('pubCancel').addEventListener('click', () => closeDialog($('publishDialog')));
+  $('pubTipComplete').addEventListener('click', () => {
+    closeDialog($('publishDialog'));
+    setTool('Complete');
+    toast('Select the two open ends — Complete fills the gap');
+  });
   $('pubOk').addEventListener('click', async () => {
     if (!renderPubStatus()) return;   /* re-validate at the moment of saving */
     const name = $('pubName').value.trim() || 'Untitled';
