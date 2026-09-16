@@ -44,6 +44,7 @@ export function galleryQuery({ sort, complete, limit, offset, filter }) {
   if (complete) parts.push('complete=true');
   if (filter) {
     if (filter.minLength > 0) parts.push(`min_length=${Math.round(filter.minLength * 100)}`);
+    if (filter.maxLength > 0) parts.push(`max_length=${Math.round(filter.maxLength * 100)}`);
     if (filter.lanes && filter.lanes.length && filter.lanes.length !== GALLERY_LANES.length)
       parts.push(`lanes=${[...filter.lanes].sort().join(',')}`);
     if (filter.maxW != null) parts.push(`max_bbox_w=${filter.maxW}`);
