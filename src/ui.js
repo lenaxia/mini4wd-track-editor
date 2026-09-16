@@ -309,7 +309,7 @@ export function init(dimsGetter) {
         row.className = 'lib-row';
         row.dataset.id = it.id;
         const when = new Date(it.updated_at).toLocaleString();
-        row.textContent = `${it.name} · ${it.piece_count} pcs · ${it.length_cm / 100 | 0}.${Math.round(it.length_cm) % 100} m · ${when}`;
+        row.textContent = `${it.name} · ${it.piece_count} pcs · ${(it.length_cm / 100).toFixed(2)} m · ${when}`;
         row.addEventListener('click', () => loadLibraryTrack(it.id));
         list.appendChild(row);
       }
