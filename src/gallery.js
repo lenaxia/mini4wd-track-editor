@@ -119,7 +119,8 @@ export function removeStarred(ls = globalThis.localStorage, id) {
  * Mirrors the server's facet stamping (lib/store/facets.js), owner
  * rulings 2026-09-16 included: waves are straights, SLOPES ARE THEIR
  * OWN COUNT (not interchangeable with straights), hairpins/rainbows
- * count as 4 corners (a 180° turn is four 45° pieces' worth), specials
+ * count as 4 corners and 90° corners as 2 — always sweep/45 (owner
+ * rulings 2026-09-16) — specials
  * excluded, lanes = max. Unit tests cross-check the two classifiers
  * over a serialized round-trip so the popup can never disagree with
  * the stored row. */
@@ -127,6 +128,8 @@ const STRAIGHT_KINDS = new Set(['straight', 'wave']);
 const CORNER_KINDS = new Set(['corner']);
 const HAIRPIN_KINDS = new Set(['hairpin']);
 const SLOPE_KINDS = new Set(['slope']);
+/* mirrors lib/store/facets.js — 45 unless listed (see there) */
+const SWEEP_DEG = { Cor3: 90, Cor4: 90, R1C90I150: 90 };
 
 export function trackFacets(sprites) {
   let pieces = 0, lengthCm = 0, lanes = 0, straights = 0, slopes = 0, corners = 0;
@@ -136,7 +139,7 @@ export function trackFacets(sprites) {
     pieces += 1;
     if (STRAIGHT_KINDS.has(def.kind)) straights += 1;
     else if (SLOPE_KINDS.has(def.kind)) slopes += 1;
-    else if (CORNER_KINDS.has(def.kind)) corners += 1;
+    else if (CORNER_KINDS.has(def.kind)) corners += Math.round((SWEEP_DEG[p.name] ?? 45) / 45);
     else if (HAIRPIN_KINDS.has(def.kind)) corners += 4;
     lanes = Math.max(lanes, def.lanes || 1);
     lengthCm += (def.l || 0) * 100;

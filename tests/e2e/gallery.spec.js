@@ -87,7 +87,7 @@ test('gallery rows render name, badge and facet line (complete-off shows WIP)', 
   await expect(facets).toContainText('4 pcs');
   await expect(facets).toContainText('1.36 m');                            /* 4 × R1C90I150 l=0.34 */
   await expect(facets).toContainText('1 lanes');
-  await expect(facets).toContainText('0 straights · 0 slopes · 4 corners');
+  await expect(facets).toContainText('0 straights · 0 slopes · 8 corners');  /* four 90° = 4×2 */
   await expect(row.locator('.gal-sub')).toContainText('\u2605 0');
   /* complete-only is ON by default — the WIP badge needs the toggle OFF */
   await page.locator('#galComplete').click();
