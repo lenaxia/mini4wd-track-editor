@@ -146,7 +146,7 @@ test('trackFacets matches the server facet classification', () => {
   assert.equal(local.slopes, 1);
   assert.equal(local.corners, 14);     /* 1+2 + 2+2+2+1 + 4 — every SWEEP_DEG name pinned */
   assert.equal(local.pieces, 12);
-  assert.equal(local.lanes, 3);
+  assert.equal(local.lanes, 5);       /* the WIDE 90s are 5-lane */
   assert.deepEqual(trackFacets([]),
     { pieces: 0, length_cm: 0, lanes: 0, straights: 0, slopes: 0, corners: 0 });
 });
