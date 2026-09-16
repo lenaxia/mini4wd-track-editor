@@ -259,8 +259,8 @@ export function externalJoint(selection, sprites) {
 
 /* ---------- disjunctions (unwelded but related ends) ---------- */
 
-const LINK_RANGE = 45;  // cm — plausible jump/landing or near-miss span
-const LINK_FACING = 50; // deg — each end must point at the other, roughly
+export const LINK_RANGE = 45;  // cm — plausible jump/landing or near-miss span
+export const LINK_FACING = 50; // deg — each end must point at the other, roughly
 
 /* Pairs of OPEN connection vertices that face each other within jump range
  * but are not welded: intentional jumps and landings, or near-miss joints.

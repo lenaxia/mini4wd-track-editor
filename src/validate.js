@@ -16,13 +16,10 @@
  *       piece family — the validator must not become their enemy)
  */
 
-import { PIECES } from './pieces.js';
-import { vertsOf, vertexOf, outwardTangent, inwardTangent, pieceHalfExtents } from './geometry.js';
+import { PIECES, CLEARANCE_MM } from './pieces.js';
+import { vertsOf, vertexOf, outwardTangent, inwardTangent, pieceHalfExtents, LINK_RANGE, LINK_FACING } from './geometry.js';
 
 const JOINT_EPS = 1e-6;   /* same weld tolerance as the store's flags */
-const LINK_RANGE = 45;    /* cm — mirrors openLinks */
-const LINK_FACING = 50;   /* deg — mirrors openLinks */
-const CLEARANCE_MM = 75;
 
 const face = (t, to) => 180 - Math.abs(((t - to + 540) % 360) - 180); /* 0..180, 180=aligned */
 

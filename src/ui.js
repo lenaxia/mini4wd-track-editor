@@ -85,6 +85,8 @@ export function buildPalette() {
   syncToolUi();
 }
 
+let refreshPublishUi = () => {};
+
 /* ---------- store-driven sync ---------- */
 
 let lastStatsText = '';
@@ -273,7 +275,7 @@ export function init(dimsGetter) {
 
   /* ---------- publish / save / library (unpublished = local only) ---------- */
 
-  function refreshPublishUi() {
+  refreshPublishUi = function () {
     const pub = publishedTrack();
     $('btnPublishBar').textContent = pub ? '💾' : '📤';
     $('btnPublishBar').title = pub ? `Save “${pub.name}” (published)` : 'Publish track';
@@ -287,7 +289,7 @@ export function init(dimsGetter) {
     const rows = [];
     for (const e of errors) rows.push(`<div style="color:#e05263">✖ ${e}</div>`);
     for (const w of warnings) rows.push(`<div style="color:#d9a441">⚠ ${w}</div>`);
-    if (ok && !warnings.length) rows.push('<div style="color:#7dd3fc">✓ track is complete and consistent</div>');
+    if (ok && !warnings.length) rows.push('<div style="color:#4ade80">✓ track is complete and consistent</div>');
     box.innerHTML = rows.join('');
     $('pubOk').disabled = !ok;
     return ok;
@@ -415,3 +417,5 @@ function levelToast(which) {
   const v = uniq.length === 1 ? String(uniq[0]) : Math.min(...uniq) + '..' + Math.max(...uniq);
   return 'level ' + v + ' mm';
 }
+
+export { refreshPublishUi };

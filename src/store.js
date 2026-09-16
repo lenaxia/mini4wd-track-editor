@@ -196,7 +196,12 @@ function refreshFlags() {
       if ((hi.z || 0) - (lo.z || 0) < CLEARANCE_MM) hi._warn = true; /* can't clear */
     }
   }
-  /* imperfect joints: coincident vertices where tangent or level mismatch */
+  /* imperfect joints — per-vertex rule (same as the publish validator):
+   * a coincident vertex is kinked (_bad) only when NO other piece's vertex
+   * at that point pairs with it tangentially. All-pairs would paint every
+   * junction red (two entries at one point both flow away from the shared
+   * exit and are not connected to each other). */
+  const flags = sprites.map((p) => vertsOf(p).map(() => ({ any: false, aligned: 0 })));
   for (let i = 0; i < sprites.length; i++) {
     const s = sprites[i];
     for (let si = 0; si < vertsOf(s).length; si++) {
@@ -207,14 +212,23 @@ function refreshFlags() {
         for (let gi = 0; gi < vertsOf(g).length; gi++) {
           const b = vertexOf(g, gi);
           if (Math.hypot(a.x - b.x, a.y - b.y) > JOINT_EPS) continue;
+          flags[i][si].any = true;   /* something is welded here */
           const dT = Math.abs(((outwardTangent(s, si) - inwardTangent(g, gi) + 540) % 360) - 180);
-          if (dT > 0.05) { s._bad = true; g._bad = true; } /* kinked joint: error */
-          else if (levelAt(s, si) !== levelAt(g, gi) && i < j) {
-            /* welded level change — a connected jump/drop: informational */
-            state.drops.push({ x: a.x, y: a.y, dz: levelAt(g, gi) - levelAt(s, si) });
+          if (dT <= 0.05) {
+            flags[i][si].aligned += 1;
+            if (levelAt(s, si) !== levelAt(g, gi) && i < j) {
+              /* welded level change — a connected jump/drop: informational */
+              state.drops.push({ x: a.x, y: a.y, dz: levelAt(g, gi) - levelAt(s, si) });
+            }
           }
         }
       }
+    }
+  }
+  for (let i = 0; i < sprites.length; i++) {
+    for (let si = 0; si < vertsOf(sprites[i]).length; si++) {
+      const f = flags[i][si];
+      if (f.any && f.aligned === 0) sprites[i]._bad = true; /* kinked: welded but no aligned partner */
     }
   }
 }

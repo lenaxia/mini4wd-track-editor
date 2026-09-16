@@ -39,7 +39,7 @@ import { state, setMode, setTool, fitView } from './store.js';
 import { PALETTE, TOOLS } from './pieces.js';
 import { parseTrack, decodeShare, serialize } from './track.js';
 import { preloadImages } from './assets.js';
-import { restore } from './storage.js';
+import { restore, unpublishTrack } from './storage.js';
 import * as render from './render.js';
 import * as input from './input.js';
 import * as ui from './ui.js';
@@ -69,6 +69,11 @@ function boot() {
   if (m) {
     try {
       state.sprites = parseTrack(decodeShare(m[1]));
+      /* a shared link opens as a LOCAL copy: never silently overwrite the
+       * browser's published row with someone else's track (own links too —
+       * reopen your track from the library instead) */
+      unpublishTrack();
+      ui.refreshPublishUi();
       ui.toast(`Loaded shared track (${state.sprites.length} pieces)`);
     } catch (_) { ui.toast('Could not read shared link'); }
   }
