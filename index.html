@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Mini4WD Track Editor</title>
   <meta name="description" content="Touch-first Mini4WD track editor — design, validate and publish circuits on phone or desktop.">
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
   <header id="topbar">
@@ -156,53 +156,55 @@
 
   <dialog id="galleryDialog" class="gallery-full">
     <div class="dialog-head">
-      <h2>🌍 Gallery</h2>
+      <h2><span data-icon="earth"></span> Gallery</h2>
       <button id="galClose" class="icon-btn" type="button" aria-label="Close"><span data-icon="close"></span></button>
     </div>
     <p class="io-hint">All tracks published on this server — not just this device's. Tap a row to load it onto the canvas; ★ to star or unstar.</p>
-    <div class="gal-toolbar">
-      <label class="gal-sortwrap">Sort
-        <select id="galSort" aria-label="Sort tracks"></select>
-      </label>
-      <button id="galComplete" type="button" class="gal-toggle" aria-pressed="true">✓ Complete only</button>
-      <button id="galFilters" type="button" class="gal-filterbtn">Filters<span id="galFilterCount" class="gal-filtercount" hidden></span></button>
+    <div class="gal-toolbar-wrap">
+      <div class="gal-toolbar">
+        <label class="gal-sortwrap">Sort
+          <select id="galSort" aria-label="Sort tracks"></select>
+        </label>
+        <button id="galComplete" type="button" class="gal-toggle" aria-pressed="true">✓ Complete only</button>
+        <button id="galFilters" type="button" class="gal-filterbtn" aria-expanded="false" aria-controls="galDrawer">Filters<span id="galFilterCount" class="gal-filtercount" hidden></span></button>
+      </div>
+
+      <!-- filter panel: drops DOWN from the toolbar (anchored, not a
+           right-side slide-in — slide-ins leak a horizontal scrollbar).
+           Closed = visibility:hidden, so it neither scrolls nor clicks. -->
+      <div id="galDrawer" class="gal-panel" role="group" aria-label="Filters">
+        <div class="gal-panel-row gal-units" role="group" aria-label="Units">
+          <span id="galUnitsLabel">Units</span>
+          <button id="galUnitM" type="button" class="gal-seg" aria-pressed="true">Metres (m)</button
+          ><button id="galUnitFt" type="button" class="gal-seg" aria-pressed="false">Feet (ft)</button>
+        </div>
+        <label class="gal-panel-row" id="galMinLenField">Min length: <output id="galMinLenOut" for="galMinLen">any</output>
+          <input id="galMinLen" type="range" min="0" max="200" step="5" value="0">
+        </label>
+        <fieldset class="gal-panel-row" id="galLanes">
+          <legend>Lanes</legend>
+        </fieldset>
+        <div class="gal-panel-row" id="galFootField">Footprint max
+          <div class="gal-dims">
+            <label>W <input id="galMaxW" type="number" min="0" step="any" inputmode="decimal" placeholder="any"></label>
+            <label>H <input id="galMaxH" type="number" min="0" step="any" inputmode="decimal" placeholder="any"></label>
+          </div>
+        </div>
+        <div class="gal-panel-row" id="galAtMostField">At most
+          <div class="gal-dims">
+            <label>straights <input id="galMaxStraights" type="number" min="0" step="1" inputmode="numeric" placeholder="any"></label>
+            <label>slopes <input id="galMaxSlopes" type="number" min="0" step="1" inputmode="numeric" placeholder="any"></label>
+            <label>corners <input id="galMaxCorners" type="number" min="0" step="1" inputmode="numeric" placeholder="any"></label>
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button id="galReset" type="button" class="secondary">Reset</button>
+          <button id="galDone" type="button" class="primary">Done</button>
+        </div>
+      </div>
     </div>
     <div id="galMeta" class="gal-meta"></div>
     <div id="galList" class="gal-list"></div>
-
-    <aside id="galDrawer" class="gal-drawer" aria-label="Filters">
-      <div class="dialog-head">
-        <h3>Filters</h3>
-        <button id="galDrawerClose" class="icon-btn" type="button" aria-label="Close filters"><span data-icon="close"></span></button>
-      </div>
-      <label class="gal-field">Min length — <output id="galMinLenOut" for="galMinLen">any</output>
-        <input id="galMinLen" type="range" min="0" max="200" step="5" value="0">
-      </label>
-      <fieldset class="gal-field" id="galLanes">
-        <legend>Lanes</legend>
-      </fieldset>
-      <div class="gal-field">Footprint max
-        <div class="gal-dims">
-          <label>W <input id="galMaxW" type="number" min="0" step="any" inputmode="decimal" placeholder="any"></label>
-          <label>H <input id="galMaxH" type="number" min="0" step="any" inputmode="decimal" placeholder="any"></label>
-          <select id="galUnit" aria-label="Footprint unit">
-            <option value="cm">cm</option><option value="m">m</option>
-            <option value="in">in</option><option value="ft">ft</option>
-          </select>
-        </div>
-      </div>
-      <div class="gal-field">At most
-        <div class="gal-dims">
-          <label>str <input id="galMaxStraights" type="number" min="0" step="1" inputmode="numeric" placeholder="any"></label>
-          <label>slp <input id="galMaxSlopes" type="number" min="0" step="1" inputmode="numeric" placeholder="any"></label>
-          <label>cor <input id="galMaxCorners" type="number" min="0" step="1" inputmode="numeric" placeholder="any"></label>
-        </div>
-      </div>
-      <div class="dialog-actions">
-        <button id="galReset" type="button" class="secondary">Reset</button>
-        <button id="galDone" type="button" class="primary">Done</button>
-      </div>
-    </aside>
   </dialog>
 
   <dialog id="statsDialog">
@@ -219,6 +221,6 @@
 
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=67"></script>
+  <script type="module" src="src/main.js?v=68"></script>
 </body>
 </html>

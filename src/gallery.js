@@ -23,10 +23,14 @@ export const GALLERY_SORTS = [
 /* the lane selector's options (2-lane rucdoc, 3-lane Japan Cup, 5-lane WIDE) */
 export const GALLERY_LANES = [2, 3, 5];
 
-/* footprint unit conversion -> cm (the API speaks cm; 1 px = 1 cm) */
+/* unit conversion (the API speaks cm; 1 px = 1 cm) — one table, both
+ * directions, so the drawer can never drift from the query builder */
+const UNIT_CM = { cm: 1, m: 100, in: 2.54, ft: 30.48 };
 export function lengthToCm(v, unit) {
-  const f = { cm: 1, m: 100, in: 2.54, ft: 30.48 }[unit] || 1;
-  return Math.round(v * f);
+  return Math.round(v * (UNIT_CM[unit] || 1));
+}
+export function cmToLength(cm, unit) {
+  return +(cm / (UNIT_CM[unit] || 1)).toFixed(2);
 }
 
 /* Query for GET /api/tracks. complete is opt-in only — the toggle means
@@ -51,14 +55,18 @@ export function galleryQuery({ sort, complete, limit, offset, filter }) {
   return parts.join('&');
 }
 
-/* Bbox in cm (1 px = 1 cm); under a meter stays in cm, above switches
- * to meters with trailing-zero-trimmed 2-dp values. */
-export function formatFootprint(wCm, hCm) {
+/* Lengths follow the gallery's unit choice (owner round 2): metres
+ * (default) or feet, decimals — no cm/in anywhere. 1 px = 1 cm
+ * internally; imperial converts at 30.48 cm/ft. */
+export function formatLength(cm, unit = 'm') {
+  if (unit === 'ft') return `${(cm / 30.48).toFixed(1)} ft`;
+  return `${(cm / 100).toFixed(2)} m`;
+}
+
+export function formatFootprint(wCm, hCm, unit = 'm') {
   if (!wCm || !hCm) return '\u2014';
-  const m = (cm) => String(+(cm / 100).toFixed(2));
-  return wCm >= 100 || hCm >= 100
-    ? `${m(wCm)}\u00D7${m(hCm)} m`
-    : `${Math.round(wCm)}\u00D7${Math.round(hCm)} cm`;
+  const v = (cm) => unit === 'ft' ? (cm / 30.48).toFixed(1) : String(+(cm / 100).toFixed(2));
+  return `${v(wCm)}\u00D7${v(hCm)} ${unit}`;
 }
 
 /* ✓ for server-validated complete tracks; amber ✖ + issue count for

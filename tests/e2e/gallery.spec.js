@@ -76,7 +76,7 @@ test('gallery rows render name, badge and facet line (complete-off shows WIP)', 
   await expect(facets).toContainText('4 pcs');
   await expect(facets).toContainText('1.36 m');                            /* 4 × R1C90I150 l=0.34 */
   await expect(facets).toContainText('1 lanes');
-  await expect(facets).toContainText('0 str · 0 slp · 4 cor');
+  await expect(facets).toContainText('0 straights · 0 slopes · 4 corners');
   await expect(row.locator('.gal-sub')).toContainText('\u2605 0');
   /* complete-only is ON by default — the WIP badge needs the toggle OFF */
   await page.locator('#galComplete').click();
@@ -128,7 +128,13 @@ test('filter drawer: lanes, min length, reset — Complete stays visible', async
 
   await page.locator('#galFilters').click();
   await expect(page.locator('#galDrawer')).toHaveClass(/open/);
-  await expect(page.locator('#galComplete')).toBeVisible();                  /* always visible, drawer or not */
+  await expect(page.locator('#galComplete')).toBeVisible();                  /* always visible, panel or not */
+  /* the Filters button TOGGLES: second tap dismisses */
+  await page.locator('#galFilters').click();
+  await expect(page.locator('#galDrawer')).not.toHaveClass(/open/);
+  expect(await page.locator('#galFilters').getAttribute('aria-expanded')).toBe('false');
+  await page.locator('#galFilters').click();
+  await expect(page.locator('#galDrawer')).toHaveClass(/open/);
 
   /* lanes: only 5-lane rows */
   await page.locator('#galLanes input').nth(0).uncheck();   /* 2 lanes off */
@@ -141,9 +147,15 @@ test('filter drawer: lanes, min length, reset — Complete stays visible', async
   await page.locator('#galLanes input').nth(0).check();
   await page.locator('#galLanes input').nth(1).check();
   await page.locator('#galMinLen').fill('5');
-  await page.locator('#galMinLen').blur();
+  /* dragging the slider must NOT dismiss the panel (owner report) */
+  await expect(page.locator('#galDrawer')).toHaveClass(/open/);
   await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toHaveCount(0);
   await expect(page.locator('.gal-row', { hasText: `E2E Five ${n}` })).toBeVisible();
+  /* the readout follows the unit choice */
+  await page.locator('#galUnitFt').click();
+  await expect(page.locator('#galMinLenOut')).toHaveText('16 ft+');
+  await page.locator('#galUnitM').click();
+  await expect(page.locator('#galMinLenOut')).toHaveText('5 m+');
 
   /* max straights 0: only zero-straight rows (the square, if visible) */
   await page.locator('#galMinLen').fill('0');
@@ -153,10 +165,44 @@ test('filter drawer: lanes, min length, reset — Complete stays visible', async
   await expect(page.locator('.gal-row', { hasText: `E2E Five ${n}` })).toHaveCount(0);
   await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toBeVisible();
 
+  /* unchecking ALL lanes is "no matches" client-side — the server param
+   * cannot express the empty set (omitting it means every lane) */
+  await page.locator('#galLanes input').nth(0).uncheck();
+  await page.locator('#galLanes input').nth(1).uncheck();
+  await page.locator('#galLanes input').nth(2).uncheck();
+  await expect(page.locator('.gal-empty')).toHaveText('No lanes selected — tick at least one in Filters.');
+  expect(await page.locator('#galList .gal-row').count()).toBe(0);
+
   await page.locator('#galReset').click();
   await expect(page.locator('.gal-row', { hasText: `E2E Five ${n}` })).toBeVisible();
   await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toBeVisible();
   await expect(page.locator('#galFilterCount')).toBeHidden();
+
+  /* Esc closes the gallery; a stale open panel must not survive it
+   * (the panel is still open from the filter interactions above) */
+  await expect(page.locator('#galDrawer')).toHaveClass(/open/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#galleryDialog')).not.toBeVisible();
+  await page.locator('#brand').click({ force: true });
+  await expect(page.locator('#galDrawer')).not.toHaveClass(/open/);
+});
+
+test('unit switch re-renders cards: metres <-> feet (length + footprint)', async ({ page, request }) => {
+  const n = nonce();
+  await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);   /* 1.36 m, 59x59 cm bbox */
+  await openGallery(page);
+  const card = page.locator('.gal-row', { hasText: `E2E Square ${n}` });
+  const facets = card.locator('.gal-facets');
+  await expect(facets).toContainText('1.36 m');
+  await expect(facets).toContainText('0.58\u00D70.58 m');   /* 58.5 cm bbox, trimmed */
+  await page.locator('#galFilters').click();
+  await page.locator('#galUnitFt').click();
+  /* the footprint inputs carry the unit suffix too */
+  await expect(page.locator('#galMaxW').locator('..')).toContainText('ft');
+  await expect(facets).toContainText('4.5 ft');                        /* 1.36 m */
+  await expect(facets).toContainText('1.9\u00D71.9 ft');               /* 58.5 cm */
+  await page.locator('#galUnitM').click();
+  await expect(facets).toContainText('1.36 m');
 });
 
 test('stars toggle per browser: POST stars, DELETE unstars, localStorage gates', async ({ page, request }) => {

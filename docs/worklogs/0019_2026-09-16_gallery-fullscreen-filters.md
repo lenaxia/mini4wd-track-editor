@@ -83,3 +83,33 @@ above ("stars is just sort order" — it stays a sort).
 - Footprint filter could get a unit-aware row display too (rows stay
   cm/m heuristic today).
 - Saved filter presets per browser if the owner wants them.
+
+## Round 2 + review round (owner feedback on the first cut)
+
+- Cards: **star moved inside the card** (over the thumbnail corner,
+  stopPropagation), **card grid** with larger fluid thumbnails
+  (400×300 backing, `aspect-ratio 4/3`) — columns via
+  `repeat(auto-fill, minmax(250px, 1fr))`, one column on phones.
+- Filter panel: **drops DOWN from the Filters button** (not a right
+  slide-in — slide-ins leak a horizontal scrollbar). Hiding is
+  visibility-based (transform-only hides still occupy scroll width);
+  the full-screen dialog clips overflow. The Filters button TOGGLES
+  (aria-expanded); filter changes keep the panel open (several
+  adjustments in a row); Esc / ✕ / fresh opens reset it (dialog close
+  event).
+- Units: one segmented control at the panel top — **Metres / Feet**
+  only (no cm/in; decimals). Drives the W/H inputs (with unit suffixes
+  next to each box), the min-length readout, AND the cards
+  (formatLength/formatFootprint follow the unit; cards re-render from
+  cache, no refetch).
+- Filter labels spelled out (straights/slopes/corners), title rows
+  stack above the inputs, (?) tooltips AFTER the title text (reusable
+  tipBtn), compact 110px inputs (full-width was excessive on desktop).
+- `undefined slp` guard: cards default missing facet columns to 0
+  (long-running stores predating a column).
+- Review findings: empty lane selection renders "No lanes selected"
+  client-side (an omitted lanes param means ALL lanes — the inverse);
+  lanes checkboxes build once (rebuilding destroyed the focused
+  control mid-interaction); W/H caps clamp like count caps;
+  cmToLength joins lengthToCm on one table; the earth glyph back on
+  the MDI icon system; min_lanes now NaN-validated (drive-by, noted).

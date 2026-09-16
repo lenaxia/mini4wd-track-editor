@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, completeBadge, lengthToCm,
+  GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, formatLength, completeBadge, lengthToCm,
   readStarred, isStarred, addStarred, removeStarred, thumbFit, trackFacets,
 } from '../../src/gallery.js';
 import { facets } from '../../lib/store/facets.js';
@@ -64,11 +64,13 @@ test('gallery lanes options are the catalog widths the owner called out', () => 
   assert.deepEqual(GALLERY_LANES, [2, 3, 5]);
 });
 
-test('formatFootprint stays in cm under a meter, switches to m above', () => {
-  assert.equal(formatFootprint(95.4, 60.25), '95\u00D760 cm');
+test('formatLength/formatFootprint follow the gallery unit (m default, ft)', () => {
+  assert.equal(formatLength(1240), '12.40 m');
+  assert.equal(formatLength(1240, 'ft'), '40.7 ft');
   assert.equal(formatFootprint(240, 95), '2.4\u00D70.95 m');
-  assert.equal(formatFootprint(154.3, 208.9), '1.54\u00D72.09 m');
-  assert.equal(formatFootprint(0, 0), '\u2014');   /* empty track, no bbox */
+  assert.equal(formatFootprint(59, 59), '0.59\u00D70.59 m');      /* decimals, no cm */
+  assert.equal(formatFootprint(240, 95, 'ft'), '7.9\u00D73.1 ft');
+  assert.equal(formatFootprint(0, 0), '\u2014');                  /* empty track, no bbox */
 });
 
 test('completeBadge: ok check, wip cross with issue count, plain cross', () => {

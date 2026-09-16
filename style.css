@@ -219,25 +219,27 @@ button.primary:not(:disabled):active { background: #e6b84f; }
  * popover — it takes the whole viewport on every device. display is
  * [open]-guarded: an unguarded flex would override the UA's
  * dialog:not([open]) display:none and render a closed dialog as an
- * invisible click shield over the whole app */
+ * invisible click shield over the whole app. overflow hidden CLIPS the
+ * filter panel so a hidden panel can never leak a horizontal scrollbar */
 dialog.gallery-full {
   max-width: none; width: 100vw; height: 100dvh; height: 100svh;
-  margin: 0; border: 0; border-radius: 0;
+  margin: 0; border: 0; border-radius: 0; overflow: hidden;
 }
 dialog.gallery-full[open] { display: flex; flex-direction: column; }
 .gallery-full .dialog-head { flex: 0 0 auto; }
 .gallery-full .io-hint { flex: 0 0 auto; }
 /* toolbar wraps instead of scrolling — the pill row's horizontal
- * scrollbar on desktop was the complaint that spawned the drawer */
+ * scrollbar on desktop was the complaint that spawned the panel */
+.gal-toolbar-wrap { position: relative; flex: 0 0 auto; }
 .gal-toolbar {
-  flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center;
+  display: flex; flex-wrap: wrap; align-items: center;
   gap: 8px; margin-top: 10px;
 }
 .gal-sortwrap {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12px; color: #aab1bd;
 }
-.gal-sortwrap select, .gal-dims select {
+.gal-sortwrap select {
   font: inherit; font-size: 13px; color: #e8eaed;
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
   padding: 7px 8px; cursor: pointer;
@@ -258,33 +260,65 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
   background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 700;
 }
 .gal-meta { flex: 0 0 auto; margin-top: 8px; font-size: 11px; color: #9aa3af; font-variant-numeric: tabular-nums; }
+
+/* card grid (owner round 2): larger thumbnails, columns when there is
+ * room, one column on phones */
 .gal-list {
   flex: 1 1 auto; min-height: 0; margin-top: 8px; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 8px;
+  display: grid; gap: 10px; align-items: stretch;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  padding-bottom: 10px;
 }
 
-/* the filter drawer — slides over the gallery from the right */
-.gal-drawer {
-  position: absolute; top: 0; right: 0; bottom: 0; z-index: 5;
-  width: min(320px, 92vw); padding: 18px; overflow-y: auto;
-  background: var(--panel); border-left: 1px solid var(--line);
-  transform: translateX(100%); transition: transform .2s ease;
+/* the filter panel — drops DOWN from the toolbar (anchored to the
+ * Filters button, not a right-side slide-in). Hiding is visibility-
+ * based: a transform-only hide still occupies scroll width and leaks
+ * the horizontal scrollbar the owner could scroll to see */
+.gal-panel {
+  position: absolute; top: calc(100% + 6px); left: 10px; right: 10px; z-index: 5;
+  max-height: min(70vh, 520px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 14px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px; box-shadow: 0 10px 28px rgba(0, 0, 0, .45);
+  transform: translateY(-6px); opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease, visibility .15s;
 }
-.gal-drawer.open { transform: translateX(0); box-shadow: -8px 0 24px rgba(0, 0, 0, .35); }
-.gal-field {
+.gal-panel.open {
+  transform: translateY(0); opacity: 1; visibility: visible; pointer-events: auto;
+}
+.gal-panel-row {
   display: flex; flex-direction: column; gap: 6px;
   font-size: 13px; color: #c8cdd6; border: 0; padding: 0; margin: 0;
 }
-.gal-field legend { color: #c8cdd6; padding: 0; }
-.gal-field input[type="range"] { accent-color: var(--accent); width: 100%; }
-.gal-dims { display: flex; gap: 8px; align-items: center; }
+.gal-panel-row legend { color: #c8cdd6; padding: 0; }
+/* label text + (?) stay on ONE line — the icon wrapping under the
+ * title looked broken on every width (owner report); titles get their
+ * own row, controls sit BELOW (owner round 3) */
+.gal-field-title {
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.gal-units { flex-direction: row; align-items: center; gap: 10px; }
+.gal-panel-row input[type="range"] { accent-color: var(--accent); width: 100%; }
+.gal-units {
+  flex-direction: row; align-items: center; gap: 8px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  font-size: 12px; color: #9aa3af;
+}
+.gal-seg {
+  font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--panel-2); color: #aab1bd; cursor: pointer;
+}
+.gal-seg[aria-pressed="true"] {
+  background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700;
+}
+.gal-dims { display: flex; gap: 10px 14px; align-items: center; flex-wrap: wrap; }
+/* compact inputs — full panel width was excessive on desktop (owner) */
 .gal-dims label {
-  flex: 1 1 0; display: inline-flex; align-items: center; gap: 5px;
-  font-size: 12px; color: #9aa3af; min-width: 0;
+  flex: 0 1 auto; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #9aa3af; white-space: nowrap;
 }
 .gal-dims input[type="number"] {
-  width: 100%; min-width: 0; font: inherit; font-size: 13px; color: #e8eaed;
+  width: 110px; font: inherit; font-size: 13px; color: #e8eaed;
   background: #14161a; border: 1px solid var(--line); border-radius: 8px; padding: 6px 7px;
 }
 .gal-lane {
@@ -292,20 +326,21 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
   font-size: 13px; cursor: pointer;
 }
 .gal-lane input { accent-color: var(--accent); width: 17px; height: 17px; }
-.gal-drawer .dialog-actions { margin-top: auto; }
-.gal-row { display: flex; gap: 8px; align-items: stretch; }
+
+/* cards: the whole card (minus the star) loads the track; the star
+ * lives INSIDE the card, over the thumbnail's top-right corner */
+.gal-row { display: block; position: relative; }
 .gal-main {
-  flex: 1 1 auto; min-width: 0; text-align: left; padding: 8px 10px;
-  border-radius: 10px; border: 1px solid var(--line);
+  position: relative; display: flex; flex-direction: column; gap: 5px;
+  width: 100%; text-align: left; padding: 8px;
+  border-radius: 12px; border: 1px solid var(--line);
   background: var(--panel-2); color: inherit; cursor: pointer;
-  display: flex; flex-direction: row; align-items: center; gap: 10px;
 }
 .gal-thumb {
-  flex: 0 0 auto; width: 80px; height: 60px; display: block;
-  border-radius: 6px; background: #14161a;
+  width: 100%; aspect-ratio: 4 / 3; height: auto; display: block;
+  border-radius: 8px; background: #14161a; margin-bottom: 2px;
 }
-.gal-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.gal-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.gal-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; padding-right: 40px; }
 .gal-name {
   font-size: 14px; font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -316,14 +351,18 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
 .gal-facets { font-size: 12px; color: #aab1bd; font-variant-numeric: tabular-nums; }
 .gal-sub { font-size: 11px; color: #9aa3af; font-variant-numeric: tabular-nums; }
 .gal-star {
-  flex: 0 0 auto; width: 44px; border-radius: 10px; border: 1px solid var(--line);
-  background: var(--panel-2); color: #9aa3af; font-size: 19px; cursor: pointer;
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid var(--line); background: rgba(22, 24, 29, .82);
+  color: #9aa3af; font-size: 17px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .gal-star.starred { color: var(--accent); border-color: var(--accent); }
 .gal-star:disabled { opacity: .55; cursor: default; }
 .gal-more {
   font: inherit; font-size: 13px; padding: 10px; border-radius: 10px;
   border: 1px solid var(--line); background: var(--panel-2); color: inherit; cursor: pointer;
+  grid-column: 1 / -1;
 }
 .gal-empty { font-size: 13px; color: #9aa3af; padding: 4px 2px; }
 
