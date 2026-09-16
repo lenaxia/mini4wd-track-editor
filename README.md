@@ -8,8 +8,25 @@
 Design Mini4WD circuits on your phone. Touch-first, no build step, no
 frameworks — open it and lay track.
 
-## The editor
+## Features
 
+- **Automatic loop completion.** Never fiddle with the last piece:
+  leave a gap, select the two open ends, tap **Complete** — the shortest
+  run of straights and corners that closes the circuit is searched and
+  placed for you. If nothing fits the gap, the tool offers to remove
+  pieces until something does, then closes the loop.
+- **Publishing and the gallery.** Name your track and publish it; from
+  then on every edit auto-saves. The gallery lists every published
+  track — sort by length, lane count, footprint (limited room?),
+  straight/corner counts (limited parts?), stars, or newest; filter to
+  finished circuits only or to tracks this device saved (Mine). Star
+  what you like; tap any track to load it and keep editing. No accounts
+  anywhere.
+- **Nothing is ever lost.** Every save of a published track keeps the
+  old version — History lists them and anyone can restore one with a
+  tap. **Copy** makes your own version of any track (shown as "based
+  on" it) without touching the original, so abandoned tracks never
+  block anyone.
 - **Tap to place.** Pick a piece, tap the canvas — it drops in and welds
   to nearby track ends (green dots mean connected). Keep your finger
   down to drag it into exact position first; release to commit.
@@ -19,10 +36,12 @@ frameworks — open it and lay track.
 - **Elevation is real.** Raise and lower in 10 mm steps; slopes chain
   levels automatically; bridges over lower track render see-through with
   a warning when 75 mm clearance isn't met.
-- **Complete the loop.** Leave a gap, select the two open ends, tap
-  Complete — the shortest run of straights and corners fills it. If nothing
-  fits, the tool offers to remove pieces until something does, then
-  closes it.
+- **Know before you publish.** The save button is a live health check:
+  green ring = complete and consistent, red = issues (dangling ends,
+  kinked joints), listed when you tap. Incomplete tracks still publish —
+  marked Work-in-Progress.
+- **Share links** encode the whole track in the URL — no server needed.
+  Until you publish, work stays on your device.
 - **Made for thumbs.** Two-finger pan and pinch zoom, bottom toolbar,
   scrollable palette, safe-area aware. On desktop: full keyboard parity
   (1-9 pieces, Q/W/E tools, Z/X rotate, R undo, F fit, Space pan).
@@ -30,26 +49,6 @@ frameworks — open it and lay track.
   (11.5 cm lanes, official lap lengths) and rucdoc 1/2/3-lane
   3D-printed pieces — every sprite generated as crisp vector art on the
   same grid, so mixed systems align at the joints.
-
-## Sharing and saving
-
-- **Share links** encode the whole track in the URL — no server needed.
-- **Local until you publish.** Work stays on your device; publishing
-  names it and saves it to the server, and from then on every edit
-  auto-saves.
-- **Know before you publish.** The save button is a live health check:
-  green ring = complete and consistent, red = issues (dangling ends,
-  kinked joints), listed when you tap. Incomplete tracks still publish —
-  marked Work-in-Progress.
-- **Gallery.** Browse every published track: sort by length, lane count,
-  footprint (limited room?), straight/corner counts (limited parts?),
-  stars, or newest. Filter to finished circuits only, or to the tracks
-  this device saved (Mine). Star what you like; tap any track to load it
-  and keep editing it. No accounts anywhere.
-- **Nothing is ever lost.** Every save of a shared track keeps the old
-  version — History lists them and anyone can restore one with a tap.
-  **Copy** makes your own version of any track (shown as "based on" it)
-  without touching the original, so abandoned tracks never block anyone.
 
 ## Running it
 
