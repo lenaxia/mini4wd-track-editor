@@ -52,6 +52,7 @@ export function validateTrack(sprites) {
   for (let m = 0; m < open.length; m++) {
     for (let n = m + 1; n < open.length; n++) {
       const A = open[m], B = open[n];
+      if (sprites[A.i] === sprites[B.i]) continue;   /* same guard as openLinks: a piece cannot jump to itself */
       const d = Math.hypot(A.v.x - B.v.x, A.v.y - B.v.y);
       if (d > LINK_RANGE || d < 1e-6) continue;
       const toB = Math.atan2(B.v.y - A.v.y, B.v.x - A.v.x) * 180 / Math.PI;

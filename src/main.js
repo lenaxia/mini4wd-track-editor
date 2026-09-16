@@ -71,10 +71,13 @@ function boot() {
       state.sprites = parseTrack(decodeShare(m[1]));
       /* a shared link opens as a LOCAL copy: never silently overwrite the
        * browser's published row with someone else's track (own links too —
-       * reopen your track from the library instead) */
-      unpublishTrack();
-      ui.refreshPublishUi();
-      ui.toast(`Loaded shared track (${state.sprites.length} pieces)`);
+       * reopen your track from the library instead). Empty payloads fall
+       * through to autosave-restore WITHOUT unbinding. */
+      if (state.sprites.length) {
+        unpublishTrack();
+        ui.refreshPublishUi();
+        ui.toast(`Loaded shared track (${state.sprites.length} pieces)`);
+      }
     } catch (_) { ui.toast('Could not read shared link'); }
   }
   if (!state.sprites.length) restore(state);
