@@ -60,13 +60,19 @@ test('gallery rows render name, badge and facet line', async ({ page, request })
 
 test('sort switch reorders by length', async ({ page, request }) => {
   const n = nonce();
-  await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);
+  await seed(request, `gal-${n}-short`, `E2E Shortest ${n}`, SQUARE);
   await seed(request, `gal-${n}-long`, `E2E Longest ${n}`, LONG);
   await openGallery(page);
   await page.locator('#galSorts button', { hasText: 'Length' }).click();
-  /* 40 × Str1 = 64.8 m — by far the longest row the parallel specs seed */
-  await expect.poll(async () => page.locator('.gal-row .gal-name').first().textContent(),
-    { timeout: 10_000 }).toBe(`E2E Longest ${n}`);
+  /* 40 × Str1 = 64.8 m — longer than this spec's short seed; relative
+   * order (longest above shortest) is asserted so a shared server's other
+   * rows cannot break it */
+  await expect.poll(async () => {
+    const names = await page.locator('.gal-row .gal-name').allTextContents();
+    return names.indexOf(`E2E Longest ${n}`) >= 0 &&
+           names.indexOf(`E2E Shortest ${n}`) >= 0 &&
+           names.indexOf(`E2E Longest ${n}`) < names.indexOf(`E2E Shortest ${n}`);
+  }, { timeout: 10_000 }).toBe(true);
   await expect(page.locator('#galSorts button', { hasText: 'Length' })).toHaveAttribute('aria-pressed', 'true');
 });
 
