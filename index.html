@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Mini4WD Track Editor</title>
   <meta name="description" content="Touch-first Mini4WD track editor — design, validate and publish circuits on phone or desktop.">
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
   <header id="topbar">
@@ -166,8 +166,20 @@
     <div id="galList" class="gal-list"></div>
   </dialog>
 
+  <dialog id="statsDialog">
+    <div class="dialog-head">
+      <h2 id="statsTitle">Track</h2>
+      <button id="statsClose" class="icon-btn" type="button" aria-label="Close"><span data-icon="close"></span></button>
+    </div>
+    <div id="statsRows" class="stats-rows"></div>
+    <div class="dialog-actions">
+      <button id="statsRename" type="button" class="secondary" style="display:none;">Rename</button>
+      <button id="statsOk" type="button" class="primary">Close</button>
+    </div>
+  </dialog>
+
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=63"></script>
+  <script type="module" src="src/main.js?v=65"></script>
 </body>
 </html>

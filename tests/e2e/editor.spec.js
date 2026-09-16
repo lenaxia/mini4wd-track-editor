@@ -582,6 +582,10 @@ test('mobile top bar: the mode control collapses to one cycling button', async (
   await expect(page.locator('#modeCycle')).toHaveText('Rudoc ▸');
   await page.locator('#modeCycle').click();
   expect((await st(page)).mode).toBe(3);
+  /* owner rule: the collapsed control IS the selector on phones — it
+   * always carries the yellow active accent, matching desktop */
+  await expect(page.locator('#modeCycle')).toHaveClass(/active/);
+  await expect(page.locator('#modeCycle')).toHaveCSS('background-color', 'rgb(255, 209, 102)');
   await ctx.close();
 
   /* viewport crossing must not stale the controls (rotation trap): the
@@ -601,12 +605,13 @@ test('mobile top bar: the mode control collapses to one cycling button', async (
 
 test('mobile top bar: a long track title never pushes the mode control or menu off-screen', async ({ browser }) => {
   /* owner rule: the lane-width selector and the hamburger are ALWAYS
-   * visible on phones — a long track title (the rename affordance in
-   * the stats bar) must ellipsize, never push them off-screen */
+   * visible on phones. The stats bar keeps the numbers; a long name
+   * hides (it lives behind the tap popup) — nothing overflows */
   const ctxT = await browser.newContext({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
   const pageT = await ctxT.newPage();
-  await pageT.goto('/');
-  await pageT.evaluate(() => {
+  /* addInitScript, not evaluate-then-reload: a first empty load schedules
+   * a 350ms debounced autosave that can overwrite the key mid-race */
+  await pageT.addInitScript(() => {
     localStorage.setItem('m4wd.published', JSON.stringify({
       id: 'probe-long-name', name: 'Grand Canyon Circuit — the extremely long edition',
     }));
@@ -614,8 +619,11 @@ test('mobile top bar: a long track title never pushes the mode control or menu o
       mode: 3, tool: 'Pan', angle: 0, track: 'Str1;100.000;100.000;0;0;0#',
     }));
   });
-  await pageT.reload();
-  await expect(pageT.locator('#stats')).toContainText('Grand Canyon');
+  await pageT.goto('/');
+  await expect(pageT.locator('#stats')).toBeVisible();
+  /* useInnerText: the name span is display:none on phones — the visible
+   * bar is numbers only (the name lives behind the tap popup) */
+  await expect(pageT.locator('#stats')).toHaveText('1.62 m \u00B7 1 pcs', { useInnerText: true });
   const inView = (el) => el.evaluate((n) => {
     const r = n.getBoundingClientRect();
     return r.left >= 0 && r.right <= window.innerWidth && r.width > 0;
@@ -625,6 +633,9 @@ test('mobile top bar: a long track title never pushes the mode control or menu o
   expect(await inView(pageT.locator('#modeCycle'))).toBe(true);
   expect(await inView(pageT.locator('#btnMenu'))).toBe(true);
   expect(await inView(pageT.locator('#stats'))).toBe(true);
+  /* the name is one tap away: the popup carries it in full */
+  await pageT.locator('#stats').click();
+  await expect(pageT.locator('#statsTitle')).toHaveText('Grand Canyon Circuit — the extremely long edition');
   await ctxT.close();
 });
 

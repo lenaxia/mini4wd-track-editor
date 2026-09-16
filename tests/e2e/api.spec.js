@@ -111,6 +111,80 @@ test('DELETE removes; unknown ids 404', async ({ request }) => {
   expect((await request.delete(`/api/tracks/${id}`)).status()).toBe(404);
 });
 
+/* Track metadata popup (owner model: phones hide the name in the stats
+ * bar — everything lives one tap away). Server fields come from the
+ * bound row; local facets classify like the server's stamping. */
+const SQUARE_CODEC = 'R1C90I150;0.000;0.000;0.000;0;0#R1C90I150;0.000;-21.500;90.000;0;0#'
+                   + 'R1C90I150;21.500;-21.500;180.000;0;0#R1C90I150;21.500;0.000;270.000;0;0#';
+
+test('stats popup shows local facets + the server row (dates, stars, validity)', async ({ page, request }) => {
+  const id = `e2e-${Date.now()}-meta`; ids.push(id);
+  await request.put(`/api/tracks/${id}`, {
+    data: { name: 'E2E Metadata Track', author: 'playwright', data: { track: SQUARE_CODEC, mode: 3 } },
+  });
+  await request.post(`/api/tracks/${id}/star`);
+  await request.post(`/api/tracks/${id}/star`);
+  const first = await (await request.get(`/api/tracks/${id}`)).json();
+
+  /* addInitScript (pre-boot storage, no prior empty load racing its
+   * debounced autosave write over the key) */
+  await page.addInitScript(([id, track]) => {
+    localStorage.setItem('m4wd.published', JSON.stringify({ id, name: 'E2E Metadata Track' }));
+    localStorage.setItem('m4wd.autosave', JSON.stringify({ mode: 3, tool: 'Pan', angle: 0, track }));
+  }, [id, SQUARE_CODEC]);
+  await page.goto('/');
+
+  await page.locator('#stats').click();
+  await expect(page.locator('#statsDialog')).toBeVisible();
+  await expect(page.locator('#statsTitle')).toHaveText('E2E Metadata Track');
+  const rows = page.locator('#statsRows');
+  await expect(rows).toContainText('1.36 m');            /* 4 × R1C90I150 */
+  await expect(rows.locator('.stat-row', { hasText: 'Pieces' }).locator('.stat-value')).toHaveText('4');
+  await expect(rows.locator('.stat-row', { hasText: 'Straights' }).locator('.stat-value')).toHaveText('0');
+  await expect(rows.locator('.stat-row', { hasText: 'Corners' }).locator('.stat-value')).toHaveText('4');
+
+  /* the (?) affordances carry the classification notes in a
+   * position-aware tooltip — never inline, never off-screen */
+  const strTip = rows.locator('.stat-row', { hasText: 'Straights' }).locator('.tip-btn');
+  await strTip.click();
+  const bubble = page.locator('.tip-bubble');
+  await expect(bubble).toBeVisible();
+  await expect(bubble).toContainText('Waves and slopes count as straights');
+  const box = await bubble.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize().width);
+  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize().height);
+  await strTip.click();                                  /* tap toggles off */
+  await expect(bubble).toHaveCount(0);
+  /* the bubble mounts INSIDE the open dialog (top layer) */
+  await page.locator('.stat-row', { hasText: 'Lanes' }).locator('.tip-btn').click();
+  await expect(bubble).toBeVisible();
+  await expect(bubble).toContainText('widest piece');
+  await expect(bubble.locator('xpath=ancestor::dialog')).toHaveId('statsDialog');
+  /* server fields land asynchronously */
+  await expect(rows).toContainText('\u2605 2');
+  await expect(rows).toContainText('\u2713 complete');
+  const published = await rows.locator('.stat-row', { hasText: 'Published' }).locator('.stat-value').textContent();
+  expect(new Date(published).getTime()).toBeGreaterThan(Date.now() - 3600_000);
+  /* not exact-equality against a fresh GET: the page is bound, so its
+   * autosave mirror may re-save (bumping updated_at) after the popup
+   * fetched — assert the popup parsed a real, recent timestamp instead */
+  const modified = await rows.locator('.stat-row', { hasText: 'Last modified' }).locator('.stat-value').textContent();
+  expect(new Date(modified).getTime()).toBeGreaterThan(Date.now() - 3600_000);
+  expect(first.stars).toBe(2);
+  await page.locator('#statsOk').click();
+  await expect(page.locator('#statsDialog')).not.toBeVisible();
+});
+
+test('unpublished track popup says local-only and hides rename', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#stats').click();
+  await expect(page.locator('#statsDialog')).toBeVisible();
+  await expect(page.locator('#statsRows')).toContainText('Not published');
+  await expect(page.locator('#statsRename')).toBeHidden();
+  await page.locator('#statsClose').click();
+});
+
 /* Owner model (worklogs 0012/0013): unpublished tracks are local-only; the
  * toolbar Publish is gated by the track validator; publishing binds the row
  * and from then on the button becomes Save and edits auto-save. */
@@ -247,8 +321,10 @@ test('WIP publishes; badge flags issues; stats-bar rename keeps the row', async 
   await expect(page.locator('#toast')).toContainText('WIP');
   await expect(page.locator('#publishDialog')).not.toBeVisible();
 
-  /* rename via the stats bar: same row id, new name */
+  /* rename via the stats popup: same row id, new name */
   await page.locator('#stats').click();
+  await expect(page.locator('#statsDialog')).toBeVisible();
+  await page.locator('#statsRename').click();
   await expect(page.locator('#pubOk')).toHaveText('Save name');
   await expect(page.locator('#pubStatus')).toContainText('saved as Work-in-Progress');
   await page.locator('#pubName').fill('E2E WIP Renamed');

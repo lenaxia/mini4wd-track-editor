@@ -42,10 +42,16 @@ body {
 .stats {
   margin-left: auto; font-variant-numeric: tabular-nums;
   font-size: 12px; color: #aab1bd; white-space: nowrap;
-  /* the working track's name lives here (rename affordance): it may
-   * grow long, but the mode selector and menu are owner-mandated
-   * always-visible — the title ellipsizes instead of pushing them out */
+  /* the working track's name lives here: it may grow long, but the
+   * mode selector and menu are owner-mandated always-visible — on
+   * phones the name hides entirely (numbers stay; the popup carries
+   * it), on desktop the title ellipsizes instead of pushing them out */
   min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+/* phones: the numbers stay, the name moves behind the tap popup
+ * (same breakpoint as the mode-switch collapse); full line on desktop */
+@media (max-width: 540px) {
+  .stats-name { display: none; }
 }
 .icon-btn {
   border: 1px solid var(--line); background: var(--panel-2); color: inherit;
@@ -265,10 +271,44 @@ button.primary:not(:disabled):active { background: #e6b84f; }
 }
 .gal-empty { font-size: 13px; color: #9aa3af; padding: 4px 2px; }
 
+/* ---------- track metadata popup (stats-bar tap) ---------- */
+.stats-rows { display: flex; flex-direction: column; margin-top: 10px; }
+.stat-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  font-size: 13px; padding: 7px 2px; border-bottom: 1px solid var(--line);
+}
+.stat-row:last-child { border-bottom: 0; }
+.stat-row .stat-label { color: #9aa3af; flex: 0 0 auto; }
+.stat-row .stat-value {
+  font-variant-numeric: tabular-nums; text-align: right; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.stat-value.ok { color: #4ade80; }
+.stat-value.wip { color: #d9a441; }
+.stat-note { font-size: 12px; color: #9aa3af; padding: 8px 2px 0; }
+
+/* ---------- reusable (?) tooltips (src/tooltip.js) ---------- */
+/* 22px tap target, reads as a quiet affordance next to a label */
+.tip-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; margin-left: 4px; padding: 0;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: transparent; color: #9aa3af; cursor: pointer;
+  vertical-align: middle;
+}
+.tip-btn:hover { background: #2e3140; border-color: #4a5160; }
+.tip-btn:active { transform: translateY(1px); background: #262a33; }
+.tip-bubble {
+  position: fixed; z-index: 80;
+  max-width: 240px; padding: 9px 11px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+  color: #e8eaed; font-size: 12px; line-height: 1.5;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .4);
+}
+
 /* publish/save toolbar badge: live validity ring around the button */
 #btnPublishBar.pub-ok { box-shadow: 0 0 0 2px #4ade80 inset; }
 #btnPublishBar.pub-bad { box-shadow: 0 0 0 2px #e05263 inset; }
-/* the stats bar's track name is the rename affordance (a real button:
- * keyboard focusable, Enter/Space work) */
+/* the stats bar is a real button (keyboard focusable) — tapping it
+ * opens the track metadata popup */
 #stats { cursor: default; border: 0; background: transparent; color: inherit; font: inherit; padding: 0; }
-#stats[title='Rename published track'] { cursor: pointer; text-decoration: underline dotted; }

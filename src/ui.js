@@ -11,9 +11,10 @@ import { imageFor } from './assets.js';
 import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow } from './storage.js';
 import {
   GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge,
-  isStarred, addStarred, removeStarred, thumbFit,
+  isStarred, addStarred, removeStarred, thumbFit, trackFacets,
 } from './gallery.js';
 import { validateTrack } from './validate.js';
+import { tipBtn, initTooltips } from './tooltip.js';
 import { icon } from './icons.js';
 import { drawPieceArt } from './art.js';
 import { closeLoop, closeLoopStepping, solverSetFor, endPieceIssue } from './solver.js';
@@ -99,15 +100,21 @@ let lastStatsText = '';
 let lastMode = null;
 
 function updateStats() {
-  let len = 0;
-  for (const p of state.sprites) len += PIECES[p.name].l;
+  const f = trackFacets(state.sprites);
   const pub = publishedTrack();
-  const txt = `${pub ? pub.name + ' \u00B7 ' : ''}${len.toFixed(2)} m \u00B7 ${state.sprites.length} pcs`;
-  const title = pub ? 'Rename published track' : '';
-  if (txt === lastStatsText && $('stats').title === title) return; /* avoid DOM writes from the render loop */
+  const txt = `${pub ? pub.name + ' \u00B7 ' : ''}${(f.length_cm / 100).toFixed(2)} m \u00B7 ${f.pieces} pcs`;
+  if (txt === lastStatsText && $('stats').title) return; /* avoid DOM writes from the render loop */
   lastStatsText = txt;
-  $('stats').title = title;
-  $('stats').textContent = txt;
+  /* name rides in its own span: phones hide it (numbers stay, the name
+   * lives behind the tap popup — owner rule); desktop shows the line */
+  $('stats').title = 'Track details';
+  $('stats').textContent = '';
+  const name = document.createElement('span');
+  name.className = 'stats-name';
+  name.textContent = pub ? `${pub.name} \u00B7 ` : '';
+  const nums = document.createElement('span');
+  nums.textContent = `${(f.length_cm / 100).toFixed(2)} m \u00B7 ${f.pieces} pcs`;
+  $('stats').append(name, nums);
 }
 
 function syncToolUi() {
@@ -116,6 +123,10 @@ function syncToolUi() {
   $('mode3').classList.toggle('active', state.mode === 3);
   $('mode5').classList.toggle('active', state.mode === 5);
   $('modeR').classList.toggle('active', state.mode === 'rucdoc');
+  /* phones collapse the group to this one button — it IS the selector
+   * there, so it always carries the active accent like the visible
+   * segment does on desktop (hidden on desktop, the class is inert) */
+  $('modeCycle').classList.add('active');
   const label = state.mode === 'rucdoc' ? 'Rudoc' : `${state.mode}L`;
   $('modeCycle').textContent = `${label} \u25B8`;
 }
@@ -223,6 +234,7 @@ export function init(dimsGetter) {
   getDims = dimsGetter;
 
   subscribe(onStoreChange);
+  initTooltips();   /* one delegated listener: any [data-tip] element, anywhere */
 
   $('btnMenu').addEventListener('click', () => openDialog($('menuDialog')));
   $('btnCloseMenu').addEventListener('click', () => closeDialog($('menuDialog')));
@@ -693,9 +705,82 @@ export function init(dimsGetter) {
     setMode(order[(order.indexOf(state.mode) + 1) % order.length]);
   });
 
+  /* ---------- track metadata popup (stats-bar tap) ----------
+   * Owner model: phones keep the numbers and hide the name — the name
+   * and everything the server knows (created/updated/stars/validity)
+   * live one tap away. Local facets render immediately; the published
+   * row's server fields fill in when the fetch lands. */
+  function statRow(label, value, cls, tip) {
+    const row = document.createElement('div');
+    row.className = 'stat-row';
+    const l = document.createElement('span');
+    l.className = 'stat-label';
+    l.textContent = label;
+    if (tip) l.append(tipBtn(tip));   /* (?) affordance — the value stays clean */
+    const v = document.createElement('span');
+    v.className = `stat-value${cls ? ' ' + cls : ''}`;
+    v.textContent = value;
+    row.append(l, v);
+    return row;
+  }
+
+  const statsDate = (t) => (t ? new Date(t).toLocaleString() : '—');
+
+  async function renderStatsPopup() {
+    const f = trackFacets(state.sprites);
+    const pub = publishedTrack();
+    const rows = $('statsRows');
+    rows.textContent = '';
+    $('statsTitle').textContent = pub ? pub.name : 'Track';
+    rows.append(
+      statRow('Length', `${(f.length_cm / 100).toFixed(2)} m`),
+      statRow('Pieces', String(f.pieces)),
+      statRow('Straights', String(f.straights), null, 'Waves and slopes count as straights — they are straight pieces with a bump or a level change.'),
+      statRow('Corners', String(f.corners), null, 'Hairpins and rainbow curves count as corners.'),
+      statRow('Lanes', String(f.lanes || '—'), null, 'The widest piece used — 3-lane (Japan Cup), 5-lane (WIDE) or the 1–3-lane rucdoc system.'),
+    );
+    $('statsRename').style.display = pub ? '' : 'none';
+    if (!pub) {
+      const note = document.createElement('p');
+      note.className = 'stat-note';
+      note.textContent = 'Not published — this track lives on this device only.';
+      rows.append(note);
+      return;
+    }
+    const created = statRow('Published', '…');
+    const updated = statRow('Last modified', '…');
+    const stars = statRow('Stars', '…');
+    const valid = statRow('Validity', '…');
+    rows.append(created, updated, stars, valid);
+    try {
+      const res = await fetch(`/api/tracks/${pub.id}`);
+      if (!res.ok) throw new Error();
+      const row = await res.json();
+      created.lastElementChild.textContent = statsDate(row.created_at);
+      updated.lastElementChild.textContent = statsDate(row.updated_at);
+      stars.lastElementChild.textContent = `\u2605 ${row.stars}`;
+      const badge = completeBadge(row);
+      valid.lastElementChild.textContent = badge.text === '\u2713' ? '✓ complete' : `${badge.text} — work in progress`;
+      valid.lastElementChild.className = `stat-value ${badge.cls}`;
+    } catch {
+      created.lastElementChild.textContent = 'server unreachable';
+      updated.lastElementChild.textContent = '—';
+      stars.lastElementChild.textContent = '—';
+      valid.lastElementChild.textContent = '—';
+    }
+  }
+
   $('stats').addEventListener('click', () => {
+    closeDialog($('menuDialog'));
+    renderStatsPopup();
+    openDialog($('statsDialog'));
+  });
+  $('statsClose').addEventListener('click', () => closeDialog($('statsDialog')));
+  $('statsOk').addEventListener('click', () => closeDialog($('statsDialog')));
+  $('statsRename').addEventListener('click', () => {
     const pub = publishedTrack();
     if (!pub) return;
+    closeDialog($('statsDialog'));
     $('pubTitle').textContent = `Rename “${pub.name}”`;
     $('pubOk').textContent = 'Save name';
     $('pubName').value = pub.name;

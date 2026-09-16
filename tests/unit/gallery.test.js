@@ -2,8 +2,10 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge,
-  readStarred, isStarred, addStarred, removeStarred, thumbFit,
+  readStarred, isStarred, addStarred, removeStarred, thumbFit, trackFacets,
 } from '../../src/gallery.js';
+import { facets } from '../../lib/store/facets.js';
+import { serializeForSave } from '../../src/track.js';
 
 /* Map-backed localStorage stub — node --test has no webstorage (same
  * pattern as storage.test.js). */
@@ -73,6 +75,38 @@ test('removeStarred drops one id, keeps the rest, never throws', () => {
     removeItem: () => {},
   };
   assert.doesNotThrow(() => removeStarred(broken, 'abc'));
+});
+
+/* trackFacets: the topbar/popup metadata for the LOCAL sprites — must
+ * classify exactly like the server's facet stamping (same catalog,
+ * same kinds: waves/slopes are straights, hairpins are corners,
+ * specials excluded, lanes = max). Cross-checked against
+ * lib/store/facets.js over a serialized round-trip so the popup can
+ * never disagree with the stored row. */
+test('trackFacets matches the server facet classification', () => {
+  const sprites = [
+    { name: 'Str1', x: 100, y: 100, a: 0, c: 0, z: 0 },
+    { name: 'Chi1', x: 200, y: 100, a: 0, c: 1, z: 0 },     /* wave -> straight */
+    { name: 'Bri1', x: 300, y: 100, a: 0, c: 2, z: 75 },    /* slope -> straight */
+    { name: 'Cor1', x: 400, y: 100, a: 45, c: 3, z: 0 },    /* corner */
+    { name: 'Lan2', x: 500, y: 100, a: 0, c: 0, z: 0 },     /* hairpin (rainbow) */
+    { name: 'Lan1', x: 600, y: 100, a: 0, c: 0, z: 0 },     /* lane changer — excluded */
+    { name: 'Ban1', x: 700, y: 100, a: 0, c: 1, z: 0 },     /* bank — excluded */
+  ];
+  const local = trackFacets(sprites);
+  const server = facets({ track: serializeForSave(sprites) });
+  assert.deepEqual(local, {
+    pieces: server.piece_count,
+    length_cm: server.length_cm,
+    lanes: server.lanes,
+    straights: server.straights,       /* Str1 + wave + slope */
+    corners: server.corners,           /* Cor1 + Lan2 */
+  });
+  assert.equal(local.straights, 3);
+  assert.equal(local.corners, 2);
+  assert.equal(local.pieces, 7);
+  assert.equal(local.lanes, 3);
+  assert.deepEqual(trackFacets([]), { pieces: 0, length_cm: 0, lanes: 0, straights: 0, corners: 0 });
 });
 
 /* thumbFit: maps track coords (cm) into a canvas box (px), center-fit
