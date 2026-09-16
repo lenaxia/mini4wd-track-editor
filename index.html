@@ -64,6 +64,7 @@
       <label class="file-label">⬆ Import track file<input type="file" id="fileImport" accept=".txt,.m4t,text/plain"></label>
       <button id="btnImportText" type="button">📋 Paste / import code</button>
       <button id="btnLibrary" type="button">📖 My published tracks</button>
+      <button id="btnGallery" type="button">🌍 Gallery</button>
       <button id="btnNewTrack" type="button">✚ New track (clears canvas)</button>
       <button id="btnLoop" type="button">🔁 Close loop (2 selected pieces)</button>
       <button id="btnDeleteAll" type="button">🗑 Delete all pieces</button>
@@ -152,8 +153,20 @@
     <div id="libList" class="menu-actions" style="margin-top:10px;max-height:50vh;overflow-y:auto;"></div>
   </dialog>
 
+  <dialog id="galleryDialog">
+    <div class="dialog-head">
+      <h2>🌍 Gallery</h2>
+      <button id="galClose" class="icon-btn" type="button" aria-label="Close">✕</button>
+    </div>
+    <p class="io-hint">All tracks published on this server — not just this device's. Tap a row to load it onto the canvas; ★ to star a favourite.</p>
+    <div id="galSorts" class="gal-sorts" role="group" aria-label="Sort tracks"></div>
+    <button id="galComplete" type="button" class="gal-toggle" aria-pressed="false">✓ Complete only</button>
+    <div id="galMeta" class="gal-meta"></div>
+    <div id="galList" class="gal-list"></div>
+  </dialog>
+
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=55"></script>
+  <script type="module" src="src/main.js?v=56"></script>
 </body>
 </html>

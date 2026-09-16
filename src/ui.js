@@ -9,6 +9,7 @@ import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow } from './storage.js';
+import { GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge, isStarred, addStarred } from './gallery.js';
 import { validateTrack } from './validate.js';
 import { drawPieceArt } from './art.js';
 import { closeLoop, closeLoopStepping, solverSetFor, endPieceIssue } from './solver.js';
@@ -347,14 +348,17 @@ export function init(dimsGetter) {
         row.dataset.id = it.id;
         const when = new Date(it.updated_at).toLocaleString();
         row.textContent = `${it.name} · ${it.piece_count} pcs · ${(it.length_cm / 100).toFixed(2)} m · ${when}`;
-        row.addEventListener('click', () => loadLibraryTrack(it.id));
+        row.addEventListener('click', () => loadPublishedTrack(it.id));
         list.appendChild(row);
       }
     } catch { list.textContent = 'Server unreachable.'; }
   });
   $('libClose').addEventListener('click', () => closeDialog($('libraryDialog')));
 
-  async function loadLibraryTrack(id) {
+  /* Shared by the library and the gallery: fetch a published row, confirm
+   * the replace when the canvas holds work, adopt the publication binding
+   * (edits auto-save from there) and fit the view. */
+  async function loadPublishedTrack(id) {
     try {
       const res = await fetch(`/api/tracks/${id}`);
       if (!res.ok) { toast('Track not found on server'); return; }
@@ -366,10 +370,147 @@ export function init(dimsGetter) {
       loadSprites(sprites); /* emits -> autosave snapshots it */
       fitView(getDims().w, getDims().h);
       closeDialog($('libraryDialog'));
+      closeDialog($('galleryDialog'));
       refreshPublishUi();
       toast(`Loaded “${row.name}” — ${sprites.length} pcs · edits auto-save`);
     } catch { toast('Server unreachable'); }
   }
+
+  /* ---------- gallery (ALL published tracks, not just this browser's) ---------- */
+
+  const GAL_PAGE = 25;
+  const gal = { sort: '-updated_at', complete: false, items: [], total: 0 };
+
+  function galRenderControls() {
+    const bar = $('galSorts');
+    bar.innerHTML = '';
+    for (const s of GALLERY_SORTS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = s.label;
+      b.setAttribute('aria-pressed', String(gal.sort === s.value));
+      b.addEventListener('click', () => { if (gal.sort !== s.value) openGallery(s.value); });
+      bar.appendChild(b);
+    }
+    $('galComplete').setAttribute('aria-pressed', String(gal.complete));
+  }
+
+  async function galLoad() {
+    const list = $('galList');
+    if (!gal.items.length) list.textContent = 'Loading…';
+    try {
+      const res = await fetch(`/api/tracks?${galleryQuery({
+        sort: gal.sort, complete: gal.complete, limit: GAL_PAGE, offset: gal.items.length,
+      })}`);
+      const page = await res.json();
+      gal.items.push(...page.items);
+      gal.total = page.total;
+      galRenderList();
+    } catch {
+      list.textContent = 'Server unreachable.';
+      $('galMeta').textContent = '';
+    }
+  }
+
+  function galRowEl(it) {
+    const row = document.createElement('div');
+    row.className = 'gal-row';
+    row.dataset.id = it.id;
+
+    const main = document.createElement('button');
+    main.type = 'button';
+    main.className = 'gal-main';
+    const top = document.createElement('span');
+    top.className = 'gal-top';
+    const name = document.createElement('span');
+    name.className = 'gal-name';
+    name.textContent = it.name;
+    const badge = completeBadge(it);
+    const mark = document.createElement('span');
+    mark.className = `gal-badge ${badge.cls}`;
+    mark.textContent = badge.text;
+    mark.title = badge.title;
+    top.append(name, mark);
+    const facets = document.createElement('span');
+    facets.className = 'gal-facets';
+    facets.textContent = `${it.piece_count} pcs · ${(it.length_cm / 100).toFixed(2)} m · ${it.lanes} lanes`
+      + ` · ${formatFootprint(it.bbox_w_cm, it.bbox_h_cm)} · ${it.straights} str · ${it.corners} cor`;
+    const sub = document.createElement('span');
+    sub.className = 'gal-sub';
+    sub.textContent = `★ ${it.stars} · ${galDate(it.updated_at)}`;
+    main.append(top, facets, sub);
+    main.addEventListener('click', () => loadPublishedTrack(it.id));
+
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'gal-star';
+    const starred = isStarred(localStorage, it.id);
+    star.classList.toggle('starred', starred);
+    star.textContent = starred ? '★' : '☆';
+    star.title = starred ? 'Starred on this device' : 'Star this track';
+    star.addEventListener('click', () => galStar(it, star, sub));
+
+    row.append(main, star);
+    return row;
+  }
+
+  function galRenderList() {
+    const list = $('galList');
+    list.textContent = '';
+    if (!gal.items.length) {
+      $('galMeta').textContent = '';
+      const empty = document.createElement('p');
+      empty.className = 'gal-empty';
+      empty.textContent = gal.complete ? 'No complete tracks published yet.' : 'No tracks published yet.';
+      list.appendChild(empty);
+      return;
+    }
+    for (const it of gal.items) list.appendChild(galRowEl(it));
+    if (gal.items.length < gal.total) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'gal-more';
+      more.textContent = `Load more · ${gal.total - gal.items.length} remaining`;
+      more.addEventListener('click', galLoad);
+      list.appendChild(more);
+    }
+    $('galMeta').textContent = `${gal.items.length} of ${gal.total} track${gal.total === 1 ? '' : 's'}`;
+  }
+
+  /* One star per browser per track: the localStorage set blocks the POST,
+   * the server counter itself is public (no auth — accepted). */
+  async function galStar(it, btn, sub) {
+    if (isStarred(localStorage, it.id)) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/tracks/${it.id}/star`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const { stars } = await res.json();
+      it.stars = stars;
+      addStarred(localStorage, it.id);
+      btn.classList.add('starred');
+      btn.textContent = '★';
+      btn.title = 'Starred on this device';
+      sub.textContent = `★ ${stars} · ${galDate(it.updated_at)}`;
+    } catch { toast('Server unreachable'); }
+    btn.disabled = false;
+  }
+
+  function galDate(t) { return new Date(t).toLocaleDateString(); }
+
+  function openGallery(sort) {
+    if (sort) gal.sort = sort;
+    closeDialog($('menuDialog'));
+    gal.items = [];
+    gal.total = 0;
+    galRenderControls();
+    galLoad();
+    openDialog($('galleryDialog'));
+  }
+
+  $('btnGallery').addEventListener('click', () => openGallery());
+  $('galClose').addEventListener('click', () => closeDialog($('galleryDialog')));
+  $('galComplete').addEventListener('click', () => { gal.complete = !gal.complete; openGallery(); });
 
   $('btnNewTrack').addEventListener('click', () => {
     closeDialog($('menuDialog'));
