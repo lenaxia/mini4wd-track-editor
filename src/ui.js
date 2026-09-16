@@ -503,7 +503,9 @@ export function init(dimsGetter) {
         .then((row) => {
           const sprites = row ? spritesFromRow(row) : [];
           galThumbCache.set(id, sprites.length ? sprites : null);   /* negatives cache too */
-          for (const cv of waiters) galDrawThumb(cv, sprites);
+          /* the live pending entry: canvases that joined while the fetch
+           * was in flight must draw too (sort/load-more re-renders) */
+          for (const cv of galThumbPending.get(id) || []) if (cv.isConnected) galDrawThumb(cv, sprites);
         })
         .catch(() => {})
         .finally(() => { galThumbActive -= 1; galThumbPending.delete(id); galThumbPump(); });
