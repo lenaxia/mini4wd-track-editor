@@ -86,6 +86,13 @@ geometry and golden rasters. Pure modules run under plain node, which is
 also how the server validates tracks. CI runs the suites, a live-postgres
 conformance check, and a real docker build-and-boot smoke on every PR.
 
+## AI use
+
+This project is built with AI coding agents under human direction.
+`README-LLM.md` holds the rules the agents work under, `docs/worklogs/`
+records each change and the decisions behind it, and every pull request
+is reviewed by an automated AI reviewer before merge.
+
 ## Credits
 
 - **Pimentoso (Michele Ferri)**: the track format, piece catalog, and
