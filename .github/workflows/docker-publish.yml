@@ -6,7 +6,7 @@ name: docker-publish
 
 on:
   push:
-    tags: ['v*']
+    tags: ['v[0-9]*']
 
 permissions:
   contents: read
@@ -45,7 +45,6 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -71,3 +70,6 @@ jobs:
             -d '{"name":"ci","data":{"track":"Str1;1;1;0;0;0#"}}' >/dev/null
           curl -sf http://localhost:3000/api/tracks/ci-smoke >/dev/null
           echo "image serves, stores, and reads back"
+      - name: Container logs (on failure)
+        if: failure()
+        run: docker logs app || true
