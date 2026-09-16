@@ -136,16 +136,22 @@ function suite(label, open) {
     await s.close();
   });
 
-  test(`${label}: stars start at 0, increment, and survive re-saves`, async () => {
+  test(`${label}: stars start at 0, increment, unstar floors at 0, re-saves keep the count`, async () => {
     const s = await open(); const A = ns();
     await s.upsert({ id: 'st1', name: 'starred', author: A, data: doc(2), _facets: facets(doc(2)) });
     assert.equal((await s.get('st1')).stars, 0);      /* column default, never null */
+    assert.equal(await s.unstar('st1'), 0);           /* floor: never negative */
     assert.equal(await s.star('st1'), 1);
+    assert.equal(await s.star('st1'), 2);
+    assert.equal(await s.unstar('st1'), 1);
+    assert.equal(await s.unstar('st1'), 0);
+    assert.equal(await s.unstar('st1'), 0);           /* stays at the floor */
     await s.upsert({ id: 'st1', name: 'starred v2', author: A, data: doc(4), _facets: facets(doc(4)) });
     const row = await s.get('st1');
-    assert.equal(row.stars, 1);                       /* a re-save never resets stars */
+    assert.equal(row.stars, 0);                       /* a re-save never resets stars */
     assert.equal(row.piece_count, 4);
     assert.equal(await s.star('nope'), null);         /* unknown id, no throw */
+    assert.equal(await s.unstar('nope'), null);
     await s.close();
   });
 
