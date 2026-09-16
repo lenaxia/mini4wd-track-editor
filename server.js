@@ -167,6 +167,28 @@ async function main() {
     try {
       if (u === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, driver: store.driver });
 
+      /* The whole sprite set in ONE json request (boot used to fire
+       * ~75 per-file fetches — request-rate-limited previews throttled
+       * that burst to placeholders before it ever reached us, HAR
+       * evidence 2026-09-16). ?h=<digest of the manifest> makes it
+       * immutable-cacheable; the client verifies every file's sha
+       * against its manifest and self-heals to the per-file path. */
+      if (u === '/api/sprites' && req.method === 'GET') {
+        const files = {};
+        for (const f of fs.readdirSync(path.join(import.meta.dirname, 'assets'))) {
+          if (f.endsWith('.svg')) files[f] = fs.promises.readFile(path.join(import.meta.dirname, 'assets', f), 'utf8');
+        }
+        const out = {};
+        for (const [f, p] of Object.entries(files)) out[f] = await p;
+        const hashAddr = /[?&]h=[0-9a-f]{8,64}/.test(req.url);
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': hashAddr ? 'public, max-age=31536000, immutable' : 'no-cache',
+          'Access-Control-Allow-Origin': '*',
+        });
+        return res.end(JSON.stringify({ files: out }));
+      }
+
       /* Sprites over json: the preview proxy empties svg-typed fetch()
        * responses and injects bytes into svg image responses (HAR evidence,
        * worklog 0011) while json passes untouched — the manifest proves it

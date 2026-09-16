@@ -2,7 +2,7 @@
  * the original PNG rips stay in assets/ as provenance (unused at runtime). */
 
 import { PIECES } from './pieces.js';
-import { initCache, cachedSpriteUrl } from './cache.js';
+import { initCache, cachedSpriteUrl, spriteBundle } from './cache.js';
 
 const IMAGES = {};
 const BUSTER = 29;
@@ -15,6 +15,9 @@ export function imageFor(name, c) { const f = PIECES[name]?.sprite || `${name}.$
  * on boot — see cache.js); plain buster URLs when it is unavailable. */
 export async function preloadImages(onload) {
   await initCache();
+  /* one request for the whole set when the manifest is in play (see
+   * spriteBundle); per-file fallback otherwise */
+  const bundle = await spriteBundle();
   const jobs = [];
   for (const [name, def] of Object.entries(PIECES)) {
     /* procedural: true — renders via art.js (no sprite request); kept for
@@ -27,7 +30,8 @@ export async function preloadImages(onload) {
       img.onload = onload;
       img.dataset.sprite = f; /* survives object-URL srcs (cache mode) */
       IMAGES[f] = img;
-      jobs.push(cachedSpriteUrl(f, BUSTER).then(u => { img.src = u; }));
+      if (bundle?.has(f)) img.src = bundle.get(f);
+      else jobs.push(cachedSpriteUrl(f, BUSTER).then(u => { img.src = u; }));
     }
   }
   await Promise.all(jobs);

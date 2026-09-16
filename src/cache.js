@@ -96,6 +96,32 @@ export async function initCache() {
   }
 }
 
+/* The whole sprite set in one verified request (proxy-rate-limit
+ * resilience — see the /api/sprites route). Returns Map(file ->
+ * objectURL) of ONLY files whose bytes hash-match the manifest (each
+ * also banked into CacheStorage for later boots), or null on any
+ * failure — the caller falls back to the per-file path. */
+export async function spriteBundle() {
+  if (!cache || !manifest) return null;
+  try {
+    const canonical = Object.keys(manifest).sort().map((k) => `${k}:${manifest[k]}`).join('\n');
+    const digest = await blobSha(new Blob([canonical]));
+    const res = await fetch(`/api/sprites?h=${digest}`);
+    if (!res.ok) return null;
+    const files = (await res.json())?.files;
+    if (!files || typeof files !== 'object') return null;
+    const out = new Map();
+    for (const [name, svg] of Object.entries(files)) {
+      if (typeof svg !== 'string' || !manifest[name]) continue;
+      if (await blobSha(new Blob([svg])) !== manifest[name]) continue;   /* unverified bytes are dropped, not trusted */
+      out.set(name, URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' })));
+      cache.put(`assets/${name}?h=${manifest[name]}`,
+        new Response(svg, { headers: { 'Content-Type': 'image/svg+xml' } })).catch(() => {});
+    }
+    return out.size ? out : null;
+  } catch { return null; }
+}
+
 /* Load a sprite as an image-ready URL. The cache path is fully bounded:
  * a corrupt entry whose body READ HANGS (an interrupted-write failure
  * mode — observed live: manifest fetched, zero sprite requests, sprites
