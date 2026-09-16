@@ -102,6 +102,9 @@ export async function initCache() {
  * also banked into CacheStorage for later boots), or null on any
  * failure — the caller falls back to the per-file path. */
 export async function spriteBundle() {
+  /* no crypto.subtle (insecure origin): the digest throws -> caught ->
+   * per-file fallback (which trusts unverified bytes there) — the
+   * 75->1 win quietly does not apply there */
   if (!cache || !manifest) return null;
   try {
     const canonical = Object.keys(manifest).sort().map((k) => `${k}:${manifest[k]}`).join('\n');
