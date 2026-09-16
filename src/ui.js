@@ -8,7 +8,7 @@ import {
 import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
-import { publishedTrack, publishTrack, unpublishTrack, spritesFromRow, autosave } from './storage.js';
+import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow } from './storage.js';
 import { drawPieceArt } from './art.js';
 import { closeLoop, closeLoopStepping, solverSetFor, endPieceIssue } from './solver.js';
 
@@ -283,13 +283,14 @@ export function init(dimsGetter) {
   $('pubClose').addEventListener('click', () => closeDialog($('publishDialog')));
   $('pubOk').addEventListener('click', async () => {
     const name = $('pubName').value.trim() || 'Untitled';
+    const wasPublished = !!publishedTrack();
     $('pubOk').disabled = true;
     const row = await publishTrack(name, state);
     $('pubOk').disabled = false;
     if (!row) { toast('Server unreachable — track stays local'); return; }
     closeDialog($('publishDialog'));
-    toast(publishedTrack() && row.name === name && $('pubTitle').textContent === 'Rename published track'
-      ? `Renamed to “${row.name}”` : `Published “${row.name}” — edits now auto-save`);
+    toast(wasPublished ? `Renamed to “${row.name}”`
+                       : `Published “${row.name}” — edits now auto-save`);
   });
 
   $('btnLibrary').addEventListener('click', async () => {
@@ -309,14 +310,14 @@ export function init(dimsGetter) {
         row.dataset.id = it.id;
         const when = new Date(it.updated_at).toLocaleString();
         row.textContent = `${it.name} · ${it.piece_count} pcs · ${it.length_cm / 100 | 0}.${Math.round(it.length_cm) % 100} m · ${when}`;
-        row.addEventListener('click', () => loadLibraryTrack(it.id, row.textContent));
+        row.addEventListener('click', () => loadLibraryTrack(it.id));
         list.appendChild(row);
       }
     } catch { list.textContent = 'Server unreachable.'; }
   });
   $('libClose').addEventListener('click', () => closeDialog($('libraryDialog')));
 
-  async function loadLibraryTrack(id, label) {
+  async function loadLibraryTrack(id) {
     try {
       const res = await fetch(`/api/tracks/${id}`);
       if (!res.ok) { toast('Track not found on server'); return; }
@@ -324,11 +325,10 @@ export function init(dimsGetter) {
       const sprites = spritesFromRow(row);
       if (!sprites.length) { toast('Track has no pieces'); return; }
       if (state.sprites.length && !confirm(`Load “${row.name}”? The canvas will be replaced.`)) return;
-      localStorage.setItem('m4wd.published', JSON.stringify({ id: row.id, name: row.name }));
-      loadSprites(sprites);
+      bindPublished(row);   /* the loaded track keeps auto-saving */
+      loadSprites(sprites); /* emits -> autosave snapshots it */
       fitView(getDims().w, getDims().h);
       closeDialog($('libraryDialog'));
-      autosave(state);   /* bind + snapshot the loaded track immediately */
       toast(`Loaded “${row.name}” — ${sprites.length} pcs · edits auto-save`);
     } catch { toast('Server unreachable'); }
   }

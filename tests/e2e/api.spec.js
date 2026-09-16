@@ -171,3 +171,24 @@ test('library lists published tracks and loads one onto a fresh browser', async 
     .toBe('E2E Library Track');
   await ctx.close();
 });
+
+test('sprite endpoint serves verified bytes proxy-safely (json transport)', async ({ request }) => {
+  const manifest = await (await request.get('/assets/manifest.json')).json();
+  const name = 'Str1.0.svg';
+  const r = await request.get(`/api/sprites/${name}?h=${manifest[name]}`);
+  expect(r.status()).toBe(200);
+  expect(r.headers()['content-type']).toContain('application/json');
+  expect(r.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
+  const body = await r.json();
+  expect(typeof body.svg).toBe('string');
+  expect(body.svg.startsWith('<svg')).toBe(true);
+  /* hash-true: identical bytes to the manifest */
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body.svg));
+  expect(Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('')).toBe(manifest[name]);
+  /* unversioned: revalidating, not immutable */
+  const plain = await request.get(`/api/sprites/${name}`);
+  expect(plain.headers()['cache-control']).toBe('no-cache');
+  /* traversal + missing are refused */
+  expect((await request.get('/api/sprites/..%2F..%2Fserver.js')).status()).toBe(404);
+  expect((await request.get('/api/sprites/Nope.0.svg')).status()).toBe(404);
+});

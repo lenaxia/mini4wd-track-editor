@@ -58,6 +58,10 @@ export async function publishTrack(name, state) {
   } catch { return null; }
 }
 
+/* Adopt an existing published row (library load): binds {id, name}.
+ * Never throws — private-mode storage failures just skip the binding. */
+export function bindPublished(row) { writePub({ id: row.id, name: row.name }); }
+
 /* Drop the publication binding (New Track): further edits stay local. */
 export function unpublishTrack() { writePub(null); }
 
