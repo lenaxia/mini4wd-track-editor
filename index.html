@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Mini4WD Track Editor</title>
   <meta name="description" content="Touch-first Mini4WD track editor — design, validate and publish circuits on phone or desktop.">
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
   <header id="topbar">
@@ -187,8 +187,8 @@
         </fieldset>
         <div class="gal-panel-row" id="galFootField">Footprint max
           <div class="gal-dims">
-          <label>W <input id="galMaxW" type="number" min="0" step="any" inputmode="decimal" placeholder="any"> <span class="gal-dim-unit">m</span></label>
-          <label>H <input id="galMaxH" type="number" min="0" step="any" inputmode="decimal" placeholder="any"> <span class="gal-dim-unit">m</span></label>
+          <label>W <span class="gal-dim-input"><input id="galMaxW" type="number" min="0" step="any" inputmode="decimal" placeholder="any"><span class="gal-dim-unit">m</span></span></label>
+          <label>H <span class="gal-dim-input"><input id="galMaxH" type="number" min="0" step="any" inputmode="decimal" placeholder="any"><span class="gal-dim-unit">m</span></span></label>
           </div>
         </div>
         <div class="gal-panel-row" id="galAtMostField">At most
@@ -222,6 +222,6 @@
 
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=69"></script>
+  <script type="module" src="src/main.js?v=70"></script>
 </body>
 </html>
