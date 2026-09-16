@@ -166,17 +166,31 @@ kbd {
 
 /* ---------- dialog/menu button feedback (hover + press) ----------
  * The global -webkit-tap-highlight-color makes :active the only touch
- * feedback channel — every clickable gets both states. */
-.dialog-actions button:hover, .menu-actions button:hover, .file-label:hover,
-button.primary:hover, button.secondary:hover, .icon-btn:hover, .lib-row:hover {
+ * feedback channel — every clickable gets both states. Hover rules are
+ * :not(:disabled)-guarded and locked controls dim. */
+.dialog-actions button:not(:disabled):hover, .menu-actions button:hover, .file-label:hover,
+button.primary:not(:disabled):hover, button.secondary:not(:disabled):hover,
+.icon-btn:hover, .lib-row:hover {
   background: #2e3140;
   border-color: #4a5160;
 }
-button.primary:hover { background: var(--accent); border-color: #ffd97a; }
-button.secondary:hover { background: rgba(255, 255, 255, .06); }
-.dialog-actions button:active, .menu-actions button:active, .file-label:active,
-button.primary:active, button.secondary:active, .icon-btn:active, .lib-row:active {
+button.primary:not(:disabled):hover { background: var(--accent); border-color: #ffd97a; }
+button.secondary:not(:disabled):hover { background: rgba(255, 255, 255, .06); }
+.dialog-actions button:not(:disabled):active, .menu-actions button:active, .file-label:active,
+button.primary:not(:disabled):active, button.secondary:not(:disabled):active,
+.icon-btn:active, .lib-row:active {
   transform: translateY(1px);
   background: #262a33;
 }
-button.primary:active { background: #e6b84f; }
+button.primary:not(:disabled):active { background: #e6b84f; }
+.dialog-actions button:disabled, button.primary:disabled { opacity: .55; cursor: default; }
+#pubName:disabled { opacity: .55; }
+
+/* the Complete-suggestion CTA in the publish dialog */
+.tip-cta {
+  width: 100%; margin-top: 8px; font: inherit; font-size: 13px; text-align: left;
+  padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: transparent; color: #7dd3fc; cursor: pointer;
+}
+.tip-cta:hover { background: rgba(125, 211, 252, .08); border-color: #7dd3fc; }
+.tip-cta:active { transform: translateY(1px); background: rgba(125, 211, 252, .14); }

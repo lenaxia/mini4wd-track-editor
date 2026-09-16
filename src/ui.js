@@ -313,8 +313,7 @@ export function init(dimsGetter) {
   $('pubCancel').addEventListener('click', () => closeDialog($('publishDialog')));
   $('pubTipComplete').addEventListener('click', () => {
     closeDialog($('publishDialog'));
-    setTool('Complete');
-    toast('Select the two open ends — Complete fills the gap');
+    completeToolIntro();   /* same intro-first arming as the toolbar button */
   });
   $('pubOk').addEventListener('click', async () => {
     if (!renderPubStatus()) return;   /* re-validate at the moment of saving */
