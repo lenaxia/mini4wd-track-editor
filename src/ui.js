@@ -9,7 +9,10 @@ import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow } from './storage.js';
-import { GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge, isStarred, addStarred } from './gallery.js';
+import {
+  GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge,
+  isStarred, addStarred, removeStarred, thumbFit,
+} from './gallery.js';
 import { validateTrack } from './validate.js';
 import { icon } from './icons.js';
 import { drawPieceArt } from './art.js';
@@ -467,6 +470,76 @@ export function init(dimsGetter) {
     }
   }
 
+  /* ---------- card previews (lazy per-row track fetch) ----------
+   * List rows carry no track body (metadata only by design), so each
+   * card pulls its row once, parses it and draws a thumbnail. Results
+   * (including negatives — 404s and empty parses) are cached for the
+   * session; an in-flight id is shared by every canvas waiting on it,
+   * and at most 4 fetches run at a time. Canvases that left the DOM
+   * (sort switch) are skipped at draw time. */
+  const galThumbCache = new Map();     /* id -> sprites | null (negative) */
+  const galThumbPending = new Map();   /* id -> canvas[] waiting on the fetch */
+  const galThumbQueue = [];
+  let galThumbActive = 0;
+  const GAL_THUMB_MAX = 4;
+  const GAL_THUMB_W = 80, GAL_THUMB_H = 60;
+
+  function galThumb(cv, id) {
+    if (galThumbCache.has(id)) {              /* negatives (null) skip the draw AND the refetch */
+      const cached = galThumbCache.get(id);
+      if (cached) galDrawThumb(cv, cached);
+      return;
+    }
+    const waiters = galThumbPending.get(id);
+    if (waiters) { waiters.push(cv); return; }   /* join the in-flight fetch */
+    galThumbPending.set(id, [cv]);
+    galThumbQueue.push(id);
+    /* microtask: rows are queued before their container appends them —
+     * pump once the render loop has connected the canvases */
+    queueMicrotask(galThumbPump);
+  }
+
+  function galThumbPump() {
+    while (galThumbActive < GAL_THUMB_MAX && galThumbQueue.length) {
+      const id = galThumbQueue.shift();
+      const waiters = (galThumbPending.get(id) || []).filter((cv) => cv.isConnected);
+      if (!waiters.length) { galThumbPending.delete(id); continue; }   /* nobody left to draw */
+      galThumbActive += 1;
+      fetch(`/api/tracks/${id}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((row) => {
+          const sprites = row ? spritesFromRow(row) : [];
+          galThumbCache.set(id, sprites.length ? sprites : null);   /* negatives cache too */
+          /* the live pending entry: canvases that joined while the fetch
+           * was in flight must draw too (sort/load-more re-renders) */
+          for (const cv of galThumbPending.get(id) || []) if (cv.isConnected) galDrawThumb(cv, sprites);
+        })
+        .catch(() => {})
+        .finally(() => { galThumbActive -= 1; galThumbPending.delete(id); galThumbPump(); });
+    }
+  }
+
+  function galDrawThumb(cv, sprites) {
+    const g = cv.getContext('2d');
+    g.setTransform(cv.width / GAL_THUMB_W, 0, 0, cv.height / GAL_THUMB_H, 0, 0);
+    g.clearRect(0, 0, GAL_THUMB_W, GAL_THUMB_H);
+    const t = thumbFit(sprites, GAL_THUMB_W, GAL_THUMB_H);
+    if (!t) return;
+    g.translate(t.cx, t.cy);
+    g.scale(t.scale, t.scale);
+    for (const p of sprites) {
+      const def = PIECES[p.name];
+      if (!def) continue;
+      g.save();
+      g.translate(p.x, p.y);
+      g.rotate((p.a || 0) * Math.PI / 180);
+      const img = imageFor(p.name, p.c || 0);
+      if (img && img.complete && img.naturalWidth) g.drawImage(img, -def.w / 2, -def.h / 2, def.w, def.h);
+      else drawPieceArt(g, p.name, p.c || 0);   /* boot race / missing sprite; drawn once, no later repaint */
+      g.restore();
+    }
+  }
+
   function galRowEl(it) {
     const row = document.createElement('div');
     row.className = 'gal-row';
@@ -475,6 +548,13 @@ export function init(dimsGetter) {
     const main = document.createElement('button');
     main.type = 'button';
     main.className = 'gal-main';
+    const thumb = document.createElement('canvas');
+    thumb.className = 'gal-thumb';
+    const dpr = getDims().dpr;
+    thumb.width = GAL_THUMB_W * dpr;
+    thumb.height = GAL_THUMB_H * dpr;
+    const text = document.createElement('span');
+    text.className = 'gal-text';
     const top = document.createElement('span');
     top.className = 'gal-top';
     const name = document.createElement('span');
@@ -493,8 +573,10 @@ export function init(dimsGetter) {
     const sub = document.createElement('span');
     sub.className = 'gal-sub';
     sub.textContent = `★ ${it.stars} · ${galDate(it.updated_at)}`;
-    main.append(top, facets, sub);
+    text.append(top, facets, sub);
+    main.append(thumb, text);
     main.addEventListener('click', () => loadPublishedTrack(it.id));
+    galThumb(thumb, it.id);
 
     const star = document.createElement('button');
     star.type = 'button';
@@ -502,7 +584,7 @@ export function init(dimsGetter) {
     const starred = isStarred(localStorage, it.id);
     star.classList.toggle('starred', starred);
     star.textContent = starred ? '★' : '☆';
-    star.title = starred ? 'Starred on this device' : 'Star this track';
+    star.title = starred ? 'Starred on this device — tap to unstar' : 'Star this track';
     star.addEventListener('click', () => galStar(it, star, sub));
 
     row.append(main, star);
@@ -532,20 +614,23 @@ export function init(dimsGetter) {
     $('galMeta').textContent = `${gal.items.length} of ${gal.total} track${gal.total === 1 ? '' : 's'}`;
   }
 
-  /* One star per browser per track: the localStorage set blocks the POST,
-   * the server counter itself is public (no auth — accepted). */
+  /* One star per browser per track, reversible: the localStorage set
+   * gates the request (POST stars, DELETE takes it back) — the server
+   * counter itself is public (no auth — accepted). */
   async function galStar(it, btn, sub) {
-    if (isStarred(localStorage, it.id)) return;
+    if (btn.disabled) return;
+    const un = isStarred(localStorage, it.id);
     btn.disabled = true;
     try {
-      const res = await fetch(`/api/tracks/${it.id}/star`, { method: 'POST' });
+      const res = await fetch(`/api/tracks/${it.id}/star`, { method: un ? 'DELETE' : 'POST' });
       if (!res.ok) throw new Error();
       const { stars } = await res.json();
       it.stars = stars;
-      addStarred(localStorage, it.id);
-      btn.classList.add('starred');
-      btn.textContent = '★';
-      btn.title = 'Starred on this device';
+      if (un) removeStarred(localStorage, it.id);
+      else addStarred(localStorage, it.id);
+      btn.classList.toggle('starred', !un);
+      btn.textContent = un ? '☆' : '★';
+      btn.title = un ? 'Star this track' : 'Starred on this device — tap to unstar';
       sub.textContent = `★ ${stars} · ${galDate(it.updated_at)}`;
     } catch { toast('Server unreachable'); }
     btn.disabled = false;

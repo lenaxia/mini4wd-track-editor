@@ -195,6 +195,13 @@ async function main() {
         if (stars === null) return json(res, 404, { error: 'not found' });
         return json(res, 200, { id: decodeURIComponent(ms[1]), stars });
       }
+      /* un-star: takes back this browser's star (floor at 0) */
+      if (ms && req.method === 'DELETE') {
+        if (!ID_RE.test(decodeURIComponent(ms[1]))) bad('bad id');
+        const stars = await store.unstar(decodeURIComponent(ms[1]));
+        if (stars === null) return json(res, 404, { error: 'not found' });
+        return json(res, 200, { id: decodeURIComponent(ms[1]), stars });
+      }
       if (m && req.method === 'DELETE') {
         const ok = await store.remove(decodeURIComponent(m[1]));
         if (ok) { res.writeHead(204); return res.end(); }

@@ -229,11 +229,16 @@ button.primary:not(:disabled):active { background: #e6b84f; }
 }
 .gal-row { display: flex; gap: 8px; align-items: stretch; }
 .gal-main {
-  flex: 1 1 auto; min-width: 0; text-align: left; padding: 10px 12px;
+  flex: 1 1 auto; min-width: 0; text-align: left; padding: 8px 10px;
   border-radius: 10px; border: 1px solid var(--line);
   background: var(--panel-2); color: inherit; cursor: pointer;
-  display: flex; flex-direction: column; gap: 3px;
+  display: flex; flex-direction: row; align-items: center; gap: 10px;
 }
+.gal-thumb {
+  flex: 0 0 auto; width: 80px; height: 60px; display: block;
+  border-radius: 6px; background: #14161a;
+}
+.gal-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .gal-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .gal-name {
   font-size: 14px; font-weight: 600;

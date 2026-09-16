@@ -89,26 +89,46 @@ test('complete-only filter hides work-in-progress rows', async ({ page, request 
   await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toBeVisible();
 });
 
-test('star increments once per browser (localStorage de-dupe)', async ({ page, request }) => {
+test('stars toggle per browser: POST stars, DELETE unstars, localStorage gates', async ({ page, request }) => {
   const n = nonce();
   const id = await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);
   await openGallery(page);
   const row = page.locator('.gal-row', { hasText: `E2E Square ${n}` });
   const star = row.locator('.gal-star');
   await expect(star).toHaveText('\u2606');                                  /* un-starred glyph */
-  await star.click();
+  await star.click();                                                       /* star */
   await expect(row.locator('.gal-sub')).toContainText('\u2605 1');
   await expect(star).toHaveText('\u2605');
-  await star.click();                                                       /* second tap: no POST */
-  await expect(row.locator('.gal-sub')).toContainText('\u2605 1');
   expect(await page.evaluate((k) => JSON.parse(localStorage.getItem('m4wd.starred')).includes(k), id)).toBe(true);
-  const serverRow = await (await request.get(`/api/tracks/${id}`)).json();
-  expect(serverRow.stars).toBe(1);                                          /* counter bumped once */
-  /* the starred state survives a gallery reopen */
+  expect((await (await request.get(`/api/tracks/${id}`)).json()).stars).toBe(1);
+  await star.click();                                                       /* un-star */
+  await expect(row.locator('.gal-sub')).toContainText('\u2605 0');
+  await expect(star).toHaveText('\u2606');
+  expect(await page.evaluate((k) => !JSON.parse(localStorage.getItem('m4wd.starred') || '[]').includes(k), id)).toBe(true);
+  expect((await (await request.get(`/api/tracks/${id}`)).json()).stars).toBe(0);
+  await star.click();                                                       /* re-star works */
+  await expect(row.locator('.gal-sub')).toContainText('\u2605 1');
+  expect((await (await request.get(`/api/tracks/${id}`)).json()).stars).toBe(1);
+  /* the un-starred state survives a gallery reopen */
+  await star.click();
   await page.locator('#galClose').click();
   await page.locator('#btnMenu').click();
   await page.locator('#btnGallery').click();
-  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` }).locator('.gal-star')).toHaveText('\u2605');
+  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` }).locator('.gal-star')).toHaveText('\u2606');
+});
+
+test('each card renders a thumbnail of the actual track', async ({ page, request }) => {
+  const n = nonce();
+  await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);
+  await openGallery(page);
+  const row = page.locator('.gal-row', { hasText: `E2E Square ${n}` });
+  /* the thumb canvas paints real pixels once the lazy row fetch lands */
+  await expect.poll(async () => await row.locator('.gal-thumb').evaluate((cv) => {
+    if (!cv.width) return false;
+    const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 0) return true;   /* any non-transparent pixel */
+    return false;
+  }), { timeout: 10_000 }).toBe(true);
 });
 
 test('tapping a row loads it and adopts the publication binding', async ({ page, request }) => {

@@ -92,6 +92,16 @@ test('validation rejects garbage without crashing the server', async ({ request 
   expect(alive.status()).toBe(200);
 });
 
+test('star/unstar endpoint: increments, takes back, floored at 0', async ({ request }) => {
+  const id = `${PREFIX}-star`; ids.push(id);
+  await request.put(`/api/tracks/${id}`, { data: mk('star') });
+  expect((await (await request.post(`/api/tracks/${id}/star`)).json()).stars).toBe(1);
+  expect((await (await request.delete(`/api/tracks/${id}/star`)).json()).stars).toBe(0);
+  expect((await (await request.delete(`/api/tracks/${id}/star`)).json()).stars).toBe(0);   /* floor */
+  expect((await request.post(`/api/tracks/nope/star`)).status()).toBe(404);
+  expect((await request.delete(`/api/tracks/nope/star`)).status()).toBe(404);
+});
+
 test('DELETE removes; unknown ids 404', async ({ request }) => {
   const id = `${PREFIX}-gone`; ids.push(id);
   await request.put(`/api/tracks/${id}`, { data: mk('gone') });

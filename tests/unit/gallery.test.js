@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   GALLERY_SORTS, galleryQuery, formatFootprint, completeBadge,
-  readStarred, isStarred, addStarred,
+  readStarred, isStarred, addStarred, removeStarred, thumbFit,
 } from '../../src/gallery.js';
 
 /* Map-backed localStorage stub — node --test has no webstorage (same
@@ -59,6 +59,51 @@ test('starred ids round-trip through localStorage, de-duplicated', () => {
   assert.equal(isStarred(ls, 'abc'), true);
   addStarred(ls, 'def');
   assert.deepEqual(readStarred(ls), ['abc', 'def']);
+});
+
+test('removeStarred drops one id, keeps the rest, never throws', () => {
+  addStarred(ls, 'abc');
+  addStarred(ls, 'def');
+  assert.deepEqual(removeStarred(ls, 'abc'), ['def']);
+  assert.equal(isStarred(ls, 'abc'), false);
+  assert.deepEqual(removeStarred(ls, 'not-there'), ['def']);   /* inert */
+  const broken = {
+    getItem: () => { throw new Error('private'); },
+    setItem: () => { throw new Error('private'); },
+    removeItem: () => {},
+  };
+  assert.doesNotThrow(() => removeStarred(broken, 'abc'));
+});
+
+/* thumbFit: maps track coords (cm) into a canvas box (px), center-fit
+ * with padding — the gallery card preview geometry. */
+test('thumbFit center-fits a piece into the box', () => {
+  /* one Str1 (54x36 cm) at the origin, 80x60 px box, 4px pad */
+  const t = thumbFit([{ name: 'Str1', x: 0, y: 0, a: 0, c: 0, z: 0 }], 80, 60);
+  assert.ok(t);
+  assert.ok(Math.abs(t.scale - 72 / 54) < 1e-9);           /* width-bound */
+  /* centered: track x [-27,27] -> box centre 40 */
+  const cx = t.cx + t.scale * 27;                          /* right edge */
+  const cl = t.cx - t.scale * 27;                          /* left edge */
+  assert.ok(Math.abs((cx + cl) / 2 - 40) < 1e-9);
+  assert.ok(Math.abs((cx - cl) - 72) < 1e-9);              /* padded width */
+});
+
+test('thumbFit rotates the footprint (a 90-deg straight swaps w/h)', () => {
+  const t = thumbFit([{ name: 'Str1', x: 0, y: 0, a: 90, c: 0, z: 0 }], 80, 60);
+  assert.ok(Math.abs(t.scale - 52 / 54) < 1e-9);           /* height-bound now */
+});
+
+test('thumbFit spans every piece and recenters off-origin tracks', () => {
+  const t = thumbFit([
+    { name: 'Str1', x: 500, y: -300, a: 0, c: 0, z: 0 },
+    { name: 'Str1', x: 630, y: -300, a: 0, c: 0, z: 0 },
+  ], 80, 60);
+  /* span: 54 + (630-500) = 184 cm wide, 36 tall; width-bound */
+  assert.ok(Math.abs(t.scale - 72 / 184) < 1e-9);
+  const midX = t.cx + t.scale * ((500 - 27) + (630 + 27)) / 2;
+  assert.ok(Math.abs(midX - 40) < 1e-6);                   /* recentered */
+  assert.equal(thumbFit([], 80, 60), null);                /* empty track */
 });
 
 test('starred storage never throws: corrupt json, private mode', () => {
