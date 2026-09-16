@@ -17,11 +17,11 @@ frameworks — open it and lay track.
   pieces until something does, then closes the loop.
 - **Publishing and the gallery.** Name your track and publish it; from
   then on every edit auto-saves. The gallery lists every published
-  track — sort by length, lane count, footprint (limited room?),
-  straight/corner counts (limited parts?), stars, or newest; filter to
-  finished circuits only or to tracks this device saved (Mine). Star
-  what you like; tap any track to load it and keep editing. No accounts
-  anywhere.
+  track — sort by last-updated, length, lane count, footprint, or
+  stars; cap lanes, footprint, or straight/corner counts in the filter
+  drawer; filter to finished circuits only or to tracks this device
+  saved (Mine). Star what you like; tap any track to load it and keep
+  editing. No accounts anywhere.
 - **Nothing is ever lost.** Every save of a published track keeps the
   old version — History lists them and anyone can restore one with a
   tap. **Copy** makes your own version of any track (shown as "based
