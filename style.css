@@ -298,6 +298,31 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
   display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
 }
 .gal-panel-row input[type="range"] { accent-color: var(--accent); width: 100%; }
+/* two-ended length slider: two native ranges overlaid — tracks are
+ * click-through, only the thumbs catch the pointer */
+.gal-range { position: relative; height: 30px; }
+.gal-range input[type="range"] {
+  position: absolute; inset: 0; width: 100%; margin: 0;
+  background: transparent; pointer-events: none; appearance: none; -webkit-appearance: none;
+}
+.gal-range input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; pointer-events: auto;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #1a1a1a; cursor: grab;
+}
+.gal-range input[type="range"]::-moz-range-thumb {
+  pointer-events: auto;
+  width: 22px; height: 22px; border-radius: 50%;   /* matches -webkit travel + the 11px track inset */
+  background: var(--accent); border: 2px solid #1a1a1a; cursor: grab;
+}
+.gal-range-track {
+  position: absolute; left: 11px; right: 11px; top: 13px; height: 4px;
+  border-radius: 999px; background: var(--line);
+}
+.gal-range-fill {
+  position: absolute; top: 0; height: 100%; border-radius: 999px;
+  background: var(--accent);
+}
 .gal-units {
   flex-direction: row; align-items: center; gap: 8px;
   padding-bottom: 10px; border-bottom: 1px solid var(--line);

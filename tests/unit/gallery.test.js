@@ -43,13 +43,16 @@ test('galleryQuery builds the list query; complete only when asked', () => {
 test('galleryQuery serializes the drawer filters', () => {
   const q = galleryQuery({
     sort: '-stars', complete: true, limit: 25, offset: 0,
-    filter: { minLength: 20, lanes: [3, 5], maxW: 240, maxH: 120, maxStraights: 6, maxSlopes: 2, maxCorners: 12 },
+    filter: { minLength: 20, maxLength: 40, lanes: [3, 5], maxW: 240, maxH: 120, maxStraights: 6, maxSlopes: 2, maxCorners: 12 },
   });
-  assert.equal(q, 'sort=-stars&limit=25&offset=0&complete=true&min_length=2000&lanes=3,5'
+  assert.equal(q, 'sort=-stars&limit=25&offset=0&complete=true&min_length=2000&max_length=4000&lanes=3,5'
     + '&max_bbox_w=240&max_bbox_h=120&max_straights=6&max_slopes=2&max_corners=12');
-  /* defaults emit nothing: all lanes selected = no lanes param, no caps */
+  /* max alone works; defaults emit nothing: all lanes selected = no lanes param, no caps */
+  const maxOnly = galleryQuery({ sort: '-stars', complete: true, limit: 25, offset: 0,
+    filter: { minLength: 0, maxLength: 30, lanes: [2, 3, 5], maxW: null, maxH: null, maxStraights: null, maxSlopes: null, maxCorners: null } });
+  assert.equal(maxOnly, 'sort=-stars&limit=25&offset=0&complete=true&max_length=3000');
   const base = galleryQuery({ sort: '-stars', complete: true, limit: 25, offset: 0,
-    filter: { minLength: 0, lanes: [2, 3, 5], maxW: null, maxH: null, maxStraights: null, maxSlopes: null, maxCorners: null } });
+    filter: { minLength: 0, maxLength: 0, lanes: [2, 3, 5], maxW: null, maxH: null, maxStraights: null, maxSlopes: null, maxCorners: null } });
   assert.equal(base, 'sort=-stars&limit=25&offset=0&complete=true');
 });
 
