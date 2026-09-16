@@ -42,9 +42,10 @@ body {
 .stats {
   margin-left: auto; font-variant-numeric: tabular-nums;
   font-size: 12px; color: #aab1bd; white-space: nowrap;
-  /* the working track's name lives here (rename affordance): it may
-   * grow long, but the mode selector and menu are owner-mandated
-   * always-visible — the title ellipsizes instead of pushing them out */
+  /* the working track's name lives here: it may grow long, but the
+   * mode selector and menu are owner-mandated always-visible — on
+   * phones the name hides entirely (numbers stay; the popup carries
+   * it), on desktop the title ellipsizes instead of pushing them out */
   min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
 /* phones: the numbers stay, the name moves behind the tap popup
@@ -308,7 +309,6 @@ button.primary:not(:disabled):active { background: #e6b84f; }
 /* publish/save toolbar badge: live validity ring around the button */
 #btnPublishBar.pub-ok { box-shadow: 0 0 0 2px #4ade80 inset; }
 #btnPublishBar.pub-bad { box-shadow: 0 0 0 2px #e05263 inset; }
-/* the stats bar's track name is the rename affordance (a real button:
- * keyboard focusable, Enter/Space work) */
+/* the stats bar is a real button (keyboard focusable) — tapping it
+ * opens the track metadata popup */
 #stats { cursor: default; border: 0; background: transparent; color: inherit; font: inherit; padding: 0; }
-#stats[title='Rename published track'] { cursor: pointer; text-decoration: underline dotted; }

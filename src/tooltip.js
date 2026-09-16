@@ -41,9 +41,14 @@ export function tipBtn(text) {
 }
 
 let tipEl = null;
+let tipId = 0;
 
 function hideTip() {
-  if (tipEl) { tipEl.remove(); tipEl = null; }
+  if (tipEl) {
+    tipEl._anchor?.removeAttribute('aria-describedby');
+    tipEl.remove();
+    tipEl = null;
+  }
   document.removeEventListener('keydown', onKey);
 }
 
@@ -60,9 +65,11 @@ export function initTooltips() {
 
     tipEl = document.createElement('div');
     tipEl.className = 'tip-bubble';
+    tipEl.id = `m4wd-tip-${++tipId}`;
     tipEl.setAttribute('role', 'tooltip');
     tipEl.textContent = anchor.dataset.tip;
     tipEl._anchor = anchor;
+    anchor.setAttribute('aria-describedby', tipEl.id);   /* screen readers read the tip */
     /* showModal dialogs live in the top layer — mount inside so the
      * bubble can paint above the backdrop (fixed positioning is still
      * viewport-relative there) */

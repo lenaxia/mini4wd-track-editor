@@ -73,3 +73,13 @@ are reusable.
 - data-tip could annotate gallery facets and validator messages later.
 - Tooltip on long-press (instead of tap) would match OS conventions if
   the owner prefers.
+
+## Review round additions
+
+- Dead rename-affordance CSS removed (`#stats[title='Rename published
+  track']` could never match once the title became the constant 'Track
+  details'); both stale comments refreshed.
+- tooltip.js added to the README module map.
+- a11y: the bubble gets a unique id and the anchor an
+  aria-describedby link while shown, so screen readers read the tip
+  instead of a generic "More information" button.
