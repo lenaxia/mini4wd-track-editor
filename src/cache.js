@@ -109,14 +109,21 @@ export async function spriteBundle() {
   try {
     const canonical = Object.keys(manifest).sort().map((k) => `${k}:${manifest[k]}`).join('\n');
     const digest = await blobSha(new Blob([canonical]));
-    /* same bound as the per-file path: a tarpitting proxy must not
+    /* same bound as the per-file path, covering fetch AND body read:
+     * a proxy that stalls the response (headers or body) must not
      * stall the whole sprite path — bail to per-file after the race */
-    const res = await Promise.race([
-      fetch(`/api/sprites?h=${digest}`),
-      new Promise((resolve) => setTimeout(() => resolve(null), CACHE_BOUND_MS)),
+    const abort = new AbortController();
+    let timer = null;
+    const got = await Promise.race([
+      (async () => {
+        const res = await fetch(`/api/sprites?h=${digest}`, { signal: abort.signal });
+        return res.ok ? { files: (await res.json())?.files } : null;
+      })(),
+      new Promise((resolve) => { timer = setTimeout(() => resolve(null), CACHE_BOUND_MS); }),
     ]);
-    if (!res || !res.ok) return null;
-    const files = (await res.json())?.files;
+    clearTimeout(timer);
+    abort.abort();   /* no-op when the fetch already settled */
+    const files = got?.files;
     if (!files || typeof files !== 'object') return null;
     const out = new Map();
     for (const [name, svg] of Object.entries(files)) {
