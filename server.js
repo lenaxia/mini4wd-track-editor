@@ -271,6 +271,7 @@ async function main() {
            * rapid-fire saves coalesce into the burst-start entry.
            * A tripcode lock survives plain saves (worklog 0023). */
           t.author_trip = resolveTrip(prev, t);
+          if (t.author == null && prev.author) t.author = prev.author;   /* plain byline survives trip-less saves */
           if (shouldArchive(prev.updated_at)) await store.archive(t.id, prev);
           Object.assign(t, { parent_id: prev.parent_id ?? null, root_id: prev.root_id ?? null, parent_name: prev.parent_name ?? null });
         } else if (body.parent_id) {
@@ -299,6 +300,7 @@ async function main() {
         const prev = await store.get(t.id);
         if (prev) {
           t.author_trip = resolveTrip(prev, t);   /* worklog 0023 */
+          if (t.author == null && prev.author) t.author = prev.author;   /* plain byline survives trip-less saves */
           if (shouldArchive(prev.updated_at)) await store.archive(t.id, prev);   /* stability rule, worklog 0022 */
           /* lineage never changes on update — the track keeps the
            * parent it was born with (copies are new tracks, not re-links) */

@@ -31,7 +31,10 @@ show `by Alex!9f3ab2c1` when signed.
 
 Gallery: same-root copies render as one card (the chain's highest-ranked
 under the current sort) with "+N earlier versions of this circuit".
-A "1 of each" chip toggles it; Mine always shows every one of yours.
+A "1 of each" chip toggles it (persisted with the rest of the gallery
+view); Mine always shows every one of yours. Collapsing runs over the
+loaded pages — a chain straddling a Load-more boundary can briefly show
+two of its cards until the next page load re-collapses the full set.
 
 ## Cache-buster guard
 

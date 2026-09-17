@@ -614,6 +614,7 @@ export function init(dimsGetter) {
   function galSaveView() {
     try { localStorage.setItem(GAL_VIEW_KEY, JSON.stringify({
       sort: gal.sort, complete: gal.complete, unit: gal.unit, filter: gal.filter,
+      group: gal.group,   /* the 1-of-each lens persists like the rest */
     })); } catch (_) {}
   }
   function galRestoreView() {
@@ -622,6 +623,7 @@ export function init(dimsGetter) {
       if (!v || typeof v !== 'object') return;
       if (GALLERY_SORTS.some((s) => s.value === v.sort)) gal.sort = v.sort;
       if (typeof v.complete === 'boolean') gal.complete = v.complete;
+      if (typeof v.group === 'boolean') gal.group = v.group;
       if (v.unit === 'm' || v.unit === 'ft') gal.unit = v.unit;
       if (v.filter && typeof v.filter === 'object') {
         const f = v.filter, d = galFilterDefaults();
