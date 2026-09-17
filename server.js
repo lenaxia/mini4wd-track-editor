@@ -16,7 +16,7 @@ import path from 'node:path';
 import { createStaticHandler } from './lib/static.js';
 import { openStore } from './lib/store/index.js';
 import { shouldArchive } from './lib/store/retention.js';
-import { parseTrip, tripHash, tripMatches, initSalt } from './lib/tripcode.js';
+import { parseTrip, tripHash, tripMatches, initSalt, saltSource } from './lib/tripcode.js';
 import { fullFacets, assertWritableTrack, MAX_TRACK_BYTES_EXPORTED, VALIDATOR_VERSION } from './lib/store/facets.js';
 import { acceptsGzip, gzipBody } from './lib/compress.js';
 
@@ -181,6 +181,8 @@ function parseListQuery(u) {
 async function main() {
   const store = await openStore();
   initSalt();   /* salt IO at boot: a bad data dir fails loud here, not on the first signed save */
+  if (saltSource() === 'ephemeral')
+    console.warn('[tripcode] salt is EPHEMERAL — signed-track locks will not survive a restart (set M4WD_TRIP_SALT or make the data dir writable)');
   const static_ = createStaticHandler(import.meta.dirname);
   console.log(`mini4wd-editor server on http://localhost:${PORT} (store: ${store.driver})`);
 

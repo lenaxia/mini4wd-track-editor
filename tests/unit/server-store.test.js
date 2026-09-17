@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { facets } from '../../lib/store/facets.js';
+import { openStore } from '../../lib/store/index.js';
 
 const trackStr = (n) => Array.from({ length: n }, (_, i) =>
   `Str1;${100 + i * 30}.000;${100 + (i % 5) * 25}.000;${(i % 8) * 45};${i % 3};${(i % 2) * 75}#`).join('');
@@ -260,6 +261,19 @@ test('sqlite: reopen keeps data (durability across restarts)', async () => {
   assert.equal(row.name, 'durable');
   assert.equal(row.piece_count, 4);
   await b.close();
+});
+
+test('openStore: existing sqlite dir is not mkdir-ed again', async () => {
+  /* recursive mkdir can spin forever on ENOENT-lying mounts — the
+   * existsSync gate must keep it away from dirs we already have */
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-store-'));
+  tmpDirs.push(dir);
+  const realMkdir = fs.mkdirSync;
+  fs.mkdirSync = () => { throw new Error('mkdir ran for an existing dir'); };
+  try {
+    const s = await openStore({ STORE: 'sqlite', SQLITE_PATH: path.join(dir, 't.db') });
+    await s.close();
+  } finally { fs.mkdirSync = realMkdir; }
 });
 
 /* postgres: only when a test URL is provided (CI service container) */

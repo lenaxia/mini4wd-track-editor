@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseTrip, tripHash, tripCode, tripMatches, _resetSaltCache, initSalt } from '../../lib/tripcode.js';
+import { parseTrip, tripHash, tripCode, tripMatches, _resetSaltCache, initSalt, saltSource } from '../../lib/tripcode.js';
 
 test('parseTrip: name#phrase splits on the first #', () => {
   assert.deepEqual(parseTrip('Alex#secret phrase'), { name: 'Alex', phrase: 'secret phrase' });
@@ -127,4 +127,20 @@ test('initSalt: resolves at boot, primes the hash path, env still wins', () => {
   /* boot-primed salt is exactly what later hashing uses (no further IO) */
   assert.equal(tripHash('boot primed', env), crypto.scryptSync('boot primed', s, 16).toString('hex'));
   assert.equal(initSalt({ ...env, M4WD_TRIP_SALT: 'pinned' }), 'pinned');
+});
+
+test('saltSource: reports env | file | ephemeral for the live salt', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-salt-'));
+  _resetSaltCache();
+  assert.equal(saltSource(), null);   /* nothing resolved yet */
+  tripHash('src', { M4WD_TRIP_SALT: 'k' });
+  assert.equal(saltSource(), 'env');
+  _resetSaltCache();
+  tripHash('src', { SQLITE_PATH: path.join(dir, 'tracks.db') });
+  assert.equal(saltSource(), 'file');
+  const blocker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-ro-')), 'blocker');
+  fs.writeFileSync(blocker, '');
+  _resetSaltCache();
+  tripHash('src', { SQLITE_PATH: path.join(blocker, 'sub', 'tracks.db') });
+  assert.equal(saltSource(), 'ephemeral');
 });
