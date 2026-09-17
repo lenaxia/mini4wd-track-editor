@@ -17,44 +17,28 @@ import { createStaticHandler } from './lib/static.js';
 import { openStore } from './lib/store/index.js';
 import { shouldArchive } from './lib/store/retention.js';
 import { parseTrip, tripHash } from './lib/tripcode.js';
-import { facets, MAX_TRACK_BYTES_EXPORTED, VALIDATOR_VERSION } from './lib/store/facets.js';
+import { fullFacets, assertWritableTrack, MAX_TRACK_BYTES_EXPORTED, VALIDATOR_VERSION } from './lib/store/facets.js';
 import { acceptsGzip, gzipBody } from './lib/compress.js';
-import { validateTrack } from './src/validate.js';
-import { parseTrack } from './src/track.js';
-
-/* Full facets: cheap derived columns + server-side validation (complete /
- * issues) computed on every write. Browser-computed validity is UI-only;
- * the stored facet is authoritative. */
-function fullFacets(data) {
-  const f = facets(data);
-  let complete = false, issues = 0;
-  try {
-    const v = validateTrack(parseTrack(data.track));
-    complete = v.ok;
-    issues = v.errors.length;
-  } catch { /* unparsable reads as incomplete */ }
-  return { ...f, complete, issues, validator_version: VALIDATOR_VERSION };
-}
 
 /* Daily sweep (owner spec): re-validate rows modified in the last 24h OR
  * stamped by an older validator — tightened rules converge through old
- * rows without anyone re-saving. Runs at boot and every 6 hours. */
+ * rows without anyone re-saving. Runs at boot and every 6 hours.
+ * fullFacets is total (issue #63): an oversized or over-cap legacy row
+ * costs ONE O(n) pass (zeroed facets, sentinel issues) instead of the
+ * quadratic validator — the sweep can no longer be weaponized or aborted
+ * by a stored poison row. */
 async function sweepValidation(store) {
   try {
     const ids = await store.staleIds(Date.now() - 24 * 3600 * 1000, VALIDATOR_VERSION);
     for (const id of ids) {
       const row = await store.get(id);
       if (!row) continue;
-      let complete = false, issues = 0;
-      try {
-        const v = validateTrack(parseTrack(row.data.track));
-        complete = v.ok; issues = v.errors.length;
-      } catch { /* keep defaults */ }
+      const f = fullFacets(row.data);
       /* facets FIRST, version stamp LAST: a crash between the two
        * leaves the row still-stale (retried next sweep) instead of
        * stamped-with-stale-facets forever */
-      await store.setFacets(id, fullFacets(row.data));
-      await store.setValidation(id, complete, issues, VALIDATOR_VERSION);
+      await store.setFacets(id, f);
+      await store.setValidation(id, f.complete, f.issues, VALIDATOR_VERSION);
     }
     if (ids.length) console.log(`[sweep] revalidated ${ids.length} track(s)`);
   } catch (e) { console.error('[sweep] failed:', e.message); }
@@ -113,6 +97,11 @@ function normalize({ id, name, author, data, parent_id, root_id, parent_name, tr
   if (data.angle !== undefined && typeof data.angle !== 'number') bad('data.angle must be a number');
   const raw = typeof data.track === 'string' ? data.track : '';
   if (raw.length > MAX_TRACK_BYTES_EXPORTED) throw new Error('data.track too large (max 512 KiB)');
+  /* Issue #63: piece-count cap BEFORE the quadratic validator — the
+   * check is one linear split (sub-millisecond at the byte ceiling).
+   * Converted to bad() so the client sees a clean 400, not the 413 the
+   * 'too large' byte message maps to. */
+  try { assertWritableTrack(raw); } catch (e) { bad(e.message); }
   const t = {
     id: id || crypto.randomUUID(),
     name: typeof name === 'string' && name.trim() ? name.trim().slice(0, 200) : 'Untitled',
