@@ -572,7 +572,14 @@ export function init(dimsGetter) {
         del.addEventListener('click', async () => {
           if (!confirm(`Delete “${it.name}” from the server? This cannot be undone.`)) return;
           try {
-            const r = await fetch(`/api/tracks/${it.id}`, { method: 'DELETE' });
+            const r = await fetch(`/api/tracks/${it.id}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              /* trip in the BODY, not a header: header values must be
+               * Latin-1 ByteStrings — a CJK/emoji trip would throw (review
+               * round 1). Same shape as the restore path (storage.js). */
+              body: JSON.stringify(rememberedTrip() ? { trip: rememberedTrip() } : {}),
+            });
             if (!r.ok) { toast('Delete failed'); return; }
             if (publishedTrack()?.id === it.id) {   /* the working track died */
               unpublishTrack();

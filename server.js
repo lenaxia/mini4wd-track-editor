@@ -16,7 +16,7 @@ import path from 'node:path';
 import { createStaticHandler } from './lib/static.js';
 import { openStore } from './lib/store/index.js';
 import { shouldArchive } from './lib/store/retention.js';
-import { parseTrip, tripHash } from './lib/tripcode.js';
+import { parseTrip, tripHash, tripMatches } from './lib/tripcode.js';
 import { fullFacets, assertWritableTrack, MAX_TRACK_BYTES_EXPORTED, VALIDATOR_VERSION } from './lib/store/facets.js';
 import { acceptsGzip, gzipBody } from './lib/compress.js';
 
@@ -384,7 +384,23 @@ async function main() {
         return json(res, 200, { id: decodeURIComponent(ms[1]), stars });
       }
       if (m && req.method === 'DELETE') {
-        const ok = await store.remove(decodeURIComponent(m[1]));
+        const id = decodeURIComponent(m[1]);
+        const row = await store.get(id);
+        if (!row) return json(res, 404, { error: 'not found' });
+        /* Issue 64: destroying a signed track IS an in-place edit — the
+         * lock applies. The phrase rides an X-Trip header or an optional
+         * body; DELETE bodies are unusual, so parse defensively (a body
+         * that fails to parse just leaves the header path). Unsigned
+         * rows stay freely deletable — the no-auth model. */
+        if (row.author_trip) {
+          let rb = {};
+          try { rb = await parseBody(req); } catch { /* unparseable body: header-only */ }
+          const raw = typeof req.headers['x-trip'] === 'string' ? req.headers['x-trip']
+            : (typeof rb.trip === 'string' ? rb.trip : null);
+          if (typeof raw === 'string' && raw.length > 200) bad('trip too long (max 200)');
+          if (!tripMatches(row.author_trip, raw)) wrongTrip();
+        }
+        const ok = await store.remove(id);
         if (ok) { res.writeHead(204); return res.end(); }
         return json(res, 404, { error: 'not found' });
       }

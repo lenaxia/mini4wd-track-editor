@@ -33,7 +33,9 @@ async function seed(request, id, name, track) {
 }
 
 test.afterAll(async ({ request }) => {
-  for (const id of ids) await request.delete(`/api/tracks/${id}`).catch(() => {});
+  /* gal-*-signed rows are locked (Ada#hunter2) — present the phrase or
+   * the delete 403s and the row leaks on a shared server (issue 64) */
+  for (const id of ids) await request.delete(`/api/tracks/${id}`, { headers: { 'X-Trip': 'Ada#hunter2' } }).catch(() => {});
 });
 
 async function openGallery(page) {
