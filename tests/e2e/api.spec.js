@@ -271,11 +271,26 @@ test('an incomplete track publishes as Work-in-Progress; the button badges valid
   await page.locator('#btnPublishBar').click();
   await expect(page.locator('#pubStatus')).toContainText('Dangling end');
   await expect(page.locator('#pubStatus')).toContainText('Work-in-Progress');   /* warn, not lock */
+  /* the byline field carries a plain-language explainer (worklog 0024):
+   * optional-first, when-to / when-not, and the no-reset honesty */
+  const help = page.locator('.trip-help');
+  await expect(help.locator('summary')).toContainText('Optional');
+  await help.locator('summary').click();
+  await expect(help).toContainText('Use a passphrase when');
+  await expect(help).toContainText('Skip it when');
+  await expect(help).toContainText('no account and no reset');
   expect(await page.locator('#pubOk').isDisabled()).toBe(false);
   await expect(page.locator('#pubTipComplete')).toBeVisible();      /* suggest the Complete tool */
   await page.locator('#pubTipComplete').click();   /* tip arms Complete */
   expect(await page.evaluate(() => window.__m4wd.state.tool)).toBe('Complete');
   await page.keyboard.press('Escape');   /* dismiss the intro dialog */
+
+  /* Cancel dismisses the dialog (handlers lost in a merge once — 0025):
+   * reopen via the toolbar (still unpublished) and cancel out */
+  await page.locator('#btnPublishBar').click();
+  await expect(page.locator('#publishDialog')).toBeVisible();
+  await page.locator('#pubCancel').click();
+  await expect(page.locator('#publishDialog')).not.toBeVisible();
 });
 
 test('a complete track publishes from the toolbar; the button becomes Save', async ({ page, request }) => {

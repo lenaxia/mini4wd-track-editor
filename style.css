@@ -495,6 +495,22 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
   box-shadow: 0 4px 14px rgba(0, 0, 0, .4);
 }
 
+/* mobile: no double-tap browser zoom anywhere — the canvas keeps its own
+ * gesture handling (iOS ignores user-scalable=no; touch-action is what
+ * actually sticks). The canvas keeps touch-action: none (#editor, above)
+ * — ID specificity beats this universal selector. */
+* { touch-action: manipulation; }
+
+/* publish dialog: tripcode explainer (collapsed by default) */
+.trip-help { margin-top: 10px; font-size: 12.5px; color: #9aa3af; }
+.trip-help summary { cursor: pointer; color: #aab1bd; user-select: none; }
+.trip-help summary:hover { color: #c3cad6; }   /* lighter, not dimmer */
+.trip-help p { margin: 8px 0 0; line-height: 1.55; }
+.trip-help code {
+  background: #14161a; border: 1px solid var(--line); border-radius: 4px;
+  padding: 1px 5px; font-size: 11.5px;
+}
+
 /* publish/save toolbar badge: live validity ring around the button */
 #btnPublishBar.pub-ok { box-shadow: 0 0 0 2px #4ade80 inset; }
 #btnPublishBar.pub-bad { box-shadow: 0 0 0 2px #e05263 inset; }
