@@ -284,6 +284,13 @@ test('an incomplete track publishes as Work-in-Progress; the button badges valid
   await page.locator('#pubTipComplete').click();   /* tip arms Complete */
   expect(await page.evaluate(() => window.__m4wd.state.tool)).toBe('Complete');
   await page.keyboard.press('Escape');   /* dismiss the intro dialog */
+
+  /* Cancel dismisses the dialog (handlers lost in a merge once — 0025):
+   * reopen via the toolbar (still unpublished) and cancel out */
+  await page.locator('#btnPublishBar').click();
+  await expect(page.locator('#publishDialog')).toBeVisible();
+  await page.locator('#pubCancel').click();
+  await expect(page.locator('#publishDialog')).not.toBeVisible();
 });
 
 test('a complete track publishes from the toolbar; the button becomes Save', async ({ page, request }) => {

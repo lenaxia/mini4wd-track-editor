@@ -493,6 +493,10 @@ export function init(dimsGetter) {
    * target must never outlive the dialog it was armed for (a stale
    * target would rename the WRONG row on the next publish) */
   $('publishDialog').addEventListener('close', () => { pubRenameTarget = null; });
+  /* Cancel/X close the dialog outright — publish or rename, no questions
+   * (these handlers were lost in a merge; worklog 0025) */
+  $('pubCancel').addEventListener('click', () => closeDialog($('publishDialog')));
+  $('pubClose').addEventListener('click', () => closeDialog($('publishDialog')));
 
   $('btnLibrary').addEventListener('click', async () => {
     closeDialog($('menuDialog'));
