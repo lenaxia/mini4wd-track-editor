@@ -430,7 +430,7 @@ export function init(dimsGetter) {
     if (wasPublished && lockedToOther(publishedTrack())) {
       /* fork with the DIALOG's phrase — the remembered one may be stale
        * (review round 1): sign the copy with what was just typed */
-      const r = await forkTrack(publishedTrack(), state, trip);
+      const r = await forkTrack(publishedTrack(), state, { trip, name });
       if (!r) { toast('Server unreachable — track stays local'); return; }
       if (!r.ok) { toast('Copy not saved — the original is gone from the server'); return; }
       saveTrip(trip);
@@ -737,6 +737,7 @@ export function init(dimsGetter) {
     const sub = document.createElement('span');
     sub.className = 'gal-sub';
     const by = it.author ? ` · by ${it.author}${it.author_trip ? `!${it.author_trip.slice(0, 8)}` : ''}` : '';
+    /* galStar rewrites the same line below — one suffix, two writers */
     sub.textContent = `★ ${it.stars ?? 0} · ${galDate(it.updated_at)}${by}`;
     card.append(thumb, top, facets, sub);
     if (it.parent_name) {
@@ -898,7 +899,7 @@ export function init(dimsGetter) {
       btn.classList.toggle('starred', !un);
       btn.textContent = un ? '☆' : '★';
       btn.title = un ? 'Star this track' : 'Starred on this device — tap to unstar';
-      sub.textContent = `★ ${stars} · ${galDate(it.updated_at)}`;
+      sub.textContent = `★ ${stars} · ${galDate(it.updated_at)}${it.author ? ` · by ${it.author}${it.author_trip ? `!${it.author_trip.slice(0, 8)}` : ''}` : ''}`;
     } catch { toast('Server unreachable'); }
     btn.disabled = false;
   }
@@ -1011,7 +1012,8 @@ export function init(dimsGetter) {
           b.disabled = false;
           if (!r) { toast('Server unreachable — nothing restored'); return; }
           if (!r.ok) {
-            toast(r.status === 404 ? 'That version is no longer available — reopen History' : 'Restore failed');
+            toast(r.status === 403 ? 'This track is signed — only its author can restore'
+                  : r.status === 404 ? 'That version is no longer available — reopen History' : 'Restore failed');
             return;
           }
           const fresh = r.row;   /* refetched full row — data is present on every driver */
@@ -1034,7 +1036,9 @@ export function init(dimsGetter) {
         box.appendChild(row);
       }
     }
-    $('hisHint').textContent = `Old versions of “${it.name}” — anyone can restore one.`;
+    $('hisHint').textContent = it.author_trip
+      ? `Old versions of “${it.name}” — restoring needs the author's passphrase.`
+      : `Old versions of “${it.name}” — anyone can restore one.`;
     openDialog($('historyDialog'));
   }
   $('hisClose').addEventListener('click', () => closeDialog($('historyDialog')));
@@ -1207,6 +1211,7 @@ export function init(dimsGetter) {
     $('pubTitle').textContent = `Rename “${pub.name}”`;
     $('pubOk').textContent = 'Save name';
     $('pubName').value = pub.name;
+    $('pubTrip').value = rememberedTrip() ?? '';   /* signed rows 403 a trip-less rename */
     renderPubStatus();
     openDialog($('publishDialog'));
     $('pubName').focus();

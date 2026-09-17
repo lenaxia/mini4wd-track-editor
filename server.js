@@ -101,6 +101,7 @@ function normalize({ id, name, author, data, parent_id, root_id, parent_name, tr
   if (name !== undefined && name !== null && typeof name !== 'string') bad('name must be a string');
   if (author !== undefined && author !== null && typeof author !== 'string') bad('author must be a string');
   if (trip !== undefined && trip !== null && typeof trip !== 'string') bad('trip must be a string');
+  if (typeof trip === 'string' && trip.length > 200) bad('trip too long (max 200)');
   if (data.mode !== undefined && typeof data.mode !== 'number' && typeof data.mode !== 'string')
     bad('data.mode must be a number or a string');
   if (data.angle !== undefined && typeof data.angle !== 'number') bad('data.angle must be a number');

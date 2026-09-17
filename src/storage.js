@@ -118,7 +118,7 @@ export async function publishTrack(name, state, trip = rememberedTrip()) {
 /* Result shape for the write helpers: { ok, row?, status? } — `null`
  * only for a network failure. Callers can tell "gone" (404: parent
  * deleted, version pruned) from "unreachable" and say so. */
-export async function forkTrack(row, state, trip = rememberedTrip()) {
+export async function forkTrack(row, state, { trip = rememberedTrip(), name: nameOverride } = {}) {
   let data, name = row.name;
   if (state) {
     data = { mode: state.mode, tool: state.tool, angle: state.angle, track: serializeForSave(state.sprites) };
@@ -138,7 +138,7 @@ export async function forkTrack(row, state, trip = rememberedTrip()) {
     const res = await fetch('/api/tracks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, parent_id: row.id, data, ...(trip ? { trip } : {}) }),
+      body: JSON.stringify({ name: nameOverride || name, parent_id: row.id, data, ...(trip ? { trip } : {}) }),
     });
     if (!res.ok) return { ok: false, status: res.status };
     const fresh = await res.json();

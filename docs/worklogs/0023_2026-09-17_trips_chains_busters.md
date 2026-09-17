@@ -36,8 +36,10 @@ A "1 of each" chip toggles it; Mine always shows every one of yours.
 ## Cache-buster guard
 
 `tools/check-busters.js` in ci (full-checkout fetch so origin/main is
-present): src/lib/server/serve/index changes → main.js ?v must exceed
-main's burned number; style.css/index changes → style.css ?v likewise.
+present): client-relevant changes (src/, index.html) → main.js ?v must
+exceed main's burned number; style.css/index changes → style.css ?v
+likewise. Server-only files (lib/, server.js) never reach the browser's
+immutable cache, so they don't require a bump.
 This PR is its first enforcement (v77/v22 over main's v76/v21) — the
 guard would have saved four review rounds this week.
 
