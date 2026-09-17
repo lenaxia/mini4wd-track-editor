@@ -118,9 +118,8 @@ export async function publishTrack(name, state, trip = rememberedTrip()) {
 /* Result shape for the write helpers: { ok, row?, status? } — `null`
  * only for a network failure. Callers can tell "gone" (404: parent
  * deleted, version pruned) from "unreachable" and say so. */
-export async function forkTrack(row, state) {
+export async function forkTrack(row, state, trip = rememberedTrip()) {
   let data, name = row.name;
-  const trip = rememberedTrip();
   if (state) {
     data = { mode: state.mode, tool: state.tool, angle: state.angle, track: serializeForSave(state.sprites) };
   } else if (row.data) {

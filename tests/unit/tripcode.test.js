@@ -20,13 +20,11 @@ test('tripHash: deterministic per salt, distinct per phrase, hex', () => {
   assert.match(a, /^[0-9a-f]{32}$/);
 });
 
-test('tripHash: env salt changes the code (server-scoped identity)', () => {
-  const withDefault = tripHash('phrase');
-  const other = process.execPath && true;   /* eslint-disable-line no-unused-expressions */
-  assert.ok(other);
-  /* salt pinning is exercised by the e2e suite (M4WD_TRIP_SALT); here we
-   * only assert shape so the suite never depends on env ordering */
+test('tripHash: output shape is stable regardless of env', () => {
+  /* salt-dependence itself is pinned by the e2e suite (M4WD_TRIP_SALT
+   * produces a matching TRIP_HASH contract); here: hex shape only */
   assert.match(tripHash('phrase'), /^[0-9a-f]{32}$/);
+  assert.match(tripHash(''), /^[0-9a-f]{32}$/);
 });
 
 test('tripCode: 8-char display prefix', () => {

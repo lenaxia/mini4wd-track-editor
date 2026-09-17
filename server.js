@@ -82,6 +82,15 @@ function readBody(req) {
   });
 }
 
+/* Body parsing shared by every write route: empty or literal-null bodies
+ * become {} instead of crashing downstream (review round 1). */
+async function parseBody(req) {
+  const raw = await readBody(req);
+  if (!raw) return {};
+  const v = JSON.parse(raw);
+  return v && typeof v === 'object' ? v : {};
+}
+
 /* Validate + normalize a write. Returns the track row or throws.
  * Strict types: a present-but-wrong-typed field is a 400, never a
  * silent coercion — silent coercions are how junk accumulates. */
@@ -240,7 +249,7 @@ async function main() {
         return json(res, 200, { ...await store.list(q), limit: q.limit, offset: q.offset });
       }
       if (u === '/api/tracks' && req.method === 'POST') {
-        const body = JSON.parse(await readBody(req) || '{}');
+        const body = await parseBody(req);
         const t = normalize(body);
         const prev = await store.get(t.id);
         if (prev) {
@@ -272,7 +281,7 @@ async function main() {
         return row ? json(res, 200, row) : json(res, 404, { error: 'not found' });
       }
       if (m && req.method === 'PUT') {
-        const body = JSON.parse(await readBody(req) || '{}');
+        const body = await parseBody(req);
         if (!ID_RE.test(decodeURIComponent(m[1]))) bad('bad id');
         const t = normalize({ ...body, id: decodeURIComponent(m[1]) });
         const prev = await store.get(t.id);
@@ -315,7 +324,7 @@ async function main() {
         if (!snap) return json(res, 404, { error: 'revision not found' });
         /* restoring IS an in-place edit: the lock applies (worklog 0023);
          * the snapshot's lock rides along to the restored head */
-        const rb = JSON.parse(await readBody(req) || '{}');
+        const rb = await parseBody(req);
         const tripped = parseTrip(typeof rb.trip === 'string' ? rb.trip : null);
         if (cur.author_trip && cur.author_trip !== (tripped.phrase ? tripHash(tripped.phrase) : null)) wrongTrip();
         if (shouldArchive(cur.updated_at)) await store.archive(id, cur);
@@ -324,7 +333,9 @@ async function main() {
         t.parent_id = snap.parent_id ?? null;
         t.root_id = snap.root_id ?? null;
         t.parent_name = typeof snap.parent_name === 'string' ? snap.parent_name.slice(0, 200) : null;
-        t.author_trip = snap.author_trip ?? null;
+        t.author_trip = snap.author_trip ?? null;   /* INTENTIONAL (review round 1): restoring a
+         * pre-signing snapshot lifts the lock — the author chose that older
+         * state, and it is the only unlock path (updates never clear it) */
         return json(res, 200, await store.upsert(t));
       }
       /* star: anonymous one-tap rating; the client de-dupes per browser */

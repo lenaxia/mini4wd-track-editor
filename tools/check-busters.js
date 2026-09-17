@@ -8,7 +8,7 @@
  *
  * Usage (CI, on a full checkout of the PR): node tools/check-busters.js
  * Compares against origin/main:
- *   - src/, lib/, server.js, serve.js, index.html changed → main.js
+ *   - src/ or index.html changed → main.js
  *     buster must be strictly greater than main's
  *   - style.css or index.html changed → style.css buster strictly greater
  * Docs/tests/fixtures alone never trip it. */
@@ -30,7 +30,9 @@ const ours = busters(fs.readFileSync('index.html', 'utf8'));
 const mainHtml = sh('git show origin/main:index.html');
 const theirs = busters(mainHtml);
 
-const jsTouched = changed.some((f) => f.startsWith('src/') || f.startsWith('lib/') || f === 'server.js' || f === 'serve.js' || f === 'index.html');
+/* client-relevant only: browsers cache src/ modules + index.html; server
+ * internals (lib/, server.js) never reach the immutable cache (round 1) */
+const jsTouched = changed.some((f) => f.startsWith('src/') || f === 'index.html');
 const cssTouched = changed.includes('style.css') || changed.includes('index.html');
 
 const fail = [];

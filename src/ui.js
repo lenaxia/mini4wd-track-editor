@@ -428,7 +428,9 @@ export function init(dimsGetter) {
     /* saving a locked-to-someone-else track means taking your own copy
      * (worklog 0023) — the server would 403 an overwrite */
     if (wasPublished && lockedToOther(publishedTrack())) {
-      const r = await forkTrack(publishedTrack(), state);
+      /* fork with the DIALOG's phrase — the remembered one may be stale
+       * (review round 1): sign the copy with what was just typed */
+      const r = await forkTrack(publishedTrack(), state, trip);
       if (!r) { toast('Server unreachable — track stays local'); return; }
       if (!r.ok) { toast('Copy not saved — the original is gone from the server'); return; }
       saveTrip(trip);
