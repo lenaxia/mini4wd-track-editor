@@ -10,7 +10,7 @@ import {
 } from '../../lib/store/facets.js';
 
 const row = (name) => `${name};10.000;10.000;0;1;0#`;
-const many = (n) => row(n % 2 ? 'Str1' : 'Str1').repeat(n);
+const many = (n) => row('Str1').repeat(n);   /* all-coincident Str1 — the adversarial shape */
 
 test('pieceCount counts v2, legacy, and malformed tracks', () => {
   assert.equal(pieceCount(''), 0);
@@ -22,13 +22,17 @@ test('pieceCount counts v2, legacy, and malformed tracks', () => {
   assert.equal(pieceCount('Str1;10;10;0;1;0#junk'), 2);              /* a name-only trailing row is a row */
 });
 
+/* Timing bounds here guard the COMPLEXITY CLASS, not latency: measured
+ * 2-16 ms, bounds are ~50-200x looser so a loaded shared CI runner
+ * cannot flake them — while a quadratic regression (minutes at 19k
+ * rows, ~20 s for an un-skipped validator at 2100) still fails hard. */
 test('pieceCount stays linear on the 512 KiB ceiling (~19k rows)', () => {
   const poison = many(19000);
   assert.equal(pieceCount(poison), 19000);
   const t0 = process.hrtime.bigint();
   assert.equal(pieceCount(poison), 19000);
   const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-  assert.ok(ms < 50, `pieceCount took ${ms}ms on 19k rows — not linear?`);
+  assert.ok(ms < 500, `pieceCount took ${ms}ms on 19k rows — not linear?`);
 });
 
 test('assertWritableTrack enforces the cap at the exact boundary', () => {
@@ -38,12 +42,12 @@ test('assertWritableTrack enforces the cap at the exact boundary', () => {
   assertWritableTrack('');                 /* empty track is the validator's business, not the cap's */
 });
 
-test('assertWritableTrack rejects a 19k-piece poison string in <50ms', () => {
+test('assertWritableTrack rejects a 19k-piece poison string in <500ms', () => {
   const poison = many(19000);
   const t0 = process.hrtime.bigint();
   assert.throws(() => assertWritableTrack(poison), /too many pieces/);
   const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-  assert.ok(ms < 50, `cap rejection took ${ms}ms — pre-validator cost must stay linear`);
+  assert.ok(ms < 500, `cap rejection took ${ms}ms — pre-validator cost must stay linear`);
 });
 
 test('fullFacets is total: oversized and over-cap rows never throw (issue #63 pin)', () => {
@@ -63,7 +67,7 @@ test('fullFacets is total: oversized and over-cap rows never throw (issue #63 pi
   const t0 = process.hrtime.bigint();
   const g = fullFacets(over);
   const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-  assert.ok(ms < 500, `over-cap fullFacets took ${ms}ms — validator not skipped?`);
+  assert.ok(ms < 2000, `over-cap fullFacets took ${ms}ms — validator not skipped?`);
   assert.equal(g.piece_count, 0);
   assert.equal(g.lanes, 0);
   assert.equal(g.complete, false);
