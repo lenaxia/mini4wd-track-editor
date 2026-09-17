@@ -148,3 +148,13 @@ test('a straight crossing a wave\u2019s road at the same level overlaps', () => 
   const r = validateTrack([P('Chi1', 0, 0), P('Str1', 0, 0, 90)]);
   assert.ok(r.errors.some((e) => /overlap/i.test(e)));
 });
+
+test('the wave width fix is load-bearing, not just the bbox window (review r1 pin)', () => {
+  /* horizontal straight riding y=53.5: inside the pair's bbox window,
+   * but 53.5 - 18 = 35.5.. its surface starts above the wave's true
+   * 60-wide road reach (y<=36 with 30 half-width -> contact), while
+   * the OLD footprint width (h=72/2=36) flags it. Under def.h this
+   * errors; under lane-width it must be clean. */
+  const r = validateTrack([P('Chi2', 0, 0), P('Str1', 0, 53.5, 0)]);
+  assert.equal(r.errors.filter((e) => /overlap/i.test(e)).length, 0);
+});

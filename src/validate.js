@@ -44,8 +44,11 @@ const JOINT_NEIGH = 16;      /* cm: junction-neighborhood exemption radius */
 
 /* the TRUE road width: corner/hairpin carry band; waves wander inside
  * a taller footprint so their road is the lane width (3L=36, 5L=60),
- * not def.h — the footprint rectangle false-flagged legal layouts
- * (review fixture: Chi2 + a straight 17 cm clear of the surface) */
+ * not def.h. Both this AND the bbox early-out were needed to clear
+ * the review fixture — the width alone leaves boundary-equality hits
+ * (|u| == hw passes containment), the bbox alone would reinstate the
+ * footprint overreach inside the window. The r1 pin rides a placement
+ * INSIDE the window where def.h errors and lane-width is clean. */
 function roadWidth(def) {
   if (def.band) return def.band;
   if (def.kind === 'wave') return def.lanes === 5 ? 60 : 36;

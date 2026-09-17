@@ -58,3 +58,15 @@ kinks, the shared rounded track) all still pass — the full unit suite
   badge re-validates per settled mutation; far pairs are now free).
 - STRICT-ends comment corrected: ends are endpoint-inclusive (welded
   ends are joint-exempt; an unwelded endpoint touch is genuine).
+
+## Review round 2 (attribution corrected)
+
+- The r1 fix had TWO mechanisms and I credited one: the bbox early-out
+  alone clears the fixture (boundary equality |u|==hw passes
+  containment; the far placements never reach the loop), the width
+  change alone also clears it — but only BOTH are correct. The
+  reviewer proved def.h + bbox passes the suite while still
+  overreaching inside the window; the new pin places a straight at
+  y=53.5 INSIDE the window where footprint-width errors and lane-width
+  is clean. Comment and commit attribution corrected.
+- Verdict on fb485ca: APPROVE (one minor, addressed by this pin).
