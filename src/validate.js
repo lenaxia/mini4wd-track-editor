@@ -17,7 +17,7 @@
  */
 
 import { PIECES, CLEARANCE_MM } from './pieces.js';
-import { vertsOf, vertexOf, outwardTangent, inwardTangent, pieceHalfExtents, LINK_RANGE, LINK_FACING, CONNECTED_EPS } from './geometry.js';
+import { solveGeo, rot, rad, norm2pi, vertsOf, vertexOf, levelAt, outwardTangent, inwardTangent, pieceHalfExtents, LINK_RANGE, LINK_FACING, CONNECTED_EPS } from './geometry.js';
 
 /* Serialization rounds positions and angles to 3 decimals, so a true
  * weld can sit ~0.1 cm apart after a save/share round-trip (measured on
@@ -27,6 +27,117 @@ import { vertsOf, vertexOf, outwardTangent, inwardTangent, pieceHalfExtents, LIN
  * likewise scales for rounding: 3-decimal angle error shows as ~0.1°
  * deltas. */
 const KINK_TANGENT_TOL = 0.5;   /* deg — visible kinks, above rounding noise */
+
+/* Same-level overlap (owner ledger — bbox tests false-positive on
+ * weaves, so this tests the actual road corridors by containment:
+ * straight kinds are the rectangle over the v1->v2 axis, arcs the
+ * annular sector; centerline samples every ~5 cm). Two roads collide
+ * when one's corridor contains a same-level sample of the other —
+ * dz under CLEARANCE but at/above LEVEL_EPS stays the paint-rule
+ * WARNING's domain (a ramp over a low road is never an impossible
+ * overlap). Samples inside a shared joint's neighborhood are the
+ * junction itself, not a collision. */
+const OVERLAP_STEP = 5;      /* cm between centerline samples */
+const TOUCH_SLACK = 1;       /* cm: exactly-touching corridors are legal */
+const LEVEL_EPS = 20;        /* mm: below this the levels read as equal */
+const JOINT_NEIGH = 16;      /* cm: junction-neighborhood exemption radius */
+
+/* centerline fraction t of point s inside piece p's corridor WIDENED
+ * by the guest's half-width, or null. The widened corridor is what a
+ * sample of the OTHER piece tests against (its centerline must sit
+ * within hwA+hwB for the roads to share surface); STRICT ends — a
+ * point past a road's end is not on it (chained pieces and jump gaps
+ * have close centerlines but disjoint surfaces). */
+function corridorT(p, s, guestHw) {
+  const def = PIECES[p.name];
+  const hw = (def.kind === 'corner' || def.kind === 'hairpin' ? def.band : def.h) / 2 + guestHw - TOUCH_SLACK;
+  if (def.kind === 'corner' || def.kind === 'hairpin') {
+    const g = solveGeo(p.name);
+    const { x: cx, y: cy } = rot(g.cx, g.cy, p.a || 0);
+    const wx = p.x + cx, wy = p.y + cy;
+    const rr = Math.hypot(s.x - wx, s.y - wy);
+    if (Math.abs(rr - g.R) > hw) return null;
+    const da = norm2pi(Math.atan2(s.y - wy, s.x - wx) - (g.a1 + rad(p.a || 0)));
+    if (g.sweep >= 0 ? da > g.sweep + 1e-9 : da < 2 * Math.PI + g.sweep - 1e-9) return null;
+    return da / g.sweep;
+  }
+  const a = vertexOf(p, 0), b = vertexOf(p, 1);
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const t = ((s.x - a.x) * dx + (s.y - a.y) * dy) / len;
+  const u = ((s.x - a.x) * -dy + (s.y - a.y) * dx) / len;
+  if (t < 0 || t > len || Math.abs(u) > hw) return null;
+  return t / len;
+}
+
+function corridorSamples(p) {
+  const def = PIECES[p.name];
+  const z0 = levelAt(p, 0), z1 = levelAt(p, 1);
+  const out = [];
+  const push = (x, y, t) => out.push({ x, y, z: z0 + (z1 - z0) * t });
+  if (def.kind === 'corner' || def.kind === 'hairpin') {
+    const g = solveGeo(p.name);
+    const steps = Math.max(2, Math.ceil(Math.abs(g.sweep) * g.R / OVERLAP_STEP));
+    for (let k = 0; k <= steps; k += 1) {
+      const t = k / steps, ang = g.a1 + g.sweep * t;
+      const lx = g.cx + g.R * Math.cos(ang), ly = g.cy + g.R * Math.sin(ang);
+      const { x: wx, y: wy } = rot(lx, ly, p.a || 0);
+      push(p.x + wx, p.y + wy, t);
+    }
+  } else {
+    const a = vertexOf(p, 0), b = vertexOf(p, 1);
+    const steps = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / OVERLAP_STEP));
+    for (let k = 0; k <= steps; k += 1) {
+      const t = k / steps;
+      push(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, t);
+    }
+  }
+  return out;
+}
+
+function sameLevelOverlaps(sprites, groups) {
+  const samples = sprites.map(corridorSamples);
+  const zAt = (p, t) => levelAt(p, 0) + (levelAt(p, 1) - levelAt(p, 0)) * t;
+  /* joint neighborhoods shared by BOTH pieces of a pair are exempt */
+  const sharedJoints = new Map();
+  for (const g of groups) {
+    const idx = [...new Set(g.map((e) => e.i))];
+    for (let a = 0; a < idx.length; a += 1)
+      for (let b = a + 1; b < idx.length; b += 1) {
+        const key = `${Math.min(idx[a], idx[b])}:${Math.max(idx[a], idx[b])}`;
+        if (!sharedJoints.has(key)) sharedJoints.set(key, []);
+        sharedJoints.get(key).push(g[0].v);
+      }
+  }
+  const near = (s, pts) => pts.some((v) => Math.hypot(s.x - v.x, s.y - v.y) <= JOINT_NEIGH);
+  const findings = [];
+  for (let i = 0; i < sprites.length; i += 1) {
+    for (let j = i + 1; j < sprites.length; j += 1) {
+      const joints = sharedJoints.get(`${i}:${j}`) || [];
+      let hit = null;
+      /* containment both ways — a thin crossing lens may hold samples
+       * of only one side; dz compares the guest sample to the HOST's z
+       * interpolated at the containment point (a ramp only collides
+       * where it is actually low) */
+      for (const [hostIdx, guestIdx] of [[j, i], [i, j]]) {
+        const hostP = sprites[hostIdx], guestP = sprites[guestIdx];
+        const gdef = PIECES[guestP.name];
+        const guestHw = (gdef.kind === 'corner' || gdef.kind === 'hairpin' ? gdef.band : gdef.h) / 2;
+        for (const s of samples[guestIdx]) {
+          const t = corridorT(hostP, s, guestHw);
+          if (t == null) continue;
+          if (Math.abs(s.z - zAt(hostP, t)) >= LEVEL_EPS) continue;
+          if (joints.length && near(s, joints)) continue;   /* the junction itself */
+          hit = { x: s.x, y: s.y };
+          break;
+        }
+        if (hit) break;
+      }
+      if (hit) findings.push(`Roads overlap at the same level near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) — a car cannot pass through another road`);
+    }
+  }
+  return findings;
+}
 
 const face = (t, to) => 180 - Math.abs(((t - to + 540) % 360) - 180); /* 0..180, 180=aligned */
 
@@ -104,6 +215,8 @@ export function validateTrack(sprites) {
         warnings.push(`Clearance ${dz.toFixed(0)} mm < 75 mm over a ${PIECES[lo.name].label} at (${lo.x.toFixed(0)}, ${lo.y.toFixed(0)})`);
     }
   }
+
+  errors.push(...sameLevelOverlaps(sprites, groups));
 
   return { ok: errors.length === 0, errors: [...new Set(errors)], warnings };
 }
