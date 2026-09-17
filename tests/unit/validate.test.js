@@ -160,18 +160,38 @@ test('the wave width fix is load-bearing, not just the bbox window (review r1 pi
 });
 
 test('perpendicular coincident-endpoint crossings warn (legacy bridge decks read level 0)', () => {
-  /* the K8EC79 signature: a vertical run and a horizontal run whose
-   * endpoints all coincide at one plan point. NOT a junction — the
+  /* the REAL K8EC79 signature: a vertical run THROUGH the point
+   * (two collinear straights) and a horizontal run butting in — four
+   * endpoints coincident, tangents perpendicular. Not a junction: the
    * original codec has no elevation and crosses via bridge decks
-   * (owner ruling). Overlapping surface there is a WARNING, not an
-   * error, and never blocks. */
+   * (owner ruling). WARNING, never an error, and no kink noise. */
   const r = validateTrack([
-    P('Str1', 359, 143, 270),           /* vertical run, end at (359,170) */
+    P('Str1', 359, 143, 270),           /* vertical through (359,170) */
+    P('Str1', 359, 197, 270),           /* its collinear continuation */
     P('Str1', 332, 170, 0),             /* horizontal, end at (359,170) */
     P('Str1', 386, 170, 0),             /* horizontal, start at (359,170) */
   ]);
   assert.equal(r.errors.filter((e) => /overlap/i.test(e)).length, 0);
-  assert.ok(r.warnings.some((w) => /no level difference recorded/.test(w)));
+  assert.equal(r.errors.filter((e) => /Kinked/.test(e)).length, 0);
+  const w = r.warnings.filter((x) => /no level difference recorded/.test(x));
+  assert.ok(w.length >= 1);
+  assert.equal(new Set(w).size, w.length);   /* deduped: one line per point */
+});
+
+test('a Y-branch (two entries off one exit) stays silent — no crossing warning', () => {
+  /* the kink fixture's geometry: A feeds both B and C at one point;
+   * B and C are ENTRIES (same-direction out-tangents) — a junction,
+   * not a crossing. Review r1: the out->in-only weld set warned it. */
+  const A = P('Str1', 0, 0);
+  const B = P('Str1', 54, 0);
+  const C = P('Cor1', 0, 0);
+  C.a = orientAngle(A, 1, C, 0);
+  const v = vertsOf(C)[0];
+  const rr = rot(v[0], v[1], C.a);
+  C.x = 27 - rr.x; C.y = -rr.y;
+  const res = validateTrack([A, B, C]);
+  assert.equal(res.warnings.filter((w) => /no level difference/.test(w)).length, 0);
+  assert.equal(res.errors.filter((e) => /overlap/i.test(e)).length, 0);
 });
 
 test('a welded (tangential) junction stays silent — no warning, no error', () => {

@@ -48,3 +48,21 @@ stays fully silent; a mid-piece crossing still errors. The seeds:
 K8EC79 → 0 errors + 4 crossing warnings; PV9PJ7 → 14 genuine
 same-level errors (spot-verified: a ~4 cm surface intersection the
 original never validated — it had no validator).
+
+## Review round (the Y-branch and the channel)
+
+- The weld set only marked out->in continuations, so Y-branch ENTRY
+  pairs (two pieces flowing away from one shared exit — same-direction
+  out-tangents) fell through to the crossing WARNING. The reviewer
+  reproduced it on the kink fixture's own geometry: junction semantics
+  now take out->in OR out->out alignment; only pairs whose tangents
+  differ at every shared vertex are crossings. Y-branch pin added.
+- The "K8EC79 signature" fixture actually had the vertical TERMINATE
+  at the crossing (kink noise); it now runs the real through-through
+  geometry and also asserts dedupe (one line per point — findings are
+  objects now, not a 'warn:' string channel, deduped like errors).
+- Welded-pair drop comment states what it does (silent residual drop).
+- style.css buster reverted to main's v27 (guard is bump-on-change).
+
+Seeds, final: K8EC79 0 errors / 2 warnings; SMYSLH 0/5; EARKUB 4/2;
+PV9PJ7 14/12 (genuine unvalidated same-level findings).

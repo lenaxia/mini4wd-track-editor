@@ -129,8 +129,14 @@ function sameLevelOverlaps(sprites, groups) {
     for (const x of g) {
       for (const y of g) {
         if (x === y || sprites[x.i] === sprites[y.i]) continue;
-        const aligned = Math.abs(((outwardTangent(sprites[x.i], x.vi) - inwardTangent(sprites[y.i], y.vi) + 540) % 360) - 180) <= KINK_TANGENT_TOL;
-        if (aligned) welded.add(`${Math.min(x.i, y.i)}:${Math.max(x.i, y.i)}`);
+        /* junction = flows INTO each other (out->in continuation) or
+         * flows OUT side by side (two branches off one exit — the
+         * Y-junction entry pair; same-direction out-tangents). Only a
+         * pair whose tangents differ at EVERY shared vertex is a
+         * crossing. */
+        const outIn = Math.abs(((outwardTangent(sprites[x.i], x.vi) - inwardTangent(sprites[y.i], y.vi) + 540) % 360) - 180) <= KINK_TANGENT_TOL;
+        const outOut = Math.abs(((outwardTangent(sprites[x.i], x.vi) - outwardTangent(sprites[y.i], y.vi) + 540) % 360) - 180) <= KINK_TANGENT_TOL;
+        if (outIn || outOut) welded.add(`${Math.min(x.i, y.i)}:${Math.max(x.i, y.i)}`);
       }
     }
     const idx = [...new Set(g.map((e) => e.i))];
@@ -179,12 +185,12 @@ function sameLevelOverlaps(sprites, groups) {
       }
       if (!hit) continue;
       const key = `${i}:${j}`;
-      if (welded.has(key)) continue;   /* a true junction's merge zone (pardoned above) */
+      if (welded.has(key)) continue;   /* welded pair: any residual hit is junction surface, silently dropped */
       if (sharedJoints.has(key)) {
-        findings.push(`warn:Crossing near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) has no level difference recorded — if one road bridges over, raise its level (legacy imports: bridge decks read as level 0)`);
+        findings.push({ warn: true, text: `Crossing near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) has no level difference recorded — if one road bridges over, raise its level (legacy imports: bridge decks read as level 0)` });
         continue;
       }
-      findings.push(`Roads overlap at the same level near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) — a car cannot pass through another road`);
+      findings.push({ warn: false, text: `Roads overlap at the same level near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) — a car cannot pass through another road` });
     }
   }
   return findings;
@@ -267,9 +273,10 @@ export function validateTrack(sprites) {
     }
   }
 
-  for (const f of sameLevelOverlaps(sprites, groups)) {
-    if (f.startsWith('warn:')) warnings.push(f.slice(5));
-    else errors.push(f);
+  const overlapFindings = sameLevelOverlaps(sprites, groups);
+  for (const f of [...new Map(overlapFindings.map((f) => [f.text, f])).values()]) {
+    if (f.warn) warnings.push(f.text);
+    else errors.push(f.text);
   }
 
   return { ok: errors.length === 0, errors: [...new Set(errors)], warnings };
