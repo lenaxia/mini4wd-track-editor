@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import http from 'node:http';
 
 /* Cache policy contract (serve.js):
  * - assets//src/ ?v=/?h= URLs are immutable for a year (content-addressed
@@ -163,4 +164,46 @@ test('sprite transport survives corrupted /assets responses (proxy pin)', async 
     });
     return { ok: !!img && img.naturalWidth > 0 };
   }), { timeout: 15_000 }).toEqual({ ok: true });
+});
+
+
+/* gzip transport (lib/compress.js): compressible text rides gzip when
+ * the client asks, identity otherwise; Vary keys caches on the
+ * encoding; images never compress. Asserted over RAW http — Playwright
+ * auto-decompresses and strips Content-Encoding for some types, so its
+ * header view is not the wire truth. */
+const rawGet = (port, pathName, acceptEncoding) => new Promise((resolve, reject) => {
+  const req = http.get({ host: '127.0.0.1', port, path: pathName, headers: acceptEncoding ? { 'Accept-Encoding': acceptEncoding } : {} }, (res) => {
+    const chunks = [];
+    res.on('data', (c) => chunks.push(c));
+    res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, bytes: Buffer.concat(chunks).length }));
+  });
+  req.on('error', reject);
+  req.setTimeout(4000, () => req.destroy(new Error('timeout')));
+});
+
+test('gzip: bundle, HTML, JS compress; identity without the header; PNG never; 304 intact', async () => {
+  const port = Number(process.env.PW_PORT || 3000);
+  const base = { 'Accept-Encoding': 'gzip' };
+
+  for (const p of ['/api/sprites', '/', '/src/main.js', '/style.css']) {
+    const r = await rawGet(port, p, 'gzip');
+    expect(r.status, p).toBe(200);
+    expect(r.headers['content-encoding'], p).toBe('gzip');
+    expect(r.headers.vary, p).toContain('Accept-Encoding');
+    const identity = await rawGet(port, p, 'identity');
+    expect(identity.headers['content-encoding'], p).toBeUndefined();
+    expect(r.bytes, `${p} should shrink`).toBeLessThan(identity.bytes);
+  }
+
+  const png = await rawGet(port, '/assets/Ban1.0.png', 'gzip');
+  expect(png.status).toBe(200);
+  expect(png.headers['content-encoding']).toBeUndefined();   /* already entropy-coded */
+
+  const html = await rawGet(port, '/', 'gzip');
+  const re = await new Promise((resolve, reject) => {
+    const req = http.get({ host: '127.0.0.1', port, path: '/', headers: { 'Accept-Encoding': 'gzip', 'If-None-Match': html.headers.etag } }, resolve);
+    req.on('error', reject);
+  });
+  expect(re.statusCode).toBe(304);                            /* ETag path survives gzip */
 });
