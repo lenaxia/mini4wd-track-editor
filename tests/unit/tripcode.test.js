@@ -72,15 +72,41 @@ test('unwritable salt location degrades to an ephemeral salt without throwing', 
   assert.notEqual(tripHash('degraded', env), h1);   /* fresh random per resolution */
 });
 
-test('no SQLITE_PATH: salt still defaults to ./data next to the CWD', () => {
+test('no SQLITE_PATH: salt still defaults to ./data next to the CWD', async () => {
   _resetSaltCache();
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-cwd-'));
   const cwd = process.cwd();
   process.chdir(tmp);
   try {
-    tripHash('legacy', {});
+    await initSalt({});
     assert.ok(fs.existsSync(path.join(tmp, 'data', 'trip.salt')));
   } finally { process.chdir(cwd); }
+});
+
+test('lazy tripHash never creates directories — absent dir degrades to ephemeral', () => {
+  /* directory creation is boot work (initSalt): the lazy path must not
+   * recursive-mkdir, because that call can spin forever on
+   * ENOENT-lying mounts */
+  _resetSaltCache();
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-salt-'));
+  const sub = path.join(tmp, 'absent');
+  assert.match(tripHash('lazy', { SQLITE_PATH: path.join(sub, 'tracks.db') }), /^[0-9a-f]{32}$/);
+  assert.equal(saltSource(), 'ephemeral');
+  assert.ok(!fs.existsSync(sub), 'no directory was created lazily');
+});
+
+test('initSalt: a hanging mkdir kills the boot instead of degrading', async () => {
+  _resetSaltCache();
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-salt-'));
+  const real = fs.promises.mkdir;
+  fs.promises.mkdir = () => new Promise(() => {});   /* never settles (lying mount) */
+  try {
+    await assert.rejects(
+      initSalt({ SQLITE_PATH: path.join(tmp, 'absent', 'tracks.db') }),
+      (e) => e.code === 'M4WD_MKDIR_TIMEOUT',
+    );
+    assert.notEqual(saltSource(), 'ephemeral');   /* timeout is loud, not a silent degrade */
+  } finally { fs.promises.mkdir = real; }
 });
 
 /* Issue 64 — the DELETE lock gate. Unsigned rows (null hash) are always
@@ -110,23 +136,26 @@ test('existing salt dir is not mkdir-ed again', () => {
   _resetSaltCache();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-salt-'));
   const realMkdir = fs.mkdirSync;
-  fs.mkdirSync = () => { throw new Error('mkdir ran for an existing dir'); };
+  const realPmkdir = fs.promises.mkdir;
+  const boom = () => { throw new Error('mkdir ran for an existing dir'); };
+  fs.mkdirSync = boom;
+  fs.promises.mkdir = boom;
   try {
     assert.match(tripHash('gated', { SQLITE_PATH: path.join(dir, 'tracks.db') }), /^[0-9a-f]{32}$/);
     assert.ok(fs.existsSync(path.join(dir, 'trip.salt')));
-  } finally { fs.mkdirSync = realMkdir; }
+  } finally { fs.mkdirSync = realMkdir; fs.promises.mkdir = realPmkdir; }
 });
 
-test('initSalt: resolves at boot, primes the hash path, env still wins', () => {
+test('initSalt: resolves at boot, primes the hash path, env still wins', async () => {
   _resetSaltCache();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-salt-'));
   const env = { SQLITE_PATH: path.join(dir, 'tracks.db') };
-  const s = initSalt(env);
+  const s = await initSalt(env);
   assert.match(s, /^[0-9a-f]{32}$/);
   assert.ok(fs.existsSync(path.join(dir, 'trip.salt')), 'salt file created at boot');
   /* boot-primed salt is exactly what later hashing uses (no further IO) */
   assert.equal(tripHash('boot primed', env), crypto.scryptSync('boot primed', s, 16).toString('hex'));
-  assert.equal(initSalt({ ...env, M4WD_TRIP_SALT: 'pinned' }), 'pinned');
+  assert.equal(await initSalt({ ...env, M4WD_TRIP_SALT: 'pinned' }), 'pinned');
 });
 
 test('saltSource: reports env | file | ephemeral for the live salt', () => {
