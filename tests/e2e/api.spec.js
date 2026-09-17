@@ -335,6 +335,19 @@ test('library lists published tracks and loads one onto a fresh browser', async 
   await ctx.close();
 });
 
+test('sprite bundle: the whole set in one json request', async ({ request }) => {
+  const r = await request.get('/api/sprites');
+  expect(r.status()).toBe(200);
+  expect(r.headers()['content-type']).toContain('application/json');
+  expect(r.headers()['cache-control']).toBe('no-cache');
+  const body = await r.json();
+  expect(Object.keys(body.files).length).toBeGreaterThanOrEqual(70);
+  expect(body.files['Str1.0.svg'].startsWith('<svg')).toBe(true);
+  /* hash-addressed: immutable */
+  const imm = await request.get('/api/sprites?h=deadbeef00');
+  expect(imm.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
+});
+
 test('sprite endpoint serves verified bytes proxy-safely (json transport)', async ({ request }) => {
   const manifest = await (await request.get('/assets/manifest.json')).json();
   const name = 'Str1.0.svg';

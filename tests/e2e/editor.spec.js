@@ -641,7 +641,12 @@ test('mobile top bar: a long track title never pushes the mode control or menu o
 
 test('real rucdoc sprites load: SVGs serve for real-data pieces', async ({ page }) => {
   const got = new Set();
-  page.on('response', (r) => { if (/\/(?:assets|sprites)\/R/.test(new URL(r.url()).pathname)) got.add(r.url().split('/').pop().split('?')[0]); });
+  const bundleHits = [];
+  page.on('response', (r) => {
+    const u = new URL(r.url());
+    if (/\/(?:assets|sprites)\/R/.test(u.pathname)) got.add(u.pathname.split('/').pop().split('?')[0]);
+    if (u.pathname === '/api/sprites') bundleHits.push(u.search);
+  });
   await page.goto('/');
   /* wait for the sprites themselves — a fixed timeout missed slow boots
    * under parallel workers. expect.poll + one-shot evaluates: rAF-polled
@@ -663,9 +668,11 @@ test('real rucdoc sprites load: SVGs serve for real-data pieces', async ({ page 
   const r2 = await page.request.get('assets/R2Ramp.svg');
   expect(r2.status()).toBe(200);
 
-  /* boot requested them (preload wiring incl. the sprite: override) */
-  expect(got.has('R1S250.svg')).toBe(true);
-  expect(got.has('R2Ramp.svg')).toBe(true);
+  /* NEW transport (bundle PR): manifest mode boots with ONE
+   * /api/sprites?h=<digest> request carrying the whole set — the
+   * rucdoc files ride inside it, verified against the manifest */
+  expect(bundleHits).toHaveLength(1);
+  expect(bundleHits[0]).toMatch(/^\?h=[0-9a-f]{16,}$/);
   /* exactly one ramp render backs all nine heights — no R2RampN 404 spam */
   expect([...got].filter((f) => /^R2Ramp\d/.test(f))).toHaveLength(0);
 
