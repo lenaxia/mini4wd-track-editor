@@ -133,26 +133,24 @@ test('a 75 mm level difference bridges straight over a wall', () => {
   assert.ok(res.pieces.every((p) => p.name === 'Str1' && p.z === 75));
 });
 
-test('small off-grid offsets (<= 2 cm) weld invisibly; larger ones report', () => {
+test('tiny off-grid offsets (<= 0.2 cm) weld invisibly; larger ones report', () => {
   const mkScene = (dy) => [mk('Str1', 100, 100), mk('Str1', 262, 100 + dy, 0)];
-  /* 1.5 cm: near-invisible — flex weld, reported */
-  const small = mkScene(1.5);
+  /* 0.15 cm: imperceptible — closes (exact or flex-welded, both clean) */
+  const small = mkScene(0.15);
   let res = closeLoop(small, small[0], small[1]);
   assert.equal(res.ok, true);
-  assert.equal(res.flex, true);
-  assert.ok(Math.abs(res.gap - 1.5) < 0.5, `gap ~1.5, got ${res.gap}`);
   const last = res.pieces[res.pieces.length - 1];
   const bv = vertexOf(small[1], 0);
   const lv = vertexOf(last, 1);
   assert.ok(Math.hypot(lv.x - bv.x, lv.y - bv.y) <= 1e-6); /* welded onto B */
 
-  /* 5 cm (owner report class: a 9.4 cm break shipped as "closed") — honest
-   * failure with the step-back offer, never a kinked weld */
-  const five = mkScene(5);
+  /* 2 cm and up (owner report class: a 9.4 cm break shipped as "closed") —
+   * honest failure with the step-back offer, never a kinked weld */
+  const five = mkScene(2);
   res = closeLoop(five, five[0], five[1]);
   assert.equal(res.ok, false);
   assert.equal(res.why, 'off-grid');
-  assert.ok(Math.abs(res.miss.d - 5) < 1);
+  assert.ok(Math.abs(res.miss.d - 2) < 1);
 });
 
 test('far off-grid or walled-in target returns no-path with diagnostics', () => {
@@ -211,7 +209,7 @@ test('off-grid ends with corner-chain heading drift: small welds, big reports', 
   /* A is a corner: its exit tangent is the catalog's 44.976 deg, not exactly
    * 45. B is a hand-placed straight at exactly 45 deg with its entry vert
    * off the reachable lattice — the "nearest fit 6.5 cm / 0 deg off" case.
-   * A 1.5 cm offset flex-welds; 6.5 cm reports honestly (no kinked welds). */
+   * A 0.15 cm offset flex-welds; 6.5 cm reports honestly (no kinked welds). */
   const mkScene = (off) => {
     const A = mk('Cor1', 100, 100);
     const exit = vertexOf(A, 1);
@@ -221,10 +219,9 @@ test('off-grid ends with corner-chain heading drift: small welds, big reports', 
     const B = mk('Str1', goal.x - 27 * d45.x, goal.y - 27 * d45.y, 45);
     return { sprites: [A, B], A, B };
   };
-  let sc = mkScene(1.5);
+  let sc = mkScene(0.15);
   let res = closeLoop(sc.sprites, sc.A, sc.B);
   assert.equal(res.ok, true);
-  assert.equal(res.flex, true);
   sc = mkScene(6.5);
   res = closeLoop(sc.sprites, sc.A, sc.B);
   assert.equal(res.ok, false);

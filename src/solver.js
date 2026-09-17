@@ -60,7 +60,7 @@ const JOINT_WELD_EPS = OPEN_EPS;
  * shared vertex — proximity alone would exempt real crossings (a run whose
  * end happens to land near another piece's end while the roads cross). */
 const JOINT_TANGENT_EPS = 10; // deg
-const GOAL_EPS = 0.5;     // cm — exact landing (float-drifted chains land ~0.1)
+const GOAL_EPS = 0.2;     // cm — exact landing; welds at/under this are imperceptible (owner: 0.2)
 const TURN_EPS = 0.05;    // deg (refreshFlags tangent tolerance) — diagnostics only
 const FLEX_TURN_EPS = 1.5; // deg — flex weld re-orients onto the target, so a
                            // small heading mismatch (catalog corners carry
@@ -69,7 +69,7 @@ const FLEX_TURN_EPS = 1.5; // deg — flex weld re-orients onto the target, so a
  * last piece onto the goal and dumps the whole remainder as a break at the
  * run's previous joint (owner: a 9 cm break reads as broken, not closed).
  * Larger offsets report honestly and offer step-back instead. */
-const FLEX_WELD_MAX = 2; // cm
+const FLEX_WELD_MAX = 0.2; // cm (owner: 2 mm)
 const FLEX_SLACK = 0.05;  // m — A* may keep searching past a flex find by this
 
 const norm360 = (deg) => ((deg % 360) + 360) % 360;
