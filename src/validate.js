@@ -40,7 +40,6 @@ const KINK_TANGENT_TOL = 0.5;   /* deg — visible kinks, above rounding noise *
 const OVERLAP_STEP = 5;      /* cm between centerline samples */
 const TOUCH_SLACK = 1;       /* cm: exactly-touching corridors are legal */
 const LEVEL_EPS = 20;        /* mm: below this the levels read as equal */
-const JOINT_NEIGH = 16;      /* cm: junction-neighborhood exemption radius */
 
 /* the TRUE road width: corner/hairpin carry band; waves wander inside
  * a taller footprint so their road is the lane width (3L=36, 5L=60),
@@ -115,9 +114,31 @@ function corridorSamples(p) {
 function sameLevelOverlaps(sprites, groups) {
   const samples = sprites.map(corridorSamples);
   const zAt = (p, t) => levelAt(p, 0) + (levelAt(p, 1) - levelAt(p, 0)) * t;
-  /* joint neighborhoods shared by BOTH pieces of a pair are exempt */
-  const sharedJoints = new Map();
+  /* joint neighborhoods shared by BOTH pieces of a pair are exempt.
+   * WELDED pairs (tangentially aligned at the shared vertex, the same
+   * test as the kink check) are true junctions — silent pardon. Pairs
+   * that merely share a coincident endpoint PERPENDICULARLY are not
+   * connected at all: they are plan CROSSINGS, and flat data cannot
+   * prove same-level (the original site's codec has no elevation — a
+   * crossing there is a bridge deck by construction, owner ruling:
+   * "one is supposed to be a bridge; does an F1 track have a 4-way
+   * stop?"). Those surface as WARNINGS, never errors. */
+  const sharedJoints = new Map();   /* "i:j" -> [ {x,y} ] (any shared vertex) */
+  const welded = new Set();         /* "i:j" with a tangential out-in pairing */
   for (const g of groups) {
+    for (const x of g) {
+      for (const y of g) {
+        if (x === y || sprites[x.i] === sprites[y.i]) continue;
+        /* junction = flows INTO each other (out->in continuation) or
+         * flows OUT side by side (two branches off one exit — the
+         * Y-junction entry pair; same-direction out-tangents). Only a
+         * pair whose tangents differ at EVERY shared vertex is a
+         * crossing. */
+        const outIn = Math.abs(((outwardTangent(sprites[x.i], x.vi) - inwardTangent(sprites[y.i], y.vi) + 540) % 360) - 180) <= KINK_TANGENT_TOL;
+        const outOut = Math.abs(((outwardTangent(sprites[x.i], x.vi) - outwardTangent(sprites[y.i], y.vi) + 540) % 360) - 180) <= KINK_TANGENT_TOL;
+        if (outIn || outOut) welded.add(`${Math.min(x.i, y.i)}:${Math.max(x.i, y.i)}`);
+      }
+    }
     const idx = [...new Set(g.map((e) => e.i))];
     for (let a = 0; a < idx.length; a += 1)
       for (let b = a + 1; b < idx.length; b += 1) {
@@ -126,7 +147,11 @@ function sameLevelOverlaps(sprites, groups) {
         sharedJoints.get(key).push(g[0].v);
       }
   }
-  const near = (s, pts) => pts.some((v) => Math.hypot(s.x - v.x, s.y - v.y) <= JOINT_NEIGH);
+  /* a shared joint's pardon radius is PER PAIR: two welded roads
+   * legitimately share surface from the joint out to hwA+hwB (a
+   * T-junction's vertical crosses the host's full width — the seeds'
+   * real tracks exposed the fixed 16 cm radius as too small). */
+  const near = (s, pts, r) => pts.some((v) => Math.hypot(s.x - v.x, s.y - v.y) <= r);
   const findings = [];
   for (let i = 0; i < sprites.length; i += 1) {
     const ei = pieceHalfExtents(sprites[i]);
@@ -136,7 +161,8 @@ function sameLevelOverlaps(sprites, groups) {
       const ej = pieceHalfExtents(sprites[j]);
       if (Math.abs(sprites[i].x - sprites[j].x) >= ei.hx + ej.hx ||
           Math.abs(sprites[i].y - sprites[j].y) >= ei.hy + ej.hy) continue;
-      const joints = sharedJoints.get(`${i}:${j}`) || [];
+      const pairKey = `${i}:${j}`;
+      const joints = welded.has(pairKey) ? (sharedJoints.get(pairKey) || []) : [];   /* only WELDED pairs get the merge-zone pardon — a crossing pair must register its hit to warn */
       let hit = null;
       /* containment both ways — a thin crossing lens may hold samples
        * of only one side; dz compares the guest sample to the HOST's z
@@ -145,17 +171,26 @@ function sameLevelOverlaps(sprites, groups) {
       for (const [hostIdx, guestIdx] of [[j, i], [i, j]]) {
         const hostP = sprites[hostIdx], guestP = sprites[guestIdx];
         const guestHw = roadWidth(PIECES[guestP.name]) / 2;
+        const hostHw = roadWidth(PIECES[hostP.name]) / 2;
+        const jointR = hostHw + guestHw;   /* the junction's true merge reach */
         for (const s of samples[guestIdx]) {
           const t = corridorT(hostP, s, guestHw);
           if (t == null) continue;
           if (Math.abs(s.z - zAt(hostP, t)) >= LEVEL_EPS) continue;
-          if (joints.length && near(s, joints)) continue;   /* the junction itself */
+          if (joints.length && near(s, joints, jointR)) continue;   /* the junction itself */
           hit = { x: s.x, y: s.y };
           break;
         }
         if (hit) break;
       }
-      if (hit) findings.push(`Roads overlap at the same level near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) — a car cannot pass through another road`);
+      if (!hit) continue;
+      const key = `${i}:${j}`;
+      if (welded.has(key)) continue;   /* welded pair: any residual hit is junction surface, silently dropped */
+      if (sharedJoints.has(key)) {
+        findings.push({ warn: true, text: `Crossing near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) has no level difference recorded — if one road bridges over, raise its level (legacy imports: bridge decks read as level 0)` });
+        continue;
+      }
+      findings.push({ warn: false, text: `Roads overlap at the same level near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) — a car cannot pass through another road` });
     }
   }
   return findings;
@@ -238,7 +273,11 @@ export function validateTrack(sprites) {
     }
   }
 
-  errors.push(...sameLevelOverlaps(sprites, groups));
+  const overlapFindings = sameLevelOverlaps(sprites, groups);
+  for (const f of [...new Map(overlapFindings.map((f) => [f.text, f])).values()]) {
+    if (f.warn) warnings.push(f.text);
+    else errors.push(f.text);
+  }
 
   return { ok: errors.length === 0, errors: [...new Set(errors)], warnings };
 }
