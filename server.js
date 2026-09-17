@@ -74,6 +74,10 @@ const json = (res, code, body, req) => {
   res.end(gz ?? raw);
 };
 
+/* log hygiene: strip C0/C1 controls so a crafted url/user-agent cannot
+ * forge or split log lines */
+const logSafe = (s) => s.replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+
 /* Validation errors → 400 with a useful message; anything else → 500
  * generic (driver internals never leak into responses). */
 class ValidationError extends Error {}
@@ -110,7 +114,9 @@ function normalize({ id, name, author, data, parent_id, root_id, parent_name, tr
   if (typeof trip === 'string' && trip.length > 200) bad('trip too long (max 200)');
   if (data.mode !== undefined && typeof data.mode !== 'number' && typeof data.mode !== 'string')
     bad('data.mode must be a number or a string');
+  if (typeof data.mode === 'string' && data.mode.length > 32) bad('data.mode too long (max 32)');
   if (data.angle !== undefined && typeof data.angle !== 'number') bad('data.angle must be a number');
+  if (typeof data.angle === 'number' && !Number.isFinite(data.angle)) bad('data.angle must be finite');
   const raw = typeof data.track === 'string' ? data.track : '';
   if (raw.length > MAX_TRACK_BYTES_EXPORTED) throw new Error('data.track too large (max 512 KiB)');
   const t = {
@@ -188,7 +194,7 @@ async function main() {
   console.log(`mini4wd-editor server on http://localhost:${PORT} (store: ${store.driver})`);
 
   const server = http.createServer(async (req, res) => {
-    const log = () => console.log(`${new Date().toISOString()} ${req.method} ${req.url} -> ${res.statusCode !== 200 && res.statusCode !== 304 ? res.statusCode : 'ok'} [${req.headers['user-agent'] ? req.headers['user-agent'].slice(0, 40) : '?'}]`);
+    const log = () => console.log(`${new Date().toISOString()} ${req.method} ${logSafe(req.url)} -> ${res.statusCode !== 200 && res.statusCode !== 304 ? res.statusCode : 'ok'} [${req.headers['user-agent'] ? logSafe(req.headers['user-agent'].slice(0, 40)) : '?'}]`);
     res.on('finish', log);
     req.on('error', () => {}); res.on('error', () => {});
 
