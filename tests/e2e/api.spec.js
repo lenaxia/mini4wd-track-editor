@@ -643,6 +643,9 @@ test('deleting a locked track requires the phrase (issue 64)', async ({ request 
   expect((await request.delete(`/api/tracks/${id}`, { headers: { 'X-Trip': 'Alex#wrong' } })).status()).toBe(403);
   expect((await request.delete(`/api/tracks/${id}`, { data: { trip: 'Alex#wrong' } })).status()).toBe(403);
   expect((await (await request.get(`/api/tracks/${id}`)).json()).author_trip).toBe(TRIP_HASH);
+  /* precedence pinned (review round 1): when both are presented the
+   * header wins — a wrong header must not be redeemed by a right body */
+  expect((await request.delete(`/api/tracks/${id}`, { headers: { 'X-Trip': 'Alex#wrong' }, data: { trip: 'Alex#sekrit' } })).status()).toBe(403);
   /* the right phrase opens it — header or body */
   expect((await request.delete(`/api/tracks/${id}`, { headers: { 'X-Trip': 'Sam#sekrit' } })).status()).toBe(204);
   expect((await request.get(`/api/tracks/${id}`)).status()).toBe(404);

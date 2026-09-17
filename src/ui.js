@@ -574,7 +574,11 @@ export function init(dimsGetter) {
           try {
             const r = await fetch(`/api/tracks/${it.id}`, {
               method: 'DELETE',
-              ...(rememberedTrip() ? { headers: { 'X-Trip': rememberedTrip() } } : {}),   /* signed rows 403 a trip-less delete (issue 64) */
+              headers: { 'Content-Type': 'application/json' },
+              /* trip in the BODY, not a header: header values must be
+               * Latin-1 ByteStrings — a CJK/emoji trip would throw (review
+               * round 1). Same shape as the restore path (storage.js). */
+              body: JSON.stringify(rememberedTrip() ? { trip: rememberedTrip() } : {}),
             });
             if (!r.ok) { toast('Delete failed'); return; }
             if (publishedTrack()?.id === it.id) {   /* the working track died */
