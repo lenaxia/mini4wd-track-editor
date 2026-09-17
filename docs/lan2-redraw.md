@@ -120,3 +120,31 @@ straight/turn delineator sits.
    endpoints exactly 2r apart (centers on the axis)
 5. Exit straight mirrored
 6. Inspector green + goldens re-frozen
+
+---
+
+## OWNER RULING — construction model (supersedes "custom recipe" framing)
+
+The Rainbow is a kit-bash, confirmed: **two Bri2.0s in parallel,
+both facing the same direction** (entry straight on one side of the
+180°, exit on the other). Assembly:
+
+| subsystem | pieces | joins |
+|---|---|---|
+| entry straight | 1× Bri2.0 (3-lane, bottom-lane ramp → elevated) | — |
+| exit straight | 1× Bri2.0, same orientation | — |
+| ground 180° | 4× stock 2-lane 45° corners | Bri2 #1's two ground lanes → Bri2 #2's two ground lanes |
+| elevated 180° | 4× rucdoc 1-lane 45° corners | Bri2 #1's bridge lane → Bri2 #2's bridge lane (different radius ⇒ grade crossing mid-turn; inside lane exits outside) |
+
+**Presentation ruling: ship it as ONE piece** — users place a
+single "Rainbow", not eight parts. The redraw reuses the existing
+art vocabulary verbatim: bri2_art for the two straights (ramp
+gradient, face, weave per the approved Lan1/Lan2 work), stock 2L
+corner bands for the ground arcs, rucdoc 1-lane band style for the
+bridge arcs, crossing rendered where the 1-lane bridge passes over
+the ground lanes (the rip's X texture). Delineators at the 45°
+joints are literally the piece boundaries of the corner sets.
+
+Editor implication (recorded for the lane-bundle design): this is
+the canonical use case — 2-lane corner bundles snapping to the two
+ground lanes, a 1-lane bundle to the elevated lane.
