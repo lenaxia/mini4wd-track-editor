@@ -21,6 +21,8 @@ export default defineConfig({
      * fighting over the shared :3000 preview. */
     command: `node tools/gen-manifest.js && PORT=${process.env.PW_PORT || 3000} node tests/e2e/webserver.mjs`,
     url: `http://localhost:${process.env.PW_PORT || 3000}`,
-    reuseExistingServer: true,
+    /* reuseExistingServer off in CI; locally a stale listener once
+     * masked a broken build (worklog 0026) — CI always boots fresh */
+    reuseExistingServer: !process.env.CI,
   },
 });

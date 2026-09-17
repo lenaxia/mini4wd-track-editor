@@ -224,9 +224,8 @@ async function main() {
           'Content-Type': 'application/json; charset=utf-8',
           'Cache-Control': hashAddr ? 'public, max-age=31536000, immutable' : 'no-cache',
           'Access-Control-Allow-Origin': '*',
-          Vary: 'Accept-Encoding',
         };
-        if (gz) hdr['Content-Encoding'] = 'gzip';
+        if (gz) { hdr['Content-Encoding'] = 'gzip'; hdr.Vary = 'Accept-Encoding'; }
         res.writeHead(200, hdr);
         return res.end(gz ?? raw);
       }
@@ -253,9 +252,8 @@ async function main() {
             'Content-Type': 'application/json; charset=utf-8',
             'Cache-Control': hashAddr ? 'public, max-age=31536000, immutable' : 'no-cache',
             'Access-Control-Allow-Origin': '*',
-            Vary: 'Accept-Encoding',
           };
-          if (gz) hdr['Content-Encoding'] = 'gzip';
+          if (gz) { hdr['Content-Encoding'] = 'gzip'; hdr.Vary = 'Accept-Encoding'; }
           res.writeHead(200, hdr);
           return res.end(gz ?? raw);
         }
@@ -274,7 +272,7 @@ async function main() {
           }));
           page.items = withData;
         }
-        return json(res, 200, page);
+        return json(res, 200, page, req);
       }
       if (u === '/api/tracks' && req.method === 'POST') {
         const body = await parseBody(req);

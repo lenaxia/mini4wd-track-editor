@@ -53,11 +53,22 @@ process failure worth recording:
   code on the same port. Lesson applied: probe servers are killed
   before suites now, and the wire assertions run against a server
   started from the COMMITTED tree.
-- json()'s Vary header claimed variance the code never produced; the
-  list route now actually passes req, and Vary is set only when the
-  response is really compressed.
+- json()'s Vary header claimed variance the code never produced —
+  Vary is now set only when the response is really compressed. (The
+  round-1 fix note claimed the list route passed req; it did NOT —
+  the reviewer caught the claim. It does now, round 2.)
 - acceptsGzip no longer matches an explicit `gzip;q=0` refusal.
 
 Verified on the wire (fresh server from the committed tree): bundle
 196036B identity / 27731B gzip; / 17266→5057; main.js 3853→1909;
 style.css 23131→5871; no-header clients get full identity bodies.
+
+## Review round 2
+
+- The list route REALLY passes req now (round 1 claimed it; the code
+  said otherwise — rule 7 burn, twice checked since).
+- Vary on the sprite routes only when the body is compressible-sized;
+  acceptsGzip is case-insensitive (/i) per RFC 9110 tokens.
+- reuseExistingServer is off under CI — the stale-listener class that
+  produced round 1's false-pass can't recur there. (Locally, kill
+  your probe servers before suites.)
