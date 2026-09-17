@@ -18,6 +18,7 @@ import { openStore } from './lib/store/index.js';
 import { shouldArchive } from './lib/store/retention.js';
 import { parseTrip, tripHash } from './lib/tripcode.js';
 import { facets, MAX_TRACK_BYTES_EXPORTED, VALIDATOR_VERSION } from './lib/store/facets.js';
+import { acceptsGzip, gzipBody } from './lib/compress.js';
 import { validateTrack } from './src/validate.js';
 import { parseTrack } from './src/track.js';
 
@@ -63,9 +64,13 @@ const PORT = process.env.PORT || 3000;
 const MAX_BODY = 2 * 1024 * 1024;
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
-const json = (res, code, body) => {
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-  res.end(JSON.stringify(body));
+const json = (res, code, body, req) => {
+  const raw = Buffer.from(JSON.stringify(body));
+  const gz = req && acceptsGzip(req) && gzipBody(raw, 'application/json; charset=utf-8');
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', Vary: 'Accept-Encoding' };
+  if (gz) headers['Content-Encoding'] = 'gzip';
+  res.writeHead(code, headers);
+  res.end(gz ?? raw);
 };
 
 /* Validation errors → 400 with a useful message; anything else → 500
@@ -212,12 +217,17 @@ async function main() {
         const out = {};
         for (const [f, p] of Object.entries(files)) out[f] = await p;
         const hashAddr = /[?&]h=[0-9a-f]{8,64}/.test(req.url);
-        res.writeHead(200, {
+        const raw = Buffer.from(JSON.stringify({ files: out }));
+        const gz = acceptsGzip(req) && gzipBody(raw, 'application/json; charset=utf-8');
+        const hdr = {
           'Content-Type': 'application/json; charset=utf-8',
           'Cache-Control': hashAddr ? 'public, max-age=31536000, immutable' : 'no-cache',
           'Access-Control-Allow-Origin': '*',
-        });
-        return res.end(JSON.stringify({ files: out }));
+          Vary: 'Accept-Encoding',
+        };
+        if (gz) hdr['Content-Encoding'] = 'gzip';
+        res.writeHead(200, hdr);
+        return res.end(gz ?? raw);
       }
 
       /* Sprites over json: the preview proxy empties svg-typed fetch()
@@ -236,12 +246,17 @@ async function main() {
           /* genuine JSON envelope — the transport must survive proxies
            * that parse (not just type-match) json responses */
           const hashAddr = /[?&]h=[0-9a-f]{8,64}/.test(req.url);
-          res.writeHead(200, {
+          const raw = Buffer.from(JSON.stringify({ svg: body }));
+          const gz = acceptsGzip(req) && gzipBody(raw, 'application/json; charset=utf-8');
+          const hdr = {
             'Content-Type': 'application/json; charset=utf-8',
             'Cache-Control': hashAddr ? 'public, max-age=31536000, immutable' : 'no-cache',
             'Access-Control-Allow-Origin': '*',
-          });
-          return res.end(JSON.stringify({ svg: body }));
+            Vary: 'Accept-Encoding',
+          };
+          if (gz) hdr['Content-Encoding'] = 'gzip';
+          res.writeHead(200, hdr);
+          return res.end(gz ?? raw);
         }
       }
 
