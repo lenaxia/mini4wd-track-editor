@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseTrip, tripHash, tripCode, tripMatches, _resetSaltCache } from '../../lib/tripcode.js';
+import { parseTrip, tripHash, tripCode, tripMatches, _resetSaltCache, initSalt } from '../../lib/tripcode.js';
 
 test('parseTrip: name#phrase splits on the first #', () => {
   assert.deepEqual(parseTrip('Alex#secret phrase'), { name: 'Alex', phrase: 'secret phrase' });
@@ -102,4 +102,29 @@ test('tripMatches: stored hash requires the exact phrase', () => {
   assert.equal(tripMatches(h, null), false);
   assert.equal(tripMatches(h, ''), false);
   assert.equal(tripMatches(tripHash(''), 'Alex#'), false);    /* empty phrase never hashes to a lock's key */
+});
+
+test('existing salt dir is not mkdir-ed again', () => {
+  /* recursive mkdir can spin forever on ENOENT-lying mounts — the
+   * existsSync gate must keep it away from dirs we already have */
+  _resetSaltCache();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-salt-'));
+  const realMkdir = fs.mkdirSync;
+  fs.mkdirSync = () => { throw new Error('mkdir ran for an existing dir'); };
+  try {
+    assert.match(tripHash('gated', { SQLITE_PATH: path.join(dir, 'tracks.db') }), /^[0-9a-f]{32}$/);
+    assert.ok(fs.existsSync(path.join(dir, 'trip.salt')));
+  } finally { fs.mkdirSync = realMkdir; }
+});
+
+test('initSalt: resolves at boot, primes the hash path, env still wins', () => {
+  _resetSaltCache();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm4wd-salt-'));
+  const env = { SQLITE_PATH: path.join(dir, 'tracks.db') };
+  const s = initSalt(env);
+  assert.match(s, /^[0-9a-f]{32}$/);
+  assert.ok(fs.existsSync(path.join(dir, 'trip.salt')), 'salt file created at boot');
+  /* boot-primed salt is exactly what later hashing uses (no further IO) */
+  assert.equal(tripHash('boot primed', env), crypto.scryptSync('boot primed', s, 16).toString('hex'));
+  assert.equal(initSalt({ ...env, M4WD_TRIP_SALT: 'pinned' }), 'pinned');
 });
