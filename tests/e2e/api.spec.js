@@ -95,7 +95,7 @@ test('validation rejects garbage without crashing the server', async ({ request 
 /* Owner rulings 2026-09-16: slopes count SEPARATELY from straights (not
  * interchangeable); hairpins/rainbows count as 4 corners (a 180° is
  * four 45° pieces' worth). */
-test('facet classification: slopes separate, hairpins are 4 corners, both sortable', async ({ request }) => {
+test('facet classification: slopes separate, corners weigh by sweep (90°=2, 180°=4)', async ({ request }) => {
   const id = `${PREFIX}-slope`; ids.push(id);
   const track = 'Bri1;100.000;100.000;0;0;0#Bri1;160.000;100.000;0;0;0#Str1;220.000;100.000;0;0;0#';
   const meta = await (await request.put(`/api/tracks/${id}`, { data: { name: 'e2e slopes', author: 'playwright', data: { track, mode: 3 } } })).json();
@@ -107,7 +107,12 @@ test('facet classification: slopes separate, hairpins are 4 corners, both sortab
   const hmeta = await (await request.put(`/api/tracks/${hid}`, {
     data: { name: 'e2e hairpin', author: 'playwright', data: { track: 'Lan2;200.000;200.000;0;0#', mode: 3 } },
   })).json();
-  expect(hmeta.corners).toBe(4);           /* one rainbow = four 45° corners */
+  expect(hmeta.corners).toBe(4);           /* one rainbow (180°) = four 45° corners */
+  const nid = `${PREFIX}-ninety`; ids.push(nid);
+  const nmeta = await (await request.put(`/api/tracks/${nid}`, {
+    data: { name: 'e2e ninety', author: 'playwright', data: { track: 'Cor3;100.000;100.000;0;0#R1C90I150;160.000;100.000;90;0#', mode: 3 } },
+  })).json();
+  expect(nmeta.corners).toBe(4);           /* 90° corner = 2 + 90° rucdoc = 2 */
   expect(hmeta.straights).toBe(0);
   expect(hmeta.slopes).toBe(0);
 
@@ -204,7 +209,7 @@ test('stats popup shows local facets + the server row (dates, stars, validity)',
   await expect(rows).toContainText('1.36 m');            /* 4 × R1C90I150 */
   await expect(rows.locator('.stat-row', { hasText: 'Pieces' }).locator('.stat-value')).toHaveText('4');
   await expect(rows.locator('.stat-row', { hasText: 'Straights' }).locator('.stat-value')).toHaveText('0');
-  await expect(rows.locator('.stat-row', { hasText: 'Corners' }).locator('.stat-value')).toHaveText('4');
+  await expect(rows.locator('.stat-row', { hasText: 'Corners' }).locator('.stat-value')).toHaveText('8');  /* four 90° = 4×2 */
 
   /* the (?) affordances carry the classification notes in a
    * position-aware tooltip — never inline, never off-screen */

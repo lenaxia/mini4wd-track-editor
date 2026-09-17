@@ -5,53 +5,52 @@
   <img src="docs/ux-phone.png" width="23%" alt="The editor on a phone with a 125-piece circuit">
 </p>
 
-Design Mini4WD circuits on your phone. Touch-first, no build step, no
-frameworks — open it and lay track.
+Design Mini4WD circuits on your phone. The editor is a plain static
+site (no build step, no frameworks); open it and lay track.
 
-## The editor
+## Features
 
-- **Tap to place.** Pick a piece, tap the canvas — it drops in and welds
-  to nearby track ends (green dots mean connected). Keep your finger
-  down to drag it into exact position first; release to commit.
-- **Everything is movable.** Drag single pieces or rubber-band a group;
-  groups snap as a unit. Rotate around the joint you're connected to, or
-  around the group's center. Undo everything, always.
-- **Elevation is real.** Raise and lower in 10 mm steps; slopes chain
-  levels automatically; bridges over lower track render see-through with
-  a warning when 75 mm clearance isn't met.
-- **Complete the loop.** Leave a gap, select the two open ends, tap
-  Complete — the shortest run of straights and corners fills it. If nothing
-  fits, the tool offers to remove pieces until something does, then
-  closes it.
-- **Made for thumbs.** Two-finger pan and pinch zoom, bottom toolbar,
-  scrollable palette, safe-area aware. On desktop: full keyboard parity
-  (1-9 pieces, Q/W/E tools, Z/X rotate, R undo, F fit, Space pan).
+- **Closing the loop.** Leave a gap in the circuit, select the two open
+  ends, and tap Complete. The editor finds the shortest run of straights
+  and corners that closes the loop and places it. If the gap is blocked,
+  it offers to clear the pieces in the way first, then closes.
+- **Publishing and the gallery.** A track stays on your device until you
+  name and publish it; after that every edit saves automatically. The
+  gallery lists all published tracks. Sort by last update, length, lane
+  count, footprint, or stars; narrow the list by length range, lanes,
+  footprint, or part counts (straights, slopes, corners); show only
+  finished circuits or tracks saved on this device (Mine). There are no
+  accounts: starring a track or opening someone else's to edit works
+  with a tap.
+- **Version history.** Saves keep snapshots of how a published track
+  looked before, listed in History with timestamps — anyone can restore
+  one with a tap. Quick bursts of edits collapse into one snapshot per
+  session and roughly a week of history is kept, so the list stays
+  short and useful. Copy makes your own version of a track (labelled
+  "based on" the original) and leaves the original alone.
+- **Placing pieces.** Pick a piece, tap the canvas, and it drops in and
+  snaps to nearby track ends (green dots mark the joints). You can hold
+  and drag it into position before letting go.
+- **Moving things.** Drag pieces individually or select a group, which
+  then snaps as a unit. A connected piece rotates around its joint, a
+  selection rotates around its center. Everything can be undone.
+- **Elevation.** Height changes in 10 mm steps. Slopes carry the level
+  across, bridges over lower track are drawn see-through, and a warning
+  appears when the clearance drops under 75 mm.
+- **Track check.** The save button is a live health check: a green ring
+  means the circuit is complete and consistent, a red one means problems
+  (dangling ends, kinked joints), listed when tapped. Incomplete tracks
+  can still be published and are marked Work-in-Progress.
+- **Share links.** The whole track is encoded in the URL, so a link is
+  all it takes to hand someone your circuit.
+- **Phones first.** Two-finger pan and pinch zoom, a bottom toolbar, a
+  scrollable palette, safe-area support. Desktop gets the same features
+  on the keyboard (1-9 pieces, Q/W/E tools, Z/X rotate, R undo, F fit,
+  Space pan).
 - **Two track systems.** Regulation 3-lane and 5-lane Tamiya pieces
   (11.5 cm lanes, official lap lengths) and rucdoc 1/2/3-lane
-  3D-printed pieces — every sprite generated as crisp vector art on the
-  same grid, so mixed systems align at the joints.
-
-## Sharing and saving
-
-- **Share links** encode the whole track in the URL — no server needed.
-- **Local until you publish.** Work stays on your device; publishing
-  names it and saves it to the server, and from then on every edit
-  auto-saves.
-- **Know before you publish.** The save button is a live health check:
-  green ring = complete and consistent, red = issues (dangling ends,
-  kinked joints), listed when you tap. Incomplete tracks still publish —
-  marked Work-in-Progress.
-- **Gallery.** Browse every published track: sort by length, lane count,
-  footprint (limited room?), straight/corner counts (limited parts?),
-  stars, or newest. Filter to finished circuits only, or to the tracks
-  this device saved (Mine). Star what you like; tap any track to load it
-  and keep editing it. No accounts anywhere.
-- **Nothing is ever lost.** Saves of a shared track keep snapshots of how
-  it looked before — History lists them with timestamps and anyone can
-  restore one with a tap. Rapid edits collapse into one snapshot per
-  session, and about a week of history is kept, so the list stays useful.
-  **Copy** makes your own version of any track (shown as "based on" it)
-  without touching the original, so abandoned tracks never block anyone.
+  3D-printed pieces. All sprites are vector art drawn on the same grid,
+  so mixed systems line up at the joints.
 
 ## Running it
 
@@ -63,8 +62,9 @@ node server.js       # editor + track storage (sqlite by default)
 Self-hosting: `docker compose up` runs the published image
 (`ghcr.io/lenaxia/mini4wd-track-editor`, built from `v*` tags, amd64 +
 arm64) with a sqlite volume; add `--profile postgres` for postgres.
-Storage is a document core with indexed facets (length, lanes, footprint,
-piece counts, completeness, stars) — search scales, tracks stay opaque.
+The server keeps each track as an opaque document and indexes the
+facets used in search (length, lanes, footprint, piece counts,
+completeness, stars).
 
 Track format: `Name;x;y;angle;color;z#…` (1 px = 1 cm, z in mm);
 legacy tracks import unchanged.
@@ -88,14 +88,21 @@ geometry and golden rasters. Pure modules run under plain node, which is
 also how the server validates tracks. CI runs the suites, a live-postgres
 conformance check, and a real docker build-and-boot smoke on every PR.
 
+## AI use
+
+This project is built with AI coding agents under human direction.
+`README-LLM.md` holds the rules the agents work under, `docs/worklogs/`
+records each change and the decisions behind it, and every pull request
+is reviewed by an automated AI reviewer before merge.
+
 ## Credits
 
-- **Pimentoso (Michele Ferri)** — track format, piece catalog, and
+- **Pimentoso (Michele Ferri)**: the track format, piece catalog, and
   snapping algorithm derive from his MIT-licensed Mini4WD Online Track
   Editor (© 2016); notices preserved in source headers.
-- **rucdoc** — 1/2/3-lane 3D-printed track system, MIT (c) rucdoc;
+- **rucdoc**: the 1/2/3-lane 3D-printed track system, MIT (c) rucdoc;
   sprites are original vector redraws from his published dimensions.
-- **Tamiya** — "Mini4WD" and track piece designs are property of Tamiya
+- **Tamiya**: "Mini4WD" and track piece designs are property of Tamiya
   inc. Independent fan tool.
 - Icons: [Material Design Icons](https://github.com/Templarian/MaterialDesign-SVG),
   MIT (© 2014-2025 Austin Andrews), vendored inline.
