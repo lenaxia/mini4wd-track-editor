@@ -135,3 +135,16 @@ test('a corner overlapping a straight at the same level errors', () => {
   const r = validateTrack([P('Cor1', 0, 0), P('Str1', -10, 4, 0)]);
   assert.ok(r.errors.some((e) => /overlap/i.test(e)));
 });
+
+test('review fixture: a straight clear of a wave\u2019s wandering surface does not overlap', () => {
+  /* Chi2 (5-lane wave, h=72 footprint, 60-wide road wandering <=6cm):
+   * the straight spans y >= 53; the wave surface tops out at ~36 —
+   * a true gap of >=17cm. The footprint-rectangle version flagged it. */
+  const r = validateTrack([P('Chi2', 0, 0), P('Str1', 45, 80, 90)]);
+  assert.equal(r.errors.filter((e) => /overlap/i.test(e)).length, 0);
+});
+
+test('a straight crossing a wave\u2019s road at the same level overlaps', () => {
+  const r = validateTrack([P('Chi1', 0, 0), P('Str1', 0, 0, 90)]);
+  assert.ok(r.errors.some((e) => /overlap/i.test(e)));
+});

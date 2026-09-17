@@ -42,15 +42,27 @@ const TOUCH_SLACK = 1;       /* cm: exactly-touching corridors are legal */
 const LEVEL_EPS = 20;        /* mm: below this the levels read as equal */
 const JOINT_NEIGH = 16;      /* cm: junction-neighborhood exemption radius */
 
+/* the TRUE road width: corner/hairpin carry band; waves wander inside
+ * a taller footprint so their road is the lane width (3L=36, 5L=60),
+ * not def.h — the footprint rectangle false-flagged legal layouts
+ * (review fixture: Chi2 + a straight 17 cm clear of the surface) */
+function roadWidth(def) {
+  if (def.band) return def.band;
+  if (def.kind === 'wave') return def.lanes === 5 ? 60 : 36;
+  return def.h;
+}
+
 /* centerline fraction t of point s inside piece p's corridor WIDENED
  * by the guest's half-width, or null. The widened corridor is what a
  * sample of the OTHER piece tests against (its centerline must sit
- * within hwA+hwB for the roads to share surface); STRICT ends — a
- * point past a road's end is not on it (chained pieces and jump gaps
- * have close centerlines but disjoint surfaces). */
+ * within hwA+hwB for the roads to share surface); ends are
+ * endpoint-INCLUSIVE — a sample exactly on a host's end counts as on
+ * it (welded ends are joint-exempt; an unwelded endpoint touch is
+ * genuine contact), past the end does not (chained pieces and jump
+ * gaps have close centerlines but disjoint surfaces). */
 function corridorT(p, s, guestHw) {
   const def = PIECES[p.name];
-  const hw = (def.kind === 'corner' || def.kind === 'hairpin' ? def.band : def.h) / 2 + guestHw - TOUCH_SLACK;
+  const hw = roadWidth(def) / 2 + guestHw - TOUCH_SLACK;
   if (def.kind === 'corner' || def.kind === 'hairpin') {
     const g = solveGeo(p.name);
     const { x: cx, y: cy } = rot(g.cx, g.cy, p.a || 0);
@@ -59,7 +71,9 @@ function corridorT(p, s, guestHw) {
     if (Math.abs(rr - g.R) > hw) return null;
     const da = norm2pi(Math.atan2(s.y - wy, s.x - wx) - (g.a1 + rad(p.a || 0)));
     if (g.sweep >= 0 ? da > g.sweep + 1e-9 : da < 2 * Math.PI + g.sweep - 1e-9) return null;
-    return da / g.sweep;
+    /* t in [0,1] for BOTH sweep signs: negative sweeps live in
+     * [2pi+sweep, 2pi), where da/sweep would run negative */
+    return g.sweep >= 0 ? da / g.sweep : (2 * Math.PI - da) / -g.sweep;
   }
   const a = vertexOf(p, 0), b = vertexOf(p, 1);
   const dx = b.x - a.x, dy = b.y - a.y;
@@ -112,7 +126,13 @@ function sameLevelOverlaps(sprites, groups) {
   const near = (s, pts) => pts.some((v) => Math.hypot(s.x - v.x, s.y - v.y) <= JOINT_NEIGH);
   const findings = [];
   for (let i = 0; i < sprites.length; i += 1) {
+    const ei = pieceHalfExtents(sprites[i]);
     for (let j = i + 1; j < sprites.length; j += 1) {
+      /* coarse reject: footprints that cannot touch cannot overlap —
+       * the pair loop runs per settled mutation, keep far pairs free */
+      const ej = pieceHalfExtents(sprites[j]);
+      if (Math.abs(sprites[i].x - sprites[j].x) >= ei.hx + ej.hx ||
+          Math.abs(sprites[i].y - sprites[j].y) >= ei.hy + ej.hy) continue;
       const joints = sharedJoints.get(`${i}:${j}`) || [];
       let hit = null;
       /* containment both ways — a thin crossing lens may hold samples
@@ -121,8 +141,7 @@ function sameLevelOverlaps(sprites, groups) {
        * where it is actually low) */
       for (const [hostIdx, guestIdx] of [[j, i], [i, j]]) {
         const hostP = sprites[hostIdx], guestP = sprites[guestIdx];
-        const gdef = PIECES[guestP.name];
-        const guestHw = (gdef.kind === 'corner' || gdef.kind === 'hairpin' ? gdef.band : gdef.h) / 2;
+        const guestHw = roadWidth(PIECES[guestP.name]) / 2;
         for (const s of samples[guestIdx]) {
           const t = corridorT(hostP, s, guestHw);
           if (t == null) continue;

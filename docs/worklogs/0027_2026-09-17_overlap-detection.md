@@ -39,3 +39,22 @@ chained straights and the closed square clean; a corner overlapping a
 straight errors. The pre-existing fixtures (jump pairs, junctions,
 kinks, the shared rounded track) all still pass — the full unit suite
 (199) and e2e (94) are green.
+
+## Review round
+
+- Waves broke the corridor model: their road wanders inside a TALLER
+  footprint (Chi2: 60-wide road in a 72-high box), so the footprint
+  rectangle false-flagged legal layouts — the review's fixture (a
+  straight 17 cm clear of the surface) errored. roadWidth() now uses
+  the lane width for waves (3L=36, 5L=60); the fixture is pinned, and
+  a true crossing through a wave still errors.
+- The commit claimed "no buster needed (server module graph only)" —
+  WRONG: ui.js imports validate.js, the badge runs it in-browser.
+  main.js ?v=80. (Rule 7 burn twice in one day; the reviewers keep
+  being right.)
+- Negative-sweep arcs: t now maps to [0,1] for both sweep signs
+  (latent — every current catalog arc solves positive, arcs are flat).
+- pieceHalfExtents bbox early-out before the pair sample loop (the
+  badge re-validates per settled mutation; far pairs are now free).
+- STRICT-ends comment corrected: ends are endpoint-inclusive (welded
+  ends are joint-exempt; an unwelded endpoint touch is genuine).
