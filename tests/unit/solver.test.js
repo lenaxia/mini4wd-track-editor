@@ -133,19 +133,26 @@ test('a 75 mm level difference bridges straight over a wall', () => {
   assert.ok(res.pieces.every((p) => p.name === 'Str1' && p.z === 75));
 });
 
-test('off-grid target within snap range welds with a reported flex gap', () => {
-  const sprites = [mk('Str1', 100, 100)];
-  const A = sprites[0];
-  const B = mk('Str1', 262, 105, 0); /* 5 cm north of the lattice point (235,100) */
-  sprites.push(B);
-  const res = closeLoop(sprites, A, B);
+test('small off-grid offsets (<= 2 cm) weld invisibly; larger ones report', () => {
+  const mkScene = (dy) => [mk('Str1', 100, 100), mk('Str1', 262, 100 + dy, 0)];
+  /* 1.5 cm: near-invisible — flex weld, reported */
+  const small = mkScene(1.5);
+  let res = closeLoop(small, small[0], small[1]);
   assert.equal(res.ok, true);
   assert.equal(res.flex, true);
-  assert.ok(Math.abs(res.gap - 5) < 0.5, `gap ~5, got ${res.gap}`);
+  assert.ok(Math.abs(res.gap - 1.5) < 0.5, `gap ~1.5, got ${res.gap}`);
   const last = res.pieces[res.pieces.length - 1];
-  /* welded end now sits exactly on B's v0 */
-  const lv = vertexOf(last, 1), bv = vertexOf(B, 0);
-  assert.ok(Math.hypot(lv.x - bv.x, lv.y - bv.y) <= 1e-6);
+  const bv = vertexOf(small[1], 0);
+  const lv = vertexOf(last, 1);
+  assert.ok(Math.hypot(lv.x - bv.x, lv.y - bv.y) <= 1e-6); /* welded onto B */
+
+  /* 5 cm (owner report class: a 9.4 cm break shipped as "closed") — honest
+   * failure with the step-back offer, never a kinked weld */
+  const five = mkScene(5);
+  res = closeLoop(five, five[0], five[1]);
+  assert.equal(res.ok, false);
+  assert.equal(res.why, 'off-grid');
+  assert.ok(Math.abs(res.miss.d - 5) < 1);
 });
 
 test('far off-grid or walled-in target returns no-path with diagnostics', () => {
@@ -200,25 +207,29 @@ test('same-plan pieces at >=75 mm level difference are a bridge, not a clash', (
   assert.equal(piecesCollide(mk('Str1', 100, 100, 0, 0), mk('Str1', 100, 120, 0, 40)), true);
 });
 
-test('off-grid ends with corner-chain heading drift still flex-weld', () => {
+test('off-grid ends with corner-chain heading drift: small welds, big reports', () => {
   /* A is a corner: its exit tangent is the catalog's 44.976 deg, not exactly
    * 45. B is a hand-placed straight at exactly 45 deg with its entry vert
-   * 6.5 cm off the reachable lattice — the "nearest fit 6.5 cm / 0 deg off"
-   * toast case. The flex weld must absorb both, not give up. */
-  const A = mk('Cor1', 100, 100);
-  const exit = vertexOf(A, 1);
-  const dir = (deg) => ({ x: Math.cos(deg * Math.PI / 180), y: Math.sin(deg * Math.PI / 180) });
-  const d45 = dir(45), perp = dir(135);
-  const goal = { x: exit.x + 108 * d45.x + 6.5 * perp.x, y: exit.y + 108 * d45.y + 6.5 * perp.y };
-  const B = mk('Str1', goal.x - 27 * d45.x, goal.y - 27 * d45.y, 45);
-  const sprites = [A, B];
-  const res = closeLoop(sprites, A, B);
+   * off the reachable lattice — the "nearest fit 6.5 cm / 0 deg off" case.
+   * A 1.5 cm offset flex-welds; 6.5 cm reports honestly (no kinked welds). */
+  const mkScene = (off) => {
+    const A = mk('Cor1', 100, 100);
+    const exit = vertexOf(A, 1);
+    const dir = (deg) => ({ x: Math.cos(deg * Math.PI / 180), y: Math.sin(deg * Math.PI / 180) });
+    const d45 = dir(45), perp = dir(135);
+    const goal = { x: exit.x + 108 * d45.x + off * perp.x, y: exit.y + 108 * d45.y + off * perp.y };
+    const B = mk('Str1', goal.x - 27 * d45.x, goal.y - 27 * d45.y, 45);
+    return { sprites: [A, B], A, B };
+  };
+  let sc = mkScene(1.5);
+  let res = closeLoop(sc.sprites, sc.A, sc.B);
   assert.equal(res.ok, true);
   assert.equal(res.flex, true);
-  assert.ok(Math.abs(res.gap - 6.5) < 1.5, `gap ~6.5, got ${res.gap}`);
-  const last = res.pieces[res.pieces.length - 1];
-  const lv = vertexOf(last, 1), bv = vertexOf(B, 0);
-  assert.ok(Math.hypot(lv.x - bv.x, lv.y - bv.y) <= 1e-6); /* welded onto B */
+  sc = mkScene(6.5);
+  res = closeLoop(sc.sprites, sc.A, sc.B);
+  assert.equal(res.ok, false);
+  assert.equal(res.why, 'off-grid');
+  assert.ok(Math.abs(res.miss.d - 6.5) < 1.5);
 });
 
 test('7-corner ring: the missing 8th corner is placed exactly (chain drift)', () => {
@@ -432,4 +443,22 @@ test('vertex proximity alone is not a joint: crossing roads still collide', () =
   assert.equal(piecesCollide(row, crosser), true);         /* perpendicular: crossing */
   const chained = mk('Str1', 272.019 + 54, 343.845, 179.98); /* aligned continuation */
   assert.equal(piecesCollide(row, chained), false);        /* genuine joint */
+});
+
+test('owner-reported bridge loop closes exactly (17-piece share-link track)', () => {
+  /* Decoded from the owner's share link: mixed 0/75 mm levels with two
+   * slopes. Previously flexed with a 9.4 cm break inside the run; the flex
+   * cap keeps searching and the exact closure exists. */
+  const T = 'Cor1;671.975;413.011;90.055;0;0#Cor1;640.108;437.905;135.065;0;0#Str1;598.962;440.981;0.048;0;0#Str1;544.962;440.943;0.048;0;0#Cor1;503.816;444.019;315.065;0;0#Cor1;455.704;469.421;135.065;0;0#Cor1;390.687;432.606;225.085;0;0#Cor1;395.640;392.472;270.095;0;0#Cor1;427.525;367.601;315.105;0;0#Cor1;455.821;361.431;135.105;0;0#Bri1;499.001;329.679;315.071;0;0#Cor1;542.182;297.927;315.105;0;75#Str1;583.329;294.879;0.081;0;75#Str1;637.329;294.955;0.081;0;75#Bri1;691.329;295.031;180.081;0;0#Str1;745.329;295.107;0.081;0;0#Str1;745.329;295.107;0.081;0;0#';
+  const sprites = T.split('#').filter(Boolean).slice(0, 16).map((e) => {
+    const [name, x, y, a, c, z] = e.split(';');
+    return { name, x: +x, y: +y, a: +a, c: +c, z: +z };
+  });
+  const res = closeLoop(sprites, sprites[0], sprites[15]);
+  assert.equal(res.ok, true);
+  assert.equal(res.flex, false); /* exact — no kinked weld anywhere */
+  const all = sprites.concat(res.pieces);
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+    assert.equal(piecesCollide(all[i], all[j]), false, `${all[i].name}#${i} vs ${all[j].name}#${j}`);
+  }
 });
