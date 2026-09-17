@@ -198,11 +198,20 @@ test('starred storage never throws: corrupt json, private mode', () => {
 
 /* worklog 0022: history timestamps */
 test('formatVersionTime: time today, weekday within the week, date beyond', () => {
-  /* today's clock time pinned mid-day so the "today" case can't flake
-   * across midnight; the two older cases are relative and safe */
-  const today = new Date(); today.setHours(14, 5, 0, 0);
-  assert.match(formatVersionTime(today.getTime(), today.getTime()), /^[A-Za-z]{3,4}?\s*\d{1,2}:\d{2}|\d{1,2}:\d{2}/);
+  /* locale-agnostic: the expected clock string is computed with the same
+   * ICU call the formatter uses, so any default locale passes (review:
+   * Cyrillic LANG must not redden the gate). Structure, not script. */
+  const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const today = new Date(); today.setHours(14, 5, 0, 0);   /* pinned mid-day: no midnight flake */
+  const tToday = formatVersionTime(today.getTime(), today.getTime());
+  assert.equal(tToday, clock(today.getTime()));            /* today: exactly the time */
+
   const now = Date.now();
-  assert.match(formatVersionTime(now - 2 * 24 * 3600_000), /[A-Za-z]{3}/);       /* 2 days → weekday form */
-  assert.match(formatVersionTime(now - 30 * 24 * 3600_000), /^[A-Za-z]{3} \d{1,2} /); /* a month back → date form */
+  const t2d = formatVersionTime(now - 2 * 24 * 3600_000);
+  assert.ok(t2d.endsWith(clock(now - 2 * 24 * 3600_000)) && t2d.length > clock(now).length);
+  /* something (the weekday) precedes the time */
+
+  const t30d = formatVersionTime(now - 30 * 24 * 3600_000);
+  const head = t30d.slice(0, t30d.length - clock(now - 30 * 24 * 3600_000).length);
+  assert.ok(head.length > 0 && /\d/.test(head));          /* a day number precedes the time */
 });
