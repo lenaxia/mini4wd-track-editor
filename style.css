@@ -300,23 +300,23 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
 .gal-panel-row input[type="range"] { accent-color: var(--accent); width: 100%; }
 /* two-ended length slider: two native ranges overlaid — tracks are
  * click-through, only the thumbs catch the pointer */
-.gal-range { position: relative; height: 30px; }
+.gal-range { position: relative; height: 36px; }
 .gal-range input[type="range"] {
   position: absolute; inset: 0; width: 100%; margin: 0;
   background: transparent; pointer-events: none; appearance: none; -webkit-appearance: none;
 }
 .gal-range input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; pointer-events: auto;
-  width: 22px; height: 22px; border-radius: 50%;
+  width: 28px; height: 28px; border-radius: 50%;   /* touch-first target */
   background: var(--accent); border: 2px solid #1a1a1a; cursor: grab;
 }
 .gal-range input[type="range"]::-moz-range-thumb {
   pointer-events: auto;
-  width: 22px; height: 22px; border-radius: 50%;   /* matches -webkit travel + the 11px track inset */
+  width: 28px; height: 28px; border-radius: 50%;   /* matches -webkit travel + the 14px track inset */
   background: var(--accent); border: 2px solid #1a1a1a; cursor: grab;
 }
 .gal-range-track {
-  position: absolute; left: 11px; right: 11px; top: 13px; height: 4px;
+  position: absolute; left: 14px; right: 14px; top: 16px; height: 4px;
   border-radius: 999px; background: var(--line);
 }
 .gal-range-fill {
@@ -447,6 +447,17 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
   grid-column: 1 / -1;
 }
 .gal-empty { font-size: 13px; color: #9aa3af; padding: 4px 2px; }
+
+/* library rows: load / rename / delete */
+.lib-row-wrap { display: flex; gap: 6px; align-items: stretch; }
+.lib-row-wrap .lib-row { flex: 1 1 auto; min-width: 0; }
+.lib-act {
+  flex: 0 0 auto; width: 40px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel-2); color: #aab1bd; cursor: pointer;
+}
+.lib-act:hover { background: #2e3140; border-color: #4a5160; color: inherit; }
+.lib-act:active { transform: translateY(1px); }
 
 /* ---------- track metadata popup (stats-bar tap) ---------- */
 .stats-rows { display: flex; flex-direction: column; margin-top: 10px; }
