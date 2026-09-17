@@ -497,7 +497,8 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
 
 /* mobile: no double-tap browser zoom anywhere — the canvas keeps its own
  * gesture handling (iOS ignores user-scalable=no; touch-action is what
- * actually sticks). Canvas re-declares none below. */
+ * actually sticks). The canvas keeps touch-action: none (#editor, above)
+ * — ID specificity beats this universal selector. */
 * { touch-action: manipulation; }
 
 /* publish dialog: tripcode explainer (collapsed by default) */
