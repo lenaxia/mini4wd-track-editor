@@ -158,3 +158,26 @@ test('the wave width fix is load-bearing, not just the bbox window (review r1 pi
   const r = validateTrack([P('Chi2', 0, 0), P('Str1', 0, 53.5, 0)]);
   assert.equal(r.errors.filter((e) => /overlap/i.test(e)).length, 0);
 });
+
+test('a welded T-junction is legal (the seeds exposed the fixed-radius flaw)', () => {
+  /* vertical Str1 ends ON a horizontal Str1 pair's junction point —
+   * exactly the featured-track geometry that got flagged */
+  const r = validateTrack([
+    P('Str1', 359, 143, 270),           /* vertical, end at (359,170) */
+    P('Str1', 332, 170, 0),             /* horizontal, end at (359,170) */
+    P('Str1', 386, 170, 0),             /* horizontal, start at (359,170) */
+  ]);
+  assert.equal(r.errors.filter((e) => /overlap/i.test(e)).length, 0);
+});
+
+test('a crossing by an UNJOINED piece still errors (the pardon is per shared joint)', () => {
+  /* same T, plus a horizontal that truly crosses the vertical's
+   * midpoint — it shares no joint with the vertical, so no pardon */
+  const r = validateTrack([
+    P('Str1', 359, 143, 270),
+    P('Str1', 332, 170, 0),
+    P('Str1', 386, 170, 0),
+    P('Str1', 359, 143, 0),             /* spans x[332,386] through (359,143) */
+  ]);
+  assert.ok(r.errors.some((e) => /overlap/i.test(e)));
+});

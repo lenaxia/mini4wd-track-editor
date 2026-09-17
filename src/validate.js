@@ -40,7 +40,6 @@ const KINK_TANGENT_TOL = 0.5;   /* deg — visible kinks, above rounding noise *
 const OVERLAP_STEP = 5;      /* cm between centerline samples */
 const TOUCH_SLACK = 1;       /* cm: exactly-touching corridors are legal */
 const LEVEL_EPS = 20;        /* mm: below this the levels read as equal */
-const JOINT_NEIGH = 16;      /* cm: junction-neighborhood exemption radius */
 
 /* the TRUE road width: corner/hairpin carry band; waves wander inside
  * a taller footprint so their road is the lane width (3L=36, 5L=60),
@@ -126,7 +125,11 @@ function sameLevelOverlaps(sprites, groups) {
         sharedJoints.get(key).push(g[0].v);
       }
   }
-  const near = (s, pts) => pts.some((v) => Math.hypot(s.x - v.x, s.y - v.y) <= JOINT_NEIGH);
+  /* a shared joint's pardon radius is PER PAIR: two welded roads
+   * legitimately share surface from the joint out to hwA+hwB (a
+   * T-junction's vertical crosses the host's full width — the seeds'
+   * real tracks exposed the fixed 16 cm radius as too small). */
+  const near = (s, pts, r) => pts.some((v) => Math.hypot(s.x - v.x, s.y - v.y) <= r);
   const findings = [];
   for (let i = 0; i < sprites.length; i += 1) {
     const ei = pieceHalfExtents(sprites[i]);
@@ -145,11 +148,13 @@ function sameLevelOverlaps(sprites, groups) {
       for (const [hostIdx, guestIdx] of [[j, i], [i, j]]) {
         const hostP = sprites[hostIdx], guestP = sprites[guestIdx];
         const guestHw = roadWidth(PIECES[guestP.name]) / 2;
+        const hostHw = roadWidth(PIECES[hostP.name]) / 2;
+        const jointR = hostHw + guestHw;   /* the junction's true merge reach */
         for (const s of samples[guestIdx]) {
           const t = corridorT(hostP, s, guestHw);
           if (t == null) continue;
           if (Math.abs(s.z - zAt(hostP, t)) >= LEVEL_EPS) continue;
-          if (joints.length && near(s, joints)) continue;   /* the junction itself */
+          if (joints.length && near(s, joints, jointR)) continue;   /* the junction itself */
           hit = { x: s.x, y: s.y };
           break;
         }
