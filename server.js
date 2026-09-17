@@ -261,7 +261,7 @@ async function main() {
         }
         /* new row: the fork's own trip (a locked parent copies OPEN —
          * your copy is yours, unbound until you sign it) */
-        t.author_trip = t._tripHash;
+        t.author_trip = t._tripHash ?? null;
         return json(res, 201, await store.upsert(t));
       }
       if (u === '/api/tracks' && req.method === 'PUT') {
@@ -284,10 +284,12 @@ async function main() {
           Object.assign(t, { parent_id: prev.parent_id ?? null, root_id: prev.root_id ?? null, parent_name: prev.parent_name ?? null });
         } else {
           /* PUT-create: lineage is decided exclusively by the POST fork
-           * path — a client-sent parent_id/root_id is never stored */
+           * path — a client-sent parent_id/root_id is never stored.
+           * The trip IS adopted: signing on create locks it (0023). */
           t.parent_id = null;
           t.root_id = null;
           t.parent_name = null;
+          t.author_trip = t._tripHash ?? null;
         }
         return json(res, 200, await store.upsert(t));
       }
