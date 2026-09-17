@@ -451,9 +451,10 @@ test('restore re-publishes an old version and archives the current one', async (
   expect(head.piece_count).toBe(2);   /* facets re-derived from the snapshot */
 
   /* the stomped version survived in history — restore is never
-   * destructive. Note the pruning elegance (worklog 0022): the entry
-   * we restored FROM is now redundant (its content is the head again),
-   * so the tier ladder drops it and keeps exactly the undo: B. */
+   * destructive. (Compressed-clock note: with M4WD_STABLE_MS=50 the
+   * restore-from entry prunes as redundant here; at the default 5-min
+   * window the archive gap always meets tier-1 spacing, so production
+   * keeps it — this length-1 assertion is specific to this env.) */
   const after = await (await request.get(`/api/tracks/${id}/history`)).json();
   expect(after.items.length).toBe(1);
   expect(after.items.map((x) => x.name)).toEqual(['e2e restore B']);

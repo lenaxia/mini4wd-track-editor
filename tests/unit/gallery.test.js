@@ -207,11 +207,15 @@ test('formatVersionTime: time today, weekday within the week, date beyond', () =
   assert.equal(tToday, clock(today.getTime()));            /* today: exactly the time */
 
   const now = Date.now();
-  const t2d = formatVersionTime(now - 2 * 24 * 3600_000);
-  assert.ok(t2d.endsWith(clock(now - 2 * 24 * 3600_000)) && t2d.length > clock(now).length);
+  const a2d = now - 2 * 24 * 3600_000;
+  const t2d = formatVersionTime(a2d);
+  assert.ok(t2d.endsWith(clock(a2d)) && t2d.length > clock(a2d).length);
   /* something (the weekday) precedes the time */
 
-  const t30d = formatVersionTime(now - 30 * 24 * 3600_000);
-  const head = t30d.slice(0, t30d.length - clock(now - 30 * 24 * 3600_000).length);
-  assert.ok(head.length > 0 && /\d/.test(head));          /* a day number precedes the time */
+  const a30d = now - 30 * 24 * 3600_000;
+  const t30d = formatVersionTime(a30d);
+  const head = t30d.slice(0, t30d.length - clock(a30d).length);
+  /* a day number precedes the time — \p{N}, not \d: the runtime locale
+   * may render it in a non-ASCII digit script (ar_EG "١٨") */
+  assert.ok(head.length > 0 && /\p{N}/u.test(head));
 });
