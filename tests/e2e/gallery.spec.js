@@ -364,6 +364,13 @@ test('library rows rename and delete inline', async ({ page, request }) => {
   ids.push(newId);
   expect((await (await request.get(`/api/tracks/${newId}`)).json()).name).toBe(`E2E Escaped Publish ${n}`);
 
+  /* the document-level Esc closes BOTH stacked dialogs (publishDialog
+   * first in DOM order, then the library underneath) — reopen it for
+   * the inline steps */
+  await page.locator('#btnMenu').click();
+  await page.locator('#btnLibrary').click();
+  await expect(page.locator('.lib-row', { hasText: `E2E Library Row ${n}` })).toBeVisible();
+
   /* rename inline — any row, not just the bound one */
   await row.locator('..').locator('.lib-act[aria-label^="Rename"]').click();
   await page.locator('#pubName').fill(`E2E Renamed ${n}`);

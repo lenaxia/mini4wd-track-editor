@@ -440,8 +440,11 @@ export function init(dimsGetter) {
       $('pubOk').disabled = true;
       const row = await renamePublishedRow(pubRenameTarget, name);
       $('pubOk').disabled = false;
-      pubRenameTarget = null;
+      /* the target SURVIVES a failure: the dialog still reads as a
+       * rename, so a retry retries the rename — clearing it here would
+       * silently turn the retry into a publish of the bound canvas */
       if (!row) { toast('Server unreachable'); return; }
+      pubRenameTarget = null;
       closeDialog($('publishDialog'));
       closeDialog($('libraryDialog'));
       $('btnLibrary').click();        /* refresh the list under the new name */

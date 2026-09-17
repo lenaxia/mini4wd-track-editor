@@ -53,3 +53,15 @@ decision; canvas weld-dot flags = deferred by the #30 ruling).
 - Star buttons carry title alongside aria-label (desktop hover hint).
 - Ledger note: the rename GET→PUT race can resurrect a concurrently
   deleted row (PUT-create); accepted as noted.
+
+## Review round 2
+
+- The regression block itself broke the serial suite: the document
+  Esc closes BOTH stacked dialogs (publishDialog first in DOM order,
+  then the library beneath) — the test reopens the library before the
+  inline steps. The Esc layering itself is pre-existing and noted as
+  a deliberate-decision item ("cancel leaves the library").
+- A FAILED rename cleared its target before the check — the retry
+  would silently publish the bound canvas under the prefilled name.
+  The target now survives failure (the dialog still reads as a
+  rename, so retry retries); it clears on any close.
