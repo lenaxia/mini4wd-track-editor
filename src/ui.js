@@ -1024,7 +1024,7 @@ export function init(dimsGetter) {
       empty.className = 'gal-empty';
       empty.textContent = gal.filter.lanes.length === 0 ? 'No lanes selected — tick at least one in Filters.'
         : gal.mine
-          ? (gal.items.length ? 'No saved tracks in this view yet — Load more may find older ones.' : 'No tracks saved on this device yet.')
+          ? (gal.items.length ? 'No saved tracks in this view — Load more for older pages.' : 'No tracks saved on this device.')
           : gal.complete ? 'No complete tracks published yet.' : 'No tracks published yet.';
       list.appendChild(empty);
       return;
@@ -1146,7 +1146,7 @@ export function init(dimsGetter) {
       toast(r.status === 404 ? 'That track is gone from the server — reopen the gallery' : 'Copy not saved');
       return;
     }
-    toast(`Saved your own copy of “${it.name}” — Mine shows it`);
+    toast(`Saved your own copy of “${it.name}”`);
   }
 
   /* History dialog: list this track's old versions, Restore re-publishes
@@ -1198,7 +1198,7 @@ export function init(dimsGetter) {
               refreshPublishUi();
             }
           }
-          toast(`Restored “${fresh.name}” — the version that was current is now in History`);
+          toast(`Restored “${fresh.name}” — the replaced version is in History`);
         });
         row.append(label, b);
         box.appendChild(row);
