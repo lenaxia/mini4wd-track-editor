@@ -544,3 +544,76 @@ test('PUT-create stores no client lineage (lineage is POST-fork-only)', async ({
   expect(row.root_id).toBeNull();
   expect(row.parent_name).toBeNull();
 });
+
+/* ---------- tripcode bylines + locking (worklog 0023) ---------- */
+/* The e2e salt is pinned (webserver.mjs) so hashes are deterministic. */
+const { scryptSync } = await import('node:crypto');
+const TRIP_HASH = scryptSync('sekrit', 'e2e-salt', 16).toString('hex');
+const settle2 = () => new Promise((r) => setTimeout(r, 80));
+
+test('a signed publish returns the byline hash and locks in-place edits', async ({ request }) => {
+  const id = `${PREFIX}-trip`; ids.push(id);
+  const put = await request.put(`/api/tracks/${id}`, { data: { ...mk('signed'), trip: 'Alex#sekrit' } });
+  expect(put.status()).toBe(200);
+  const row = await put.json();
+  expect(row.author).toBe('Alex');
+  expect(row.author_trip).toBe(TRIP_HASH);
+
+  /* unsigned save and wrong phrase → 403; the head is untouched */
+  expect((await request.put(`/api/tracks/${id}`, { data: mk('nope') })).status()).toBe(403);
+  expect((await request.put(`/api/tracks/${id}`, { data: { ...mk('wrong'), trip: 'Alex#wrong' } })).status()).toBe(403);
+  expect((await (await request.get(`/api/tracks/${id}`)).json()).author).toBe('Alex');
+
+  /* the right phrase saves, and a PLAIN save by the holder also works
+   * (the lock persists — the phrase was proven once this request) */
+  await settle2();
+  expect((await request.put(`/api/tracks/${id}`, { data: { ...mk('yes'), trip: 'Sam#sekrit' } })).status()).toBe(200);
+  const kept = await (await request.get(`/api/tracks/${id}`)).json();
+  expect(kept.author).toBe('Sam');           /* the byline follows the last signed save */
+  expect(kept.author_trip).toBe(TRIP_HASH);  /* same phrase, same identity */
+});
+
+test('a plain byline (no passphrase) never locks; the raw phrase is never stored', async ({ request }) => {
+  const id = `${PREFIX}-plain`; ids.push(id);
+  const put = await request.put(`/api/tracks/${id}`, { data: { ...mk('plain'), trip: 'Just A Name' } });
+  const row = await put.json();
+  expect(row.author).toBe('Just A Name');
+  expect(row.author_trip).toBeNull();
+  /* anyone may edit an unsigned track in place — and the plain byline
+   * survives an author-less, trip-less save (round-4 contract, pinned) */
+  await settle2();
+  const { author, ...noByline } = mk('plain 2');
+  expect((await request.put(`/api/tracks/${id}`, { data: noByline })).status()).toBe(200);
+  const after = await (await request.get(`/api/tracks/${id}`)).json();
+  expect(after.author).toBe('Just A Name');
+  expect(after.author_trip).toBeNull();
+});
+
+test('copying a locked track is always open — the copy starts unsigned', async ({ request }) => {
+  const parent = await (await request.post('/api/tracks', { data: { ...mk('locked orig'), trip: 'Alex#sekrit' } })).json();
+  ids.push(parent.id);
+  const copy = await request.post('/api/tracks', { data: { ...mk('locked copy'), parent_id: parent.id } });
+  expect(copy.status()).toBe(201);
+  const child = await copy.json(); ids.push(child.id);
+  expect(child.parent_id).toBe(parent.id);
+  expect(child.author_trip).toBeNull();      /* your copy is yours to sign or share */
+  /* and the copy is immediately editable in place */
+  await settle2();
+  expect((await request.put(`/api/tracks/${child.id}`, { data: mk('locked copy 2') })).status()).toBe(200);
+});
+
+test('restoring a version of a locked track requires the phrase', async ({ request }) => {
+  const id = `${PREFIX}-tripres`; ids.push(id);
+  await request.put(`/api/tracks/${id}`, { data: { ...mk('res A'), trip: 'Alex#sekrit' } });
+  await settle2();
+  await request.put(`/api/tracks/${id}`, { data: { ...mk('res B'), trip: 'Alex#sekrit' } });
+  const { items } = await (await request.get(`/api/tracks/${id}/history`)).json();
+  expect(items.length).toBe(1);
+  /* unsigned restore → 403 */
+  expect((await request.post(`/api/tracks/${id}/history/${items[0].seq}/restore`, { data: {} })).status()).toBe(403);
+  /* signed restore → 200 and the lock rides along */
+  await settle2();
+  const ok = await request.post(`/api/tracks/${id}/history/${items[0].seq}/restore`, { data: { trip: 'Alex#sekrit' } });
+  expect(ok.status()).toBe(200);
+  expect((await ok.json()).author_trip).toBe(TRIP_HASH);
+});

@@ -9,7 +9,8 @@ import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow,
-         forkTrack, fetchHistory, restoreRevision, isMine, mineIds } from './storage.js';
+         forkTrack, fetchHistory, restoreRevision, isMine, mineIds,
+         rememberedTrip, saveTrip, myTripCode, lockedToOther } from './storage.js';
 import {
   GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, formatLength, completeBadge, lengthToCm, cmToLength,
   isStarred, addStarred, removeStarred, thumbFit, trackFacets, formatVersionTime,
@@ -318,9 +319,18 @@ export function init(dimsGetter) {
    * (the id enters the Mine list) or the track is unpublished. */
   function updateSharedNote() {
     const pub = publishedTrack();
-    const shared = !!(pub && !isMine(pub.id));
     const note = $('sharedNote');
-    if (note) note.hidden = !shared;
+    if (!note) return;
+    if (!pub || isMine(pub.id)) { note.hidden = true; return; }
+    if (lockedToOther(pub)) {
+      /* signed by someone else: overwriting is impossible — copy instead */
+      $('sharedNoteText').textContent = `“${pub.name}” is signed — only its author can save over it.`;
+      $('btnOwnCopy').textContent = 'Save my own copy';
+    } else {
+      $('sharedNoteText').textContent = 'You\'re editing a shared track — Save updates it for everyone.';
+      $('btnOwnCopy').textContent = 'Save my own copy';
+    }
+    note.hidden = false;
   }
   /* the debounced save of a shared track lands in storage.js — it tells
    * us here so the note hides immediately, not at the next refresh */
@@ -398,6 +408,7 @@ export function init(dimsGetter) {
     $('pubTitle').textContent = 'Publish track';
     $('pubOk').textContent = 'Publish';
     $('pubName').value = '';
+    $('pubTrip').value = rememberedTrip() ?? '';
     renderPubStatus();
     closeDialog($('menuDialog'));
     openDialog($('publishDialog'));
@@ -413,7 +424,7 @@ export function init(dimsGetter) {
    * would clobber the wrong one) */
   let pubRenameTarget = null;
 
-  async function renamePublishedRow(id, name) {
+  async function renamePublishedRow(id, name, trip) {
     try {
       const res = await fetch(`/api/tracks/${id}`);
       if (!res.ok) return null;
@@ -421,8 +432,9 @@ export function init(dimsGetter) {
       const put = await fetch(`/api/tracks/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, data: row.data }),
+        body: JSON.stringify({ name, data: row.data, ...(trip ? { trip } : {}) }),
       });
+      if (put.status === 403) return 'locked';
       if (!put.ok) return null;
       const updated = await put.json();
       if (publishedTrack()?.id === id) {   /* renamed the working track */
@@ -436,14 +448,15 @@ export function init(dimsGetter) {
   $('pubOk').addEventListener('click', async () => {
     renderPubStatus();                /* refresh the status at save time */
     const name = $('pubName').value.trim() || 'Untitled';
+    const trip = $('pubTrip').value.trim() || null;
     if (pubRenameTarget) {
       $('pubOk').disabled = true;
-      const row = await renamePublishedRow(pubRenameTarget, name);
+      const row = await renamePublishedRow(pubRenameTarget, name, trip);
       $('pubOk').disabled = false;
       /* the target SURVIVES a failure: the dialog still reads as a
        * rename, so a retry retries the rename — clearing it here would
        * silently turn the retry into a publish of the bound canvas */
-      if (!row) { toast('Server unreachable'); return; }
+      if (!row) { toast(row === 'locked' ? 'That track is signed — rename needs its passphrase' : 'Server unreachable'); return; }
       pubRenameTarget = null;
       closeDialog($('publishDialog'));
       closeDialog($('libraryDialog'));
@@ -452,13 +465,28 @@ export function init(dimsGetter) {
       return;
     }
     const wasPublished = !!publishedTrack();
+    /* saving a locked-to-someone-else track means taking your own copy
+     * (worklog 0023) — the server would 403 an overwrite */
+    if (wasPublished && lockedToOther(publishedTrack())) {
+      /* fork with the DIALOG's phrase — the remembered one may be stale
+       * (review round 1): sign the copy with what was just typed */
+      const r = await forkTrack(publishedTrack(), state, { trip, name });
+      if (!r) { toast('Server unreachable — track stays local'); return; }
+      if (!r.ok) { toast('Copy not saved — the original is gone from the server'); return; }
+      saveTrip(trip);
+      closeDialog($('publishDialog'));
+      refreshPublishUi();
+      toast(`Saved as your own copy — “${r.row.name}” — edits save here`);
+      return;
+    }
     $('pubOk').disabled = true;
-    const row = await publishTrack(name, state);
+    const row = await publishTrack(name, state, trip);
     $('pubOk').disabled = false;
     if (!row) { toast('Server unreachable — track stays local'); return; }
+    saveTrip(trip);                   /* remember (or forget) the byline */
     closeDialog($('publishDialog'));
     refreshPublishUi();
-    toast(wasPublished ? `Saved “${row.name}”`
+    toast(wasPublished ? `Saved “${row.name}”${row.author_trip ? ' · signed' : ''}`
                        : `Published “${row.name}” — edits now auto-save`);
   });
   /* the close event covers Esc AND every closeDialog() — the rename
@@ -500,6 +528,7 @@ export function init(dimsGetter) {
           $('pubTitle').textContent = `Rename “${it.name}”`;
           $('pubOk').textContent = 'Save name';
           $('pubName').value = it.name;
+          $('pubTrip').value = rememberedTrip() ?? '';   /* signed rows 403 a trip-less rename */
           renderPubStatus();
           openDialog($('publishDialog'));
           $('pubName').focus();
@@ -567,7 +596,7 @@ export function init(dimsGetter) {
    * must not fetch the page twice). gen: bumped by every sort/filter/open
    * so a superseded page is dropped instead of appended into the new
    * view. A dropped page leaves `loading` alone — the newer call owns it. */
-  const gal = { sort: '-updated_at', complete: true, mine: false, unit: 'm', filter: galFilterDefaults(), items: [], total: 0, gen: 0, loading: false };
+  const gal = { sort: '-updated_at', complete: true, mine: false, group: true, unit: 'm', filter: galFilterDefaults(), items: [], total: 0, gen: 0, loading: false };
 
   function galFilterCount() {
     const f = gal.filter, d = galFilterDefaults();
@@ -585,6 +614,7 @@ export function init(dimsGetter) {
   function galSaveView() {
     try { localStorage.setItem(GAL_VIEW_KEY, JSON.stringify({
       sort: gal.sort, complete: gal.complete, unit: gal.unit, filter: gal.filter,
+      group: gal.group,   /* the 1-of-each lens persists like the rest */
     })); } catch (_) {}
   }
   function galRestoreView() {
@@ -593,6 +623,7 @@ export function init(dimsGetter) {
       if (!v || typeof v !== 'object') return;
       if (GALLERY_SORTS.some((s) => s.value === v.sort)) gal.sort = v.sort;
       if (typeof v.complete === 'boolean') gal.complete = v.complete;
+      if (typeof v.group === 'boolean') gal.group = v.group;
       if (v.unit === 'm' || v.unit === 'ft') gal.unit = v.unit;
       if (v.filter && typeof v.filter === 'object') {
         const f = v.filter, d = galFilterDefaults();
@@ -623,6 +654,7 @@ export function init(dimsGetter) {
     }
     $('galComplete').setAttribute('aria-pressed', String(gal.complete));
     $('galMine').setAttribute('aria-pressed', String(gal.mine));
+    $('galGroup').setAttribute('aria-pressed', String(gal.group));
     const n = galFilterCount();
     $('galFilterCount').hidden = n === 0;
     $('galFilterCount').textContent = n;
@@ -834,13 +866,22 @@ export function init(dimsGetter) {
       + ` · ${it.straights ?? 0} straights · ${it.slopes ?? 0} slopes · ${it.corners ?? 0} corners`;
     const sub = document.createElement('span');
     sub.className = 'gal-sub';
-    sub.innerHTML = `${icon('star', 12)} ${it.stars ?? 0} · ${galDate(it.updated_at)}`;
+    /* icon via innerHTML (static), the rest as text — the byline is
+     * server-stored free text and must never enter innerHTML */
+    sub.innerHTML = `${icon('star', 12)} `;
+    sub.append(`${it.stars ?? 0} · ${galDate(it.updated_at)}${bylineOf(it)}`);
     card.append(thumb, top, facets, sub);
     if (it.parent_name) {
       const based = document.createElement('span');
       based.className = 'gal-based';
       based.textContent = `based on “${it.parent_name}”`;
       card.append(based);
+    }
+    if (it._chain) {
+      const chain = document.createElement('span');
+      chain.className = 'gal-chain';
+      chain.textContent = `+${it._chain} earlier version${it._chain === 1 ? '' : 's'} of this circuit`;
+      card.append(chain);
     }
     card.addEventListener('click', () => loadPublishedTrack(it.id));
     galThumb(thumb, it.id);
@@ -928,10 +969,26 @@ export function init(dimsGetter) {
   function galRenderList() {
     const list = $('galList');
     list.textContent = '';
-    /* Mine is a local filter (worklog 0017): it narrows the rows this
-     * browser saved/edited — "Load more" keeps fetching to surface more. */
+    /* Mine is a local filter (worklogs 0020/0023): rows this browser
+     * saved/edited, plus rows signed with this browser's tripcode. */
     const mine = mineIds();
-    const shown = gal.mine ? gal.items.filter((it) => mine.includes(it.id)) : gal.items;
+    const code = myTripCode();
+    const mineRow = (it) => mine.includes(it.id) || (code && it.author_trip === code);
+    let shown = gal.mine ? gal.items.filter(mineRow) : gal.items;
+    /* Version chains collapse (worklog 0023): same-root copies render as
+     * the chain's newest card with a "+N versions" badge — Mine always
+     * shows every one of yours. gal.group toggles the collapsing. */
+    if (gal.group && !gal.mine) {
+      const seen = new Map();   /* root_id -> primary item */
+      const extras = new Map(); /* root_id -> count */
+      shown = shown.filter((it) => {
+        const root = it.root_id || it.id;
+        if (seen.has(root)) { extras.set(root, (extras.get(root) || 0) + 1); return false; }
+        seen.set(root, it);
+        return true;
+      });
+      shown = shown.map((it) => ({ ...it, _chain: extras.get(it.root_id || it.id) || 0 }));
+    }
     if (!shown.length) {
       $('galMeta').textContent = '';
       const empty = document.createElement('p');
@@ -975,12 +1032,16 @@ export function init(dimsGetter) {
       btn.innerHTML = icon(un ? 'star-outline' : 'star', 18);
       btn.title = un ? 'Star this track' : 'Starred — tap to unstar';
       btn.setAttribute('aria-label', btn.title);
-      sub.innerHTML = `${icon('star', 12)} ${stars} · ${galDate(it.updated_at)}`;
+      sub.innerHTML = `${icon('star', 12)} `;
+      sub.append(`${stars} · ${galDate(it.updated_at)}${bylineOf(it)}`);
     } catch { toast('Server unreachable'); }
     btn.disabled = false;
   }
 
   function galDate(t) { return new Date(t).toLocaleDateString(); }
+  /* one byline suffix, two writers (card render + star rewrite) */
+  const bylineOf = (it) => it.author
+    ? ` · by ${it.author}${it.author_trip ? `!${it.author_trip.slice(0, 8)}` : ''}` : '';
 
   function openGallery(sort) {
     if (sort) gal.sort = sort;
@@ -1036,6 +1097,13 @@ export function init(dimsGetter) {
     galRenderControls();
     galRenderList();
   });
+  /* collapse/expand version chains (worklog 0023) */
+  $('galGroup').addEventListener('click', () => {
+    gal.group = !gal.group;
+    galSaveView();   /* persist immediately — like the unit buttons, not lazily via openGallery */
+    galRenderControls();
+    galRenderList();
+  });
 
   /* Copy = your own version (worklog 0020): a new track forked from the
    * row as-is. The original is never modified. */
@@ -1083,7 +1151,8 @@ export function init(dimsGetter) {
           b.disabled = false;
           if (!r) { toast('Server unreachable — nothing restored'); return; }
           if (!r.ok) {
-            toast(r.status === 404 ? 'That version is no longer available — reopen History' : 'Restore failed');
+            toast(r.status === 403 ? 'This track is signed — only its author can restore'
+                  : r.status === 404 ? 'That version is no longer available — reopen History' : 'Restore failed');
             return;
           }
           const fresh = r.row;   /* refetched full row — data is present on every driver */
@@ -1106,7 +1175,9 @@ export function init(dimsGetter) {
         box.appendChild(row);
       }
     }
-    $('hisHint').textContent = `Old versions of “${it.name}” — anyone can restore one.`;
+    $('hisHint').textContent = it.author_trip
+      ? `Old versions of “${it.name}” — restoring needs the author's passphrase.`
+      : `Old versions of “${it.name}” — anyone can restore one.`;
     openDialog($('historyDialog'));
   }
   $('hisClose').addEventListener('click', () => closeDialog($('historyDialog')));
@@ -1280,6 +1351,7 @@ export function init(dimsGetter) {
     $('pubTitle').textContent = `Rename “${pub.name}”`;
     $('pubOk').textContent = 'Save name';
     $('pubName').value = pub.name;
+    $('pubTrip').value = rememberedTrip() ?? '';   /* signed rows 403 a trip-less rename */
     renderPubStatus();
     openDialog($('publishDialog'));
     $('pubName').focus();

@@ -382,6 +382,7 @@ dialog.gallery-full[open] { display: flex; flex-direction: column; }
 .gal-facets { font-size: 12px; color: #aab1bd; font-variant-numeric: tabular-nums; }
 .gal-sub { font-size: 11px; color: #9aa3af; font-variant-numeric: tabular-nums; }
 .gal-based { font-size: 11px; color: #8a93a3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gal-chain { font-size: 11px; color: #7d8698; }
 /* kebab (⋮) beside the star; its menu drops below it */
 .gal-kebab {
   position: absolute; top: 14px; right: 60px; z-index: 2;

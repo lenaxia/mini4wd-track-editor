@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Mini4WD Track Editor</title>
   <meta name="description" content="Touch-first Mini4WD track editor — design, validate and publish circuits on phone or desktop.">
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
   <header id="topbar">
@@ -26,7 +26,7 @@
   <main id="stage">
     <canvas id="editor"></canvas>
     <div id="sharedNote" class="shared-note" hidden>
-      <span>You're editing a shared track — Save updates it for everyone.</span>
+      <span id="sharedNoteText">You're editing a shared track — Save updates it for everyone.</span>
       <button id="btnOwnCopy" type="button">Save my own copy</button>
     </div>
     <div id="zoomControls">
@@ -142,6 +142,9 @@
     <p class="io-hint">Publishing saves this track to the server under a name; from then on your edits save automatically. Unpublished tracks stay on this device only.</p>
     <input id="pubName" type="text" maxlength="200" placeholder="Track name"
            style="width:100%;margin-top:10px;background:#14161a;color:#dfe3ea;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;">
+    <input id="pubTrip" type="text" maxlength="200" placeholder="Your name # passphrase — optional; signs it and keeps editing yours"
+           style="width:100%;margin-top:8px;background:#14161a;color:#dfe3ea;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;"
+           autocomplete="off">
     <div id="pubStatus" style="margin-top:10px;font-size:12px;line-height:1.6;"></div>
     <button id="pubTipComplete" type="button" class="tip-cta" style="display:none;"><span data-icon="flag-checkered"></span> Close the gap with Complete track — select two ends and it fills the run</button>
     <div class="dialog-actions">
@@ -172,6 +175,7 @@
         </label>
         <button id="galComplete" type="button" class="gal-toggle" aria-pressed="true">✓ Complete only</button>
         <button id="galMine" type="button" class="gal-toggle" aria-pressed="false">Mine</button>
+        <button id="galGroup" type="button" class="gal-toggle" aria-pressed="true">1 of each</button>
         <button id="galFilters" type="button" class="gal-filterbtn" aria-expanded="false" aria-controls="galDrawer">Filters<span id="galFilterCount" class="gal-filtercount" hidden></span></button>
       </div>
 
@@ -235,12 +239,12 @@
       <h2>History</h2>
       <button id="hisClose" class="icon-btn" type="button" aria-label="Close"><span data-icon="close"></span></button>
     </div>
-    <p class="io-hint" id="hisHint">Old versions of this track — anyone can restore one.</p>
+    <p class="io-hint" id="hisHint">Old versions of this track.</p>
     <div id="hisList" class="menu-actions" style="margin-top:10px;max-height:50vh;overflow-y:auto;"></div>
   </dialog>
 
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=77"></script>
+  <script type="module" src="src/main.js?v=78"></script>
 </body>
 </html>

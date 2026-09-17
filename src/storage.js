@@ -11,7 +11,9 @@ import { serializeForSave, parseTrack } from './track.js';
 
 const KEY = 'm4wd.autosave';
 const PUB_KEY = 'm4wd.published';    /* {id, name} once published */
-const MINE_KEY = 'm4wd.mine';        /* ids this browser published/forked/edited (worklog 0017) */
+const MINE_KEY = 'm4wd.mine';        /* ids this browser published/forked/edited (worklog 0020) */
+const TRIP_KEY = 'm4wd.trip';        /* raw `name#phrase` byline, remembered (worklog 0023) */
+const TRIPCODE_KEY = 'm4wd.tripcode'; /* this browser's hash code, echoed by the server on signed saves */
 const MINE_CAP = 500;
 let autosaveTimer = null;
 let syncTimer = null;
@@ -59,24 +61,48 @@ function rememberMine(id) {
 
 export function isMine(id) { return mineIds().includes(id); }
 
+/* ---------- tripcode byline (worklog 0023) ----------
+ * The phrase lives only in this browser; the server stores its hash.
+ * myTripCode() is the hash the server echoed on our last signed save —
+ * the client never hashes (the salt is server-side). */
+export function rememberedTrip() {
+  try { return localStorage.getItem(TRIP_KEY) || null; } catch { return null; }
+}
+export function saveTrip(raw) {
+  try { raw ? localStorage.setItem(TRIP_KEY, raw) : localStorage.removeItem(TRIP_KEY); } catch (_) {}
+}
+export function myTripCode() {
+  try { return localStorage.getItem(TRIPCODE_KEY) || null; } catch { return null; }
+}
+function noteMyCode(hash) {
+  try { hash ? localStorage.setItem(TRIPCODE_KEY, hash) : localStorage.removeItem(TRIPCODE_KEY); } catch (_) {}
+}
+/* A published row is locked-to-someone-else when it carries a tripcode
+ * hash that isn't this browser's. Used to steer saves into copies. */
+export function lockedToOther(pub) {
+  return !!(pub && pub.author_trip && pub.author_trip !== myTripCode());
+}
+
 /* Publish (or rename) the current track. Returns the created row or
  * null when the server is unreachable — the track stays local either
  * way and can be published later. */
-export async function publishTrack(name, state) {
+export async function publishTrack(name, state, trip = rememberedTrip()) {
   const snapshot = {
     mode: state.mode, tool: state.tool, angle: state.angle,
     track: serializeForSave(state.sprites),
   };
   const prev = readPub();
+  if (lockedToOther(prev)) return null;   /* the caller must fork, not overwrite */
   try {
     const res = await fetch(prev ? `/api/tracks/${prev.id}` : '/api/tracks', {
       method: prev ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, data: snapshot }),
+      body: JSON.stringify({ name, data: snapshot, ...(trip ? { trip } : {}) }),
     });
     if (!res.ok) return null;
     const row = await res.json();
-    writePub({ id: row.id, name: row.name });
+    if (trip && row.author_trip) noteMyCode(row.author_trip);
+    writePub({ id: row.id, name: row.name, author_trip: row.author_trip ?? null });
     rememberMine(row.id);
     return row;
   } catch { return null; }
@@ -92,7 +118,7 @@ export async function publishTrack(name, state) {
 /* Result shape for the write helpers: { ok, row?, status? } — `null`
  * only for a network failure. Callers can tell "gone" (404: parent
  * deleted, version pruned) from "unreachable" and say so. */
-export async function forkTrack(row, state) {
+export async function forkTrack(row, state, { trip = rememberedTrip(), name: nameOverride } = {}) {
   let data, name = row.name;
   if (state) {
     data = { mode: state.mode, tool: state.tool, angle: state.angle, track: serializeForSave(state.sprites) };
@@ -112,11 +138,12 @@ export async function forkTrack(row, state) {
     const res = await fetch('/api/tracks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, parent_id: row.id, data }),
+      body: JSON.stringify({ name: nameOverride || name, parent_id: row.id, data, ...(trip ? { trip } : {}) }),
     });
     if (!res.ok) return { ok: false, status: res.status };
     const fresh = await res.json();
-    if (state) writePub({ id: fresh.id, name: fresh.name });
+    if (trip && fresh.author_trip) noteMyCode(fresh.author_trip);
+    if (state) writePub({ id: fresh.id, name: fresh.name, author_trip: fresh.author_trip ?? null });
     rememberMine(fresh.id);
     return { ok: true, row: fresh };
   } catch { return null; }
@@ -136,7 +163,11 @@ export async function fetchHistory(id) {
  * drivers — so the full row is refetched before it reaches the canvas. */
 export async function restoreRevision(id, seq) {
   try {
-    const res = await fetch(`/api/tracks/${id}/history/${seq}/restore`, { method: 'POST' });
+    const res = await fetch(`/api/tracks/${id}/history/${seq}/restore`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rememberedTrip() ? { trip: rememberedTrip() } : {}),
+    });
     if (!res.ok) return { ok: false, status: res.status };
     const full = await fetch(`/api/tracks/${id}`);
     if (!full.ok) return { ok: false, status: full.status };
@@ -149,7 +180,7 @@ export async function restoreRevision(id, seq) {
  * Never throws — private-mode storage failures just skip the binding.
  * Loading ≠ editing: the id only enters the Mine list once a save of
  * it actually lands (syncToServer/restore below). */
-export function bindPublished(row) { writePub({ id: row.id, name: row.name }); }
+export function bindPublished(row) { writePub({ id: row.id, name: row.name, author_trip: row.author_trip ?? null }); }
 
 /* Drop the publication binding (New Track): further edits stay local. */
 export function unpublishTrack() { writePub(null); }
@@ -167,7 +198,7 @@ function syncToServer(id, name, snapshot) {
     fetch(`/api/tracks/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, data: snapshot }),
+      body: JSON.stringify({ name, data: snapshot, ...(rememberedTrip() ? { trip: rememberedTrip() } : {}) }),
     }).then((r) => {
       if (gen === syncGen && r.ok) {
         rememberMine(id);   /* a save landed: it's mine now */
@@ -195,9 +226,11 @@ export function autosave(state) {
       };
       localStorage.setItem(KEY, JSON.stringify(snapshot));
     } catch (_) { /* private mode etc. */ }
-    /* mirror only PUBLISHED tracks; the debounce is independent */
+    /* mirror only PUBLISHED tracks; the debounce is independent.
+     * A track locked to someone else is never mirrored — edits there
+     * fork on save instead (worklog 0023). */
     const pub = readPub();
-    if (snapshot && pub) {
+    if (snapshot && pub && !lockedToOther(pub)) {
       clearTimeout(syncTimer);
       syncTimer = setTimeout(() => syncToServer(pub.id, pub.name, snapshot), 1500);
     }
