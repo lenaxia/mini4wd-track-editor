@@ -34,3 +34,30 @@ JS, CSS, JSON APIs) paid full freight per cold boot.
   Content-Encoding for some types — its header view is not the wire
   truth): gzip + Vary on four payloads, identity without the header,
   PNG never compressed, ETag 304 intact under gzip semantics.
+
+## Review round (an honest post-mortem)
+
+The first cut had three real defects the review caught, and one
+process failure worth recording:
+
+- `acceptsGzip(req) && gzipBody(...)` evaluates to `false` for
+  non-gzip clients, and `res.end(false ?? raw)` still ends EMPTY —
+  ?? only falls through on null/undefined. Every non-gzip client
+  (curl, HTTP/1.0, some proxies) got silently-truncated 200s. All
+  three sites now use an explicit ternary returning null.
+- The static-handler compression was NEVER in the shipped commit — a
+  stash shuffle during branch juggling dropped the body of the edit
+  and left only the imports. And the e2e still passed because
+    reuseExistingServer
+  picked up a stale probe server running the complete working-tree
+  code on the same port. Lesson applied: probe servers are killed
+  before suites now, and the wire assertions run against a server
+  started from the COMMITTED tree.
+- json()'s Vary header claimed variance the code never produced; the
+  list route now actually passes req, and Vary is set only when the
+  response is really compressed.
+- acceptsGzip no longer matches an explicit `gzip;q=0` refusal.
+
+Verified on the wire (fresh server from the committed tree): bundle
+196036B identity / 27731B gzip; / 17266→5057; main.js 3853→1909;
+style.css 23131→5871; no-header clients get full identity bodies.

@@ -8,6 +8,8 @@ test('acceptsGzip reads Accept-Encoding (token, not substring)', () => {
   assert.equal(acceptsGzip({ headers: { 'accept-encoding': 'deflate, br' } }), false);
   assert.equal(acceptsGzip({ headers: {} }), false);            /* absent */
   assert.equal(acceptsGzip({ headers: { 'accept-encoding': 'xgzipz' } }), false);  /* no bare token */
+  assert.equal(acceptsGzip({ headers: { 'accept-encoding': 'gzip;q=0' } }), false);  /* explicit refusal */
+  assert.equal(acceptsGzip({ headers: { 'accept-encoding': 'gzip;q=0.5, br' } }), true);
 });
 
 test('compressible: text types over 1KB only', () => {

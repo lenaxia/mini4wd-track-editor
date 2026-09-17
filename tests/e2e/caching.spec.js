@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import http from 'node:http';
 
 /* Cache policy contract (serve.js):
  * - assets//src/ ?v=/?h= URLs are immutable for a year (content-addressed
@@ -171,8 +172,6 @@ test('sprite transport survives corrupted /assets responses (proxy pin)', async 
  * encoding; images never compress. Asserted over RAW http — Playwright
  * auto-decompresses and strips Content-Encoding for some types, so its
  * header view is not the wire truth. */
-import http from 'node:http';
-
 const rawGet = (port, pathName, acceptEncoding) => new Promise((resolve, reject) => {
   const req = http.get({ host: '127.0.0.1', port, path: pathName, headers: acceptEncoding ? { 'Accept-Encoding': acceptEncoding } : {} }, (res) => {
     const chunks = [];

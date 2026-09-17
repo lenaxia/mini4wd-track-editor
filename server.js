@@ -66,9 +66,10 @@ const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 const json = (res, code, body, req) => {
   const raw = Buffer.from(JSON.stringify(body));
-  const gz = req && acceptsGzip(req) && gzipBody(raw, 'application/json; charset=utf-8');
-  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', Vary: 'Accept-Encoding' };
-  if (gz) headers['Content-Encoding'] = 'gzip';
+  /* ternary, never &&: false ?? raw still ends EMPTY (?? ignores false) */
+  const gz = req && acceptsGzip(req) ? gzipBody(raw, 'application/json; charset=utf-8') : null;
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+  if (gz) { headers['Content-Encoding'] = 'gzip'; headers.Vary = 'Accept-Encoding'; }
   res.writeHead(code, headers);
   res.end(gz ?? raw);
 };
@@ -218,7 +219,7 @@ async function main() {
         for (const [f, p] of Object.entries(files)) out[f] = await p;
         const hashAddr = /[?&]h=[0-9a-f]{8,64}/.test(req.url);
         const raw = Buffer.from(JSON.stringify({ files: out }));
-        const gz = acceptsGzip(req) && gzipBody(raw, 'application/json; charset=utf-8');
+        const gz = acceptsGzip(req) ? gzipBody(raw, 'application/json; charset=utf-8') : null;
         const hdr = {
           'Content-Type': 'application/json; charset=utf-8',
           'Cache-Control': hashAddr ? 'public, max-age=31536000, immutable' : 'no-cache',
@@ -247,7 +248,7 @@ async function main() {
            * that parse (not just type-match) json responses */
           const hashAddr = /[?&]h=[0-9a-f]{8,64}/.test(req.url);
           const raw = Buffer.from(JSON.stringify({ svg: body }));
-          const gz = acceptsGzip(req) && gzipBody(raw, 'application/json; charset=utf-8');
+          const gz = acceptsGzip(req) ? gzipBody(raw, 'application/json; charset=utf-8') : null;
           const hdr = {
             'Content-Type': 'application/json; charset=utf-8',
             'Cache-Control': hashAddr ? 'public, max-age=31536000, immutable' : 'no-cache',
