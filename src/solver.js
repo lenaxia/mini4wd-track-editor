@@ -70,6 +70,9 @@ const FLEX_TURN_EPS = 1.5; // deg — flex weld re-orients onto the target, so a
  * run's previous joint (owner: a 9 cm break reads as broken, not closed).
  * Larger offsets report honestly and offer step-back instead. */
 const FLEX_WELD_MAX = 0.2; // cm (owner: 2 mm)
+/* GOAL_EPS == FLEX_WELD_MAX => the flex-capture branch is currently
+ * unreachable (d <= FLEX_WELD_MAX implies exact); it stays for the day
+ * the owner loosens the weld tolerance past the landing tolerance. */
 const FLEX_SLACK = 0.05;  // m — A* may keep searching past a flex find by this
 
 const norm360 = (deg) => ((deg % 360) + 360) % 360;

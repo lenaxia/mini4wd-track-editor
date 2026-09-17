@@ -135,7 +135,7 @@ test('a 75 mm level difference bridges straight over a wall', () => {
 
 test('tiny off-grid offsets (<= 0.2 cm) weld invisibly; larger ones report', () => {
   const mkScene = (dy) => [mk('Str1', 100, 100), mk('Str1', 262, 100 + dy, 0)];
-  /* 0.15 cm: imperceptible — closes (exact or flex-welded, both clean) */
+  /* 0.15 cm: imperceptible — closes exactly */
   const small = mkScene(0.15);
   let res = closeLoop(small, small[0], small[1]);
   assert.equal(res.ok, true);
@@ -209,7 +209,7 @@ test('off-grid ends with corner-chain heading drift: small welds, big reports', 
   /* A is a corner: its exit tangent is the catalog's 44.976 deg, not exactly
    * 45. B is a hand-placed straight at exactly 45 deg with its entry vert
    * off the reachable lattice — the "nearest fit 6.5 cm / 0 deg off" case.
-   * A 0.15 cm offset flex-welds; 6.5 cm reports honestly (no kinked welds). */
+   * A 0.15 cm offset closes exactly; 6.5 cm reports honestly (no kinked welds). */
   const mkScene = (off) => {
     const A = mk('Cor1', 100, 100);
     const exit = vertexOf(A, 1);
