@@ -146,8 +146,8 @@ test('tiny off-grid offsets (<= 0.2 cm) weld invisibly; larger ones report', () 
 
   /* 2 cm and up (owner report class: a 9.4 cm break shipped as "closed") —
    * honest failure with the step-back offer, never a kinked weld */
-  const five = mkScene(2);
-  res = closeLoop(five, five[0], five[1]);
+  const two = mkScene(2);
+  res = closeLoop(two, two[0], two[1]);
   assert.equal(res.ok, false);
   assert.equal(res.why, 'off-grid');
   assert.ok(Math.abs(res.miss.d - 2) < 1);
