@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # buster guard diffs against origin/main
 
       - uses: actions/setup-node@v4
         with:
@@ -20,6 +22,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Cache-buster guard (PR busters must exceed main's)
+        run: node tools/check-busters.js
 
       - name: Unit (node --test)
         run: npm test

@@ -16,6 +16,7 @@ import path from 'node:path';
 import { createStaticHandler } from './lib/static.js';
 import { openStore } from './lib/store/index.js';
 import { shouldArchive } from './lib/store/retention.js';
+import { parseTrip, tripHash } from './lib/tripcode.js';
 import { facets, MAX_TRACK_BYTES_EXPORTED, VALIDATOR_VERSION } from './lib/store/facets.js';
 import { validateTrack } from './src/validate.js';
 import { parseTrack } from './src/track.js';
@@ -84,12 +85,13 @@ function readBody(req) {
 /* Validate + normalize a write. Returns the track row or throws.
  * Strict types: a present-but-wrong-typed field is a 400, never a
  * silent coercion — silent coercions are how junk accumulates. */
-function normalize({ id, name, author, data, parent_id, root_id, parent_name }) {
+function normalize({ id, name, author, data, parent_id, root_id, parent_name, trip }) {
   if (id !== undefined && !ID_RE.test(id)) bad('bad id (want [A-Za-z0-9_-]{1,64})');
   if (data == null || typeof data !== 'object' || Array.isArray(data)) bad('data must be an object');
   if (data.track !== undefined && typeof data.track !== 'string') bad('data.track must be a string');
   if (name !== undefined && name !== null && typeof name !== 'string') bad('name must be a string');
   if (author !== undefined && author !== null && typeof author !== 'string') bad('author must be a string');
+  if (trip !== undefined && trip !== null && typeof trip !== 'string') bad('trip must be a string');
   if (data.mode !== undefined && typeof data.mode !== 'number' && typeof data.mode !== 'string')
     bad('data.mode must be a number or a string');
   if (data.angle !== undefined && typeof data.angle !== 'number') bad('data.angle must be a number');
@@ -112,8 +114,25 @@ function normalize({ id, name, author, data, parent_id, root_id, parent_name }) 
   t.parent_id = parent_id ?? null;
   t.root_id = root_id ?? null;
   t.parent_name = null;
+  /* Tripcode byline (worklog 0023): `Alex#phrase` → byline Alex + a
+   * scrypt hash; the hash locks in-place editing to the phrase holder.
+   * A plain `Alex` is an unverified byline; nothing is a plain track.
+   * The raw phrase never leaves this function. */
+  const tripped = parseTrip(trip);
+  if (tripped.name) t.author = tripped.name;
+  t._tripHash = tripped.phrase ? tripHash(tripped.phrase) : null;
   t._facets = fullFacets(t.data);
   return t;
+}
+
+/* Worklog 0023 — in-place edits of a tripcode-locked track require the
+ * phrase. Returns the new row's author_trip (adopting or keeping the
+ * lock), or throws a LockError when the presented phrase misses. */
+class LockError extends Error {}
+const wrongTrip = () => { throw new LockError('track is locked to its author'); };
+function resolveTrip(prev, t) {
+  if (prev && prev.author_trip && prev.author_trip !== t._tripHash) wrongTrip();   /* locked and not the holder */
+  return t._tripHash ?? (prev ? prev.author_trip ?? null : null);   /* keep the existing lock on plain saves */
 }
 
 function parseListQuery(u) {
@@ -228,7 +247,9 @@ async function main() {
           /* POST-to-existing is an update: version it and keep the
            * lineage it was born with — body lineage is never trusted.
            * Only a head that was STABLE gets a snapshot (worklog 0022) —
-           * rapid-fire saves coalesce into the burst-start entry. */
+           * rapid-fire saves coalesce into the burst-start entry.
+           * A tripcode lock survives plain saves (worklog 0023). */
+          t.author_trip = resolveTrip(prev, t);
           if (shouldArchive(prev.updated_at)) await store.archive(t.id, prev);
           Object.assign(t, { parent_id: prev.parent_id ?? null, root_id: prev.root_id ?? null, parent_name: prev.parent_name ?? null });
         } else if (body.parent_id) {
@@ -238,6 +259,9 @@ async function main() {
           if (!parent) return json(res, 404, { error: 'parent track not found' });
           Object.assign(t, { parent_id: parent.id, root_id: parent.root_id || parent.id, parent_name: parent.name });
         }
+        /* new row: the fork's own trip (a locked parent copies OPEN —
+         * your copy is yours, unbound until you sign it) */
+        t.author_trip = t._tripHash;
         return json(res, 201, await store.upsert(t));
       }
       if (u === '/api/tracks' && req.method === 'PUT') {
@@ -253,6 +277,7 @@ async function main() {
         const t = normalize({ ...body, id: decodeURIComponent(m[1]) });
         const prev = await store.get(t.id);
         if (prev) {
+          t.author_trip = resolveTrip(prev, t);   /* worklog 0023 */
           if (shouldArchive(prev.updated_at)) await store.archive(t.id, prev);   /* stability rule, worklog 0022 */
           /* lineage never changes on update — the track keeps the
            * parent it was born with (copies are new tracks, not re-links) */
@@ -286,12 +311,18 @@ async function main() {
         if (!cur) return json(res, 404, { error: 'not found' });
         const snap = await store.revision(id, Number(mres[2]));
         if (!snap) return json(res, 404, { error: 'revision not found' });
+        /* restoring IS an in-place edit: the lock applies (worklog 0023);
+         * the snapshot's lock rides along to the restored head */
+        const rb = JSON.parse(await readBody(req) || '{}');
+        const tripped = parseTrip(typeof rb.trip === 'string' ? rb.trip : null);
+        if (cur.author_trip && cur.author_trip !== (tripped.phrase ? tripHash(tripped.phrase) : null)) wrongTrip();
         if (shouldArchive(cur.updated_at)) await store.archive(id, cur);
         const t = normalize({ id, name: snap.name, author: snap.author, data: snap.data });
         /* snapshot lineage is server-stored data — restore carries it home */
         t.parent_id = snap.parent_id ?? null;
         t.root_id = snap.root_id ?? null;
         t.parent_name = typeof snap.parent_name === 'string' ? snap.parent_name.slice(0, 200) : null;
+        t.author_trip = snap.author_trip ?? null;
         return json(res, 200, await store.upsert(t));
       }
       /* star: anonymous one-tap rating; the client de-dupes per browser */
@@ -317,6 +348,7 @@ async function main() {
       return json(res, 404, { error: 'no such route' });
     } catch (e) {
       if (e instanceof ValidationError) return json(res, 400, { error: e.message });
+      if (e instanceof LockError) return json(res, 403, { error: e.message });
       if (e instanceof URIError) return json(res, 400, { error: 'bad encoding' });
       if (typeof e.message === 'string' && e.message.includes('too large')) return json(res, 413, { error: e.message });
       if (e instanceof SyntaxError) return json(res, 400, { error: 'invalid JSON body' });

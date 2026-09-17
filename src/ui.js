@@ -9,7 +9,8 @@ import { PIECES, PALETTE } from './pieces.js';
 import { serializeForSave, parseTrack, encodeShare } from './track.js';
 import { imageFor } from './assets.js';
 import { publishedTrack, publishTrack, unpublishTrack, bindPublished, spritesFromRow,
-         forkTrack, fetchHistory, restoreRevision, isMine, mineIds } from './storage.js';
+         forkTrack, fetchHistory, restoreRevision, isMine, mineIds,
+         rememberedTrip, saveTrip, myTripCode, lockedToOther } from './storage.js';
 import {
   GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, formatLength, completeBadge, lengthToCm, cmToLength,
   isStarred, addStarred, removeStarred, thumbFit, trackFacets, formatVersionTime,
@@ -318,9 +319,18 @@ export function init(dimsGetter) {
    * (the id enters the Mine list) or the track is unpublished. */
   function updateSharedNote() {
     const pub = publishedTrack();
-    const shared = !!(pub && !isMine(pub.id));
     const note = $('sharedNote');
-    if (note) note.hidden = !shared;
+    if (!note) return;
+    if (!pub || isMine(pub.id)) { note.hidden = true; return; }
+    if (lockedToOther(pub)) {
+      /* signed by someone else: overwriting is impossible — copy instead */
+      $('sharedNoteText').textContent = `“${pub.name}” is signed — only its author can save over it.`;
+      $('btnOwnCopy').textContent = 'Save my own copy';
+    } else {
+      $('sharedNoteText').textContent = 'You\'re editing a shared track — Save updates it for everyone.';
+      $('btnOwnCopy').textContent = 'Save my own copy';
+    }
+    note.hidden = false;
   }
   /* the debounced save of a shared track lands in storage.js — it tells
    * us here so the note hides immediately, not at the next refresh */
@@ -397,6 +407,7 @@ export function init(dimsGetter) {
     $('pubTitle').textContent = 'Publish track';
     $('pubOk').textContent = 'Publish';
     $('pubName').value = '';
+    $('pubTrip').value = rememberedTrip() ?? '';
     renderPubStatus();
     closeDialog($('menuDialog'));
     openDialog($('publishDialog'));
@@ -412,14 +423,28 @@ export function init(dimsGetter) {
   $('pubOk').addEventListener('click', async () => {
     renderPubStatus();                /* refresh the status at save time */
     const name = $('pubName').value.trim() || 'Untitled';
+    const trip = $('pubTrip').value.trim() || null;
     const wasPublished = !!publishedTrack();
+    /* saving a locked-to-someone-else track means taking your own copy
+     * (worklog 0023) — the server would 403 an overwrite */
+    if (wasPublished && lockedToOther(publishedTrack())) {
+      const r = await forkTrack(publishedTrack(), state);
+      if (!r) { toast('Server unreachable — track stays local'); return; }
+      if (!r.ok) { toast('Copy not saved — the original is gone from the server'); return; }
+      saveTrip(trip);
+      closeDialog($('publishDialog'));
+      refreshPublishUi();
+      toast(`Saved as your own copy — “${r.row.name}” — edits save here`);
+      return;
+    }
     $('pubOk').disabled = true;
-    const row = await publishTrack(name, state);
+    const row = await publishTrack(name, state, trip);
     $('pubOk').disabled = false;
     if (!row) { toast('Server unreachable — track stays local'); return; }
+    saveTrip(trip);                   /* remember (or forget) the byline */
     closeDialog($('publishDialog'));
     refreshPublishUi();
-    toast(wasPublished ? `Saved “${row.name}”`
+    toast(wasPublished ? `Saved “${row.name}”${row.author_trip ? ' · signed' : ''}`
                        : `Published “${row.name}” — edits now auto-save`);
   });
 
@@ -481,7 +506,7 @@ export function init(dimsGetter) {
    * must not fetch the page twice). gen: bumped by every sort/filter/open
    * so a superseded page is dropped instead of appended into the new
    * view. A dropped page leaves `loading` alone — the newer call owns it. */
-  const gal = { sort: '-updated_at', complete: true, mine: false, unit: 'm', filter: galFilterDefaults(), items: [], total: 0, gen: 0, loading: false };
+  const gal = { sort: '-updated_at', complete: true, mine: false, group: true, unit: 'm', filter: galFilterDefaults(), items: [], total: 0, gen: 0, loading: false };
 
   function galFilterCount() {
     const f = gal.filter, d = galFilterDefaults();
@@ -505,6 +530,7 @@ export function init(dimsGetter) {
     }
     $('galComplete').setAttribute('aria-pressed', String(gal.complete));
     $('galMine').setAttribute('aria-pressed', String(gal.mine));
+    $('galGroup').setAttribute('aria-pressed', String(gal.group));
     const n = galFilterCount();
     $('galFilterCount').hidden = n === 0;
     $('galFilterCount').textContent = n;
@@ -708,13 +734,20 @@ export function init(dimsGetter) {
       + ` · ${it.straights ?? 0} straights · ${it.slopes ?? 0} slopes · ${it.corners ?? 0} corners`;
     const sub = document.createElement('span');
     sub.className = 'gal-sub';
-    sub.textContent = `★ ${it.stars ?? 0} · ${galDate(it.updated_at)}`;
+    const by = it.author ? ` · by ${it.author}${it.author_trip ? `!${it.author_trip.slice(0, 8)}` : ''}` : '';
+    sub.textContent = `★ ${it.stars ?? 0} · ${galDate(it.updated_at)}${by}`;
     card.append(thumb, top, facets, sub);
     if (it.parent_name) {
       const based = document.createElement('span');
       based.className = 'gal-based';
       based.textContent = `based on “${it.parent_name}”`;
       card.append(based);
+    }
+    if (it._chain) {
+      const chain = document.createElement('span');
+      chain.className = 'gal-chain';
+      chain.textContent = `+${it._chain} earlier version${it._chain === 1 ? '' : 's'} of this circuit`;
+      card.append(chain);
     }
     card.addEventListener('click', () => loadPublishedTrack(it.id));
     galThumb(thumb, it.id);
@@ -801,10 +834,26 @@ export function init(dimsGetter) {
   function galRenderList() {
     const list = $('galList');
     list.textContent = '';
-    /* Mine is a local filter (worklog 0017): it narrows the rows this
-     * browser saved/edited — "Load more" keeps fetching to surface more. */
+    /* Mine is a local filter (worklogs 0020/0023): rows this browser
+     * saved/edited, plus rows signed with this browser's tripcode. */
     const mine = mineIds();
-    const shown = gal.mine ? gal.items.filter((it) => mine.includes(it.id)) : gal.items;
+    const code = myTripCode();
+    const mineRow = (it) => mine.includes(it.id) || (code && it.author_trip === code);
+    let shown = gal.mine ? gal.items.filter(mineRow) : gal.items;
+    /* Version chains collapse (worklog 0023): same-root copies render as
+     * the chain's newest card with a "+N versions" badge — Mine always
+     * shows every one of yours. gal.group toggles the collapsing. */
+    if (gal.group && !gal.mine) {
+      const seen = new Map();   /* root_id -> primary item */
+      const extras = new Map(); /* root_id -> count */
+      shown = shown.filter((it) => {
+        const root = it.root_id || it.id;
+        if (seen.has(root)) { extras.set(root, (extras.get(root) || 0) + 1); return false; }
+        seen.set(root, it);
+        return true;
+      });
+      shown = shown.map((it) => ({ ...it, _chain: extras.get(it.root_id || it.id) || 0 }));
+    }
     if (!shown.length) {
       $('galMeta').textContent = '';
       const empty = document.createElement('p');
@@ -904,6 +953,12 @@ export function init(dimsGetter) {
    * holds none of yours says so and offers Load more) */
   $('galMine').addEventListener('click', () => {
     gal.mine = !gal.mine;
+    galRenderControls();
+    galRenderList();
+  });
+  /* collapse/expand version chains (worklog 0023) */
+  $('galGroup').addEventListener('click', () => {
+    gal.group = !gal.group;
     galRenderControls();
     galRenderList();
   });

@@ -423,3 +423,34 @@ test('Mine chip narrows the list to tracks this browser saved', async ({ page, r
   await expect(page.locator('.gal-list .gal-row', { hasText: `E2E MineYes ${n}` })).toBeVisible();
   await expect(page.locator('#galMeta')).toContainText('of yours');
 });
+
+/* ---------- worklog 0023: bylines + version-chain collapsing ---------- */
+
+test('signed cards show a byline with the tripcode code; chains collapse to one card', async ({ page, request }) => {
+  const n = nonce();
+  await seed(request, `gal-${n}-root`, `E2E ChainRoot ${n}`, SQUARE);
+  /* two forks of the same root — the chain has 3 tracks */
+  const root = `gal-${n}-root`;
+  await request.post('/api/tracks', { data: { name: `E2E ChainA ${n}`, parent_id: root, data: { track: SQUARE, mode: 3 } } }).then(async (r) => { ids.push((await r.json()).id); });
+  await request.post('/api/tracks', { data: { name: `E2E ChainB ${n}`, parent_id: root, data: { track: SQUARE, mode: 3 } } }).then(async (r) => { ids.push((await r.json()).id); });
+
+  await openGallery(page);
+  const collapsed = page.locator('.gal-row', { hasText: `+2 earlier versions` });
+  await expect(collapsed).toBeVisible();
+  await expect(page.locator('.gal-list .gal-row', { hasText: `E2E ChainA ${n}` })).toHaveCount(0);   /* folded in */
+
+  /* '1 of each' off → all three show */
+  await page.locator('#galGroup').click();
+  await expect(page.locator('.gal-list .gal-row', { hasText: `E2E ChainA ${n}` })).toBeVisible();
+  await expect(page.locator('.gal-list .gal-row', { hasText: `E2E ChainB ${n}` })).toBeVisible();
+
+  /* a signed track shows `by name!code` in the sub line (fresh open so
+   * the just-created row is in the loaded page) */
+  const sid = await seed(request, `gal-${n}-signed`, `E2E Signed ${n}`, SQUARE);
+  await request.put(`/api/tracks/${sid}`, { data: { name: `E2E Signed ${n}`, author: null, trip: 'Ada#hunter2', data: { track: SQUARE, mode: 3 } } });
+  await page.reload();
+  await page.locator('#btnMenu').click();
+  await page.locator('#btnGallery').click();
+  const signedRow = page.locator('.gal-row', { hasText: `E2E Signed ${n}` });
+  await expect(signedRow.locator('.gal-sub')).toContainText(/by Ada![0-9a-f]{8}/);
+});
