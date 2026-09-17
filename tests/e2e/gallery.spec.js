@@ -350,8 +350,15 @@ test('library rows rename and delete inline', async ({ page, request }) => {
    * must create a NEW row and leave the library row untouched */
   await row.locator('..').locator('.lib-act[aria-label^="Rename"]').click();
   await expect(page.locator('#publishDialog')).toBeVisible();
+  /* Esc peels ONLY the topmost dialog — the library stays open */
   await page.keyboard.press('Escape');
   await expect(page.locator('#publishDialog')).not.toBeVisible();
+  await expect(page.locator('#libraryDialog')).toBeVisible();
+  await expect(page.locator('.lib-row', { hasText: `E2E Library Row ${n}` })).toBeVisible();
+  /* a second Esc peels the library too (one press, one dialog) — and
+   * clears the way for the toolbar publish below */
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#libraryDialog')).not.toBeVisible();
   await page.evaluate(() => localStorage.removeItem('m4wd.published'));
   await page.locator('#btnPublishBar').click();
   await page.locator('#pubName').fill(`E2E Escaped Publish ${n}`);
@@ -364,9 +371,8 @@ test('library rows rename and delete inline', async ({ page, request }) => {
   ids.push(newId);
   expect((await (await request.get(`/api/tracks/${newId}`)).json()).name).toBe(`E2E Escaped Publish ${n}`);
 
-  /* the document-level Esc closes BOTH stacked dialogs (publishDialog
-   * first in DOM order, then the library underneath) — reopen it for
-   * the inline steps */
+  /* reopen the library (the second Esc above closed it) for the
+   * inline steps */
   await page.locator('#btnMenu').click();
   await page.locator('#btnLibrary').click();
   await expect(page.locator('.lib-row', { hasText: `E2E Library Row ${n}` })).toBeVisible();

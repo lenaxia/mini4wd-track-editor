@@ -50,8 +50,28 @@ export function toast(msg, opts = {}) {
   el.classList.add('show');
 }
 
-function openDialog(dlg) { if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', ''); }
-function closeDialog(dlg) { if (dlg.close) dlg.close(); else dlg.removeAttribute('open'); }
+/* Dialog helpers with an open-order stack: Esc must close only the
+ * TOPMOST dialog (owner ruling - stacked dialogs peel one at a time,
+ * e.g. cancelling a library rename must not close the library too).
+ * The stack is filtered to still-open dialogs at use: the native
+ * showModal cancel path closes dialogs without passing here. */
+const dlgStack = [];
+function openDialog(dlg) {
+  dlgStack.push(dlg);
+  if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+}
+function closeDialog(dlg) {
+  const i = dlgStack.indexOf(dlg);
+  if (i >= 0) dlgStack.splice(i, 1);
+  if (dlg.close) dlg.close(); else dlg.removeAttribute('open');
+}
+function topOpenDialog() {
+  for (let i = dlgStack.length - 1; i >= 0; i -= 1) {
+    if (dlgStack[i].open) return dlgStack[i];
+    dlgStack.splice(i, 1);   /* closed out from under us (native Esc) */
+  }
+  return null;
+}
 
 /* ---------- palette ---------- */
 
@@ -241,12 +261,17 @@ export function init(dimsGetter) {
   $('btnMenu').addEventListener('click', () => openDialog($('menuDialog')));
   $('btnCloseMenu').addEventListener('click', () => closeDialog($('menuDialog')));
 
-  /* Esc closes any open dialog (native showModal also cancels; this covers
-   * the attribute-fallback path and makes the behavior guaranteed) */
+  /* Esc closes ONLY the topmost open dialog. preventDefault is the
+   * load-bearing half: without it the browser's own Esc-cancel would
+   * run after this handler, find the NEXT top-layer modal (the one we
+   * just exposed) and close it too — stacked dialogs died in pairs
+   * (probe: publishDialog + libraryDialog, two close events, one
+   * press). Fallback-attribute dialogs have no native path; this
+   * covers them identically. */
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    const open = document.querySelector('dialog[open]');
-    if (open) closeDialog(open);
+    const top = topOpenDialog();
+    if (top) { e.preventDefault(); closeDialog(top); }
   });
 
   $('btnShare').addEventListener('click', () => {
