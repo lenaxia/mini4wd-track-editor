@@ -115,6 +115,7 @@ function normalize({ id, name, author, data, parent_id, root_id, parent_name, tr
   if (data.mode !== undefined && typeof data.mode !== 'number' && typeof data.mode !== 'string')
     bad('data.mode must be a number or a string');
   if (typeof data.mode === 'string' && data.mode.length > 32) bad('data.mode too long (max 32)');
+  if (typeof data.mode === 'number' && !Number.isFinite(data.mode)) bad('data.mode must be finite');
   if (data.angle !== undefined && typeof data.angle !== 'number') bad('data.angle must be a number');
   if (typeof data.angle === 'number' && !Number.isFinite(data.angle)) bad('data.angle must be finite');
   const raw = typeof data.track === 'string' ? data.track : '';
@@ -204,7 +205,12 @@ async function main() {
        * never a hung socket */
       try {
         if (!static_(req, res)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('404'); }
-      } catch { res.writeHead(400, { 'Content-Type': 'text/plain' }); res.end('400'); }
+      } catch {
+        /* headersSent guard: a late throw must not resurrect the hung
+         * socket via a throwing writeHead (review round 1) */
+        if (!res.headersSent) res.writeHead(400, { 'Content-Type': 'text/plain' });
+        try { res.end('400'); } catch (_) {}
+      }
       return;
     }
     try {

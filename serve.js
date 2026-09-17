@@ -19,7 +19,12 @@ http.createServer((req, res) => {
    * never a hung socket (mirrors server.js) */
   try {
     if (!static_(req, res)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('404'); }
-  } catch { res.writeHead(400, { 'Content-Type': 'text/plain' }); res.end('400'); }
+  } catch {
+    /* headersSent guard: a late throw must not resurrect the hung
+     * socket via a throwing writeHead (review round 1) */
+    if (!res.headersSent) res.writeHead(400, { 'Content-Type': 'text/plain' });
+    try { res.end('400'); } catch (_) {}
+  }
 }).listen(PORT, '0.0.0.0', () => console.log(`mini4wd-editor dev server on http://localhost:${PORT} (cache-aware, no API)`));
 
 process.on('uncaughtException', (e) => console.error('uncaught:', e.message));
