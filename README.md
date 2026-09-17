@@ -22,9 +22,11 @@ site (no build step, no frameworks); open it and lay track.
   finished circuits or tracks saved on this device (Mine). There are no
   accounts: starring a track or opening someone else's to edit works
   with a tap.
-- **Version history.** Every save of a published track keeps the
-  previous version. The History list shows them all and any can be
-  restored with a tap. Copy makes your own version of a track (labelled
+- **Version history.** Saves keep snapshots of how a published track
+  looked before, listed in History with timestamps — anyone can restore
+  one with a tap. Quick bursts of edits collapse into one snapshot per
+  session and roughly a week of history is kept, so the list stays
+  short and useful. Copy makes your own version of a track (labelled
   "based on" the original) and leaves the original alone.
 - **Placing pieces.** Pick a piece, tap the canvas, and it drops in and
   snaps to nearby track ends (green dots mark the joints). You can hold

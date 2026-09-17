@@ -366,7 +366,10 @@ test('History dialog restores an older version onto the head', async ({ page, re
   const n = nonce();
   const id = await seed(request, `gal-${n}-hist`, `E2E HistA ${n}`, SQUARE);
   /* a second save archives HistA as a version, head becomes HistB (an
-   * open chain = WIP — the default complete-only filter must come off) */
+   * open chain = WIP — the default complete-only filter must come off).
+   * M4WD_STABLE_MS=50 in the e2e webserver: A must sit as head for a
+   * beat before B's save can snapshot it (worklog 0022). */
+  await new Promise((r) => setTimeout(r, 80));
   await request.put(`/api/tracks/${id}`, { data: { name: `E2E HistB ${n}`, data: { track: LONG, mode: 3 } } });
   await openGallery(page);
   await page.locator('#galComplete').click();
@@ -387,6 +390,7 @@ test('History dialog restores an older version onto the head', async ({ page, re
   await expect(page.locator('#historyDialog')).toBeVisible();
   const hisRow = page.locator('.his-row', { hasText: `E2E HistA ${n}` });
   await expect(hisRow).toBeVisible();
+  await expect(hisRow).toContainText(/\d{1,2}:\d{2}/);   /* the row shows a time, not just a date */
   await hisRow.locator('button').click();
   await expect(page.locator('#toast')).toContainText('Restored');
   /* the bound canvas shows the restored version immediately — the stats

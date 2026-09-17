@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   GALLERY_SORTS, GALLERY_LANES, galleryQuery, formatFootprint, formatLength, completeBadge, lengthToCm,
-  readStarred, isStarred, addStarred, removeStarred, thumbFit, trackFacets,
+  readStarred, isStarred, addStarred, removeStarred, thumbFit, trackFacets, formatVersionTime,
 } from '../../src/gallery.js';
 import { facets } from '../../lib/store/facets.js';
 import { serializeForSave } from '../../src/track.js';
@@ -194,4 +194,28 @@ test('starred storage never throws: corrupt json, private mode', () => {
   assert.deepEqual(readStarred(broken), []);
   assert.doesNotThrow(() => addStarred(broken, 'abc'));
   assert.equal(isStarred(broken, 'abc'), false);
+});
+
+/* worklog 0022: history timestamps */
+test('formatVersionTime: time today, weekday within the week, date beyond', () => {
+  /* locale-agnostic: the expected clock string is computed with the same
+   * ICU call the formatter uses, so any default locale passes (review:
+   * Cyrillic LANG must not redden the gate). Structure, not script. */
+  const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const today = new Date(); today.setHours(14, 5, 0, 0);   /* pinned mid-day: no midnight flake */
+  const tToday = formatVersionTime(today.getTime(), today.getTime());
+  assert.equal(tToday, clock(today.getTime()));            /* today: exactly the time */
+
+  const now = Date.now();
+  const a2d = now - 2 * 24 * 3600_000;
+  const t2d = formatVersionTime(a2d);
+  assert.ok(t2d.endsWith(clock(a2d)) && t2d.length > clock(a2d).length);
+  /* something (the weekday) precedes the time */
+
+  const a30d = now - 30 * 24 * 3600_000;
+  const t30d = formatVersionTime(a30d);
+  const head = t30d.slice(0, t30d.length - clock(a30d).length);
+  /* a day number precedes the time — \p{N}, not \d: the runtime locale
+   * may render it in a non-ASCII digit script (ar_EG "١٨") */
+  assert.ok(head.length > 0 && /\p{N}/u.test(head));
 });

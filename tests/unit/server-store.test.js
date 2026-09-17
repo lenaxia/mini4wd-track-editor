@@ -155,23 +155,24 @@ function suite(label, open) {
     await s.close();
   });
 
-  /* worklog 0020: archive/history/revision + the 25-version cap */
-  test(`${label}: version history — archive, cap, newest-first, delete cascades`, async () => {
+  /* worklogs 0020/0022: archive/history/revision + tier pruning.
+   * Rapid-fire archives all land in the newest 5-minute bucket, so the
+   * ladder keeps exactly one (the newest); keepSet tiers are pinned
+   * separately in tests/unit/retention.test.js. */
+  test(`${label}: version history — rapid archives coalesce; delete cascades`, async () => {
     const s = await open(); const A = ns();
     await s.upsert({ id: 'hv', name: 'v0', author: A, data: doc(2), _facets: facets(doc(2)) });
     for (let i = 1; i <= 30; i++) await s.archive('hv', { id: 'hv', name: `v${i}`, data: doc(2) });
     const items = await s.history('hv');
-    assert.equal(items.length, 25);                   /* capped: v6..v30 survive */
-    assert.ok(items[0].seq > items[1].seq);           /* newest first */
-    assert.equal(items[0].name, 'v30');
-    assert.equal(items[24].name, 'v6');
+    assert.equal(items.length, 1);                   /* one burst, one snapshot */
+    assert.equal(items[0].name, 'v30');              /* the newest wins the bucket */
     const snap = await s.revision('hv', items[0].seq);
-    assert.equal(snap.name, 'v30');                   /* the snapshot carries the row */
+    assert.equal(snap.name, 'v30');
     assert.equal(await s.revision('hv', 999999), null);
     assert.equal(await s.revision('nope', 1), null);
-    assert.deepEqual(await s.history('nope'), []);    /* unknown id: empty, no throw */
+    assert.deepEqual(await s.history('nope'), []);   /* unknown id: empty, no throw */
     assert.ok(await s.remove('hv'));
-    assert.deepEqual(await s.history('hv'), []);      /* delete takes the versions too */
+    assert.deepEqual(await s.history('hv'), []);     /* delete takes the versions too */
     await s.close();
   });
 
