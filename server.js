@@ -161,6 +161,7 @@ function parseListQuery(u) {
     max_bbox_w: num(q.max_bbox_w), max_bbox_h: num(q.max_bbox_h),
     max_straights: num(q.max_straights), max_slopes: num(q.max_slopes), max_corners: num(q.max_corners),
     complete: q.complete === 'true' ? true : q.complete === 'false' ? false : undefined,
+    include: q.include === 'track' ? 'track' : undefined,
     sort: typeof q.sort === 'string' && q.sort ? q.sort : '-updated_at',
     limit: Math.max(1, Math.min(100, Math.round(num(q.limit) ?? 50))),
     offset: Math.max(0, Math.round(num(q.offset) ?? 0)),
@@ -247,7 +248,17 @@ async function main() {
       const m = /^\/api\/tracks\/([^/]+)$/.exec(u);
       if (u === '/api/tracks' && req.method === 'GET') {
         const q = parseListQuery(req.url);
-        return json(res, 200, { ...await store.list(q), limit: q.limit, offset: q.offset });
+        const page = { ...await store.list(q), limit: q.limit, offset: q.offset };
+        /* include=track (gallery thumbnails): bodies ride the page
+         * response — metadata-only stays the default contract */
+        if (q.include === 'track') {
+          const withData = await Promise.all(page.items.map(async (it) => {
+            const row = await store.get(it.id);
+            return row ? { ...it, data: { track: row.data.track } } : it;
+          }));
+          page.items = withData;
+        }
+        return json(res, 200, page);
       }
       if (u === '/api/tracks' && req.method === 'POST') {
         const body = await parseBody(req);
@@ -326,6 +337,7 @@ async function main() {
         /* restoring IS an in-place edit: the lock applies (worklog 0023);
          * the snapshot's lock rides along to the restored head */
         const rb = await parseBody(req);
+        if (typeof rb.trip === 'string' && rb.trip.length > 200) bad('trip too long (max 200)');
         const tripped = parseTrip(typeof rb.trip === 'string' ? rb.trip : null);
         if (cur.author_trip && cur.author_trip !== (tripped.phrase ? tripHash(tripped.phrase) : null)) wrongTrip();
         if (shouldArchive(cur.updated_at)) await store.archive(id, cur);

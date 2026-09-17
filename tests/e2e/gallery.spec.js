@@ -88,7 +88,7 @@ test('gallery rows render name, badge and facet line (complete-off shows WIP)', 
   await expect(facets).toContainText('1.36 m');                            /* 4 × R1C90I150 l=0.34 */
   await expect(facets).toContainText('1 lanes');
   await expect(facets).toContainText('0 straights · 0 slopes · 8 corners');  /* four 90° = 4×2 */
-  await expect(row.locator('.gal-sub')).toContainText('\u2605 0');
+  await expect(row.locator('.gal-sub')).toContainText(/^\s*0 ·/);   /* star svg + count */
   /* complete-only is ON by default — the WIP badge needs the toggle OFF */
   await page.locator('#galComplete').click();
   const wip = page.locator('.gal-row', { hasText: `E2E WIP ${n}` });
@@ -230,26 +230,28 @@ test('stars toggle per browser: POST stars, DELETE unstars, localStorage gates',
   await openGallery(page);
   const row = page.locator('.gal-row', { hasText: `E2E Square ${n}` });
   const star = row.locator('.gal-star');
-  await expect(star).toHaveText('\u2606');                                  /* un-starred glyph */
+  await expect(star).toHaveAttribute('aria-label', 'Star this track');      /* un-starred */
   await star.click();                                                       /* star */
-  await expect(row.locator('.gal-sub')).toContainText('\u2605 1');
-  await expect(star).toHaveText('\u2605');
+  await expect(row.locator('.gal-sub')).toContainText(/^\s*1 ·/);
+  await expect(star.locator('svg')).toBeVisible();
+  await expect(star).toHaveAttribute('aria-label', 'Starred — tap to unstar');
   expect(await page.evaluate((k) => JSON.parse(localStorage.getItem('m4wd.starred')).includes(k), id)).toBe(true);
   expect((await (await request.get(`/api/tracks/${id}`)).json()).stars).toBe(1);
   await star.click();                                                       /* un-star */
-  await expect(row.locator('.gal-sub')).toContainText('\u2605 0');
-  await expect(star).toHaveText('\u2606');
+  await expect(row.locator('.gal-sub')).toContainText(/^\s*0 ·/);   /* star svg + count */
+  await expect(star).toHaveAttribute('aria-label', 'Star this track');
   expect(await page.evaluate((k) => !JSON.parse(localStorage.getItem('m4wd.starred') || '[]').includes(k), id)).toBe(true);
   expect((await (await request.get(`/api/tracks/${id}`)).json()).stars).toBe(0);
   await star.click();                                                       /* re-star works */
-  await expect(row.locator('.gal-sub')).toContainText('\u2605 1');
+  await expect(row.locator('.gal-sub')).toContainText(/^\s*1 ·/);
   expect((await (await request.get(`/api/tracks/${id}`)).json()).stars).toBe(1);
   /* the un-starred state survives a gallery reopen */
   await star.click();
   await page.locator('#galClose').click();
   await page.locator('#btnMenu').click();
   await page.locator('#btnGallery').click();
-  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` }).locator('.gal-star')).toHaveText('\u2606');
+  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` }).locator('.gal-star'))
+    .toHaveAttribute('aria-label', 'Star this track');
 });
 
 test('each card renders a thumbnail of the actual track', async ({ page, request }) => {
@@ -296,6 +298,93 @@ test('load more paginates through the whole catalog', async ({ page, request }) 
   await expect(page.locator('.gal-row', { hasText: `E2E More 25 ${n}` })).toBeVisible();
   const m = /^(\d+) of (\d+) tracks?$/.exec(await page.locator('#galMeta').textContent());
   expect(+m[1]).toBe(Math.min(50, +m[2]));   /* second page loaded, nothing skipped */
+});
+
+test('thumbnails ride the page request — zero per-row track GETs', async ({ page, request }) => {
+  const n = nonce();
+  await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);
+  const rowGets = [];
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (/^\/api\/tracks\/[^/]+$/.test(u.pathname)) rowGets.push(u.pathname);
+  });
+  await openGallery(page);
+  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` })).toBeVisible();
+  /* bodies came with the page (include=track): thumbs drew, and no
+   * per-row GET happened — the tappable row still fetches on demand */
+  await expect(page.locator('.gal-row', { hasText: `E2E Square ${n}` }).locator('.gal-thumb'))
+    .toBeVisible();
+  expect(rowGets).toEqual([]);
+  await page.locator('.gal-row', { hasText: `E2E Square ${n}` }).locator('.gal-main').click();
+  await expect.poll(async () => page.evaluate(() =>
+    window.__m4wd.state.sprites.length), { timeout: 10_000 }).toBe(4);
+  expect(rowGets).toEqual([`/api/tracks/gal-${n}-square`]);   /* exactly the load tap */
+});
+
+test('the gallery view persists: filters survive a reload', async ({ page, request }) => {
+  const n = nonce();
+  await seed(request, `gal-${n}-square`, `E2E Square ${n}`, SQUARE);
+  await openGallery(page);
+  await page.locator('#galComplete').click();       /* complete OFF */
+  await page.locator('#galFilters').click();
+  await page.locator('#galMinLen').fill('5');       /* >= 5 m */
+  await page.locator('#galClose').click();
+  await page.reload();
+  await page.locator('#btnGalleryBar').click();
+  await expect(page.locator('#galComplete')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#galMinLenOut')).toHaveText('5 m+');
+  await expect(page.locator('#galFilterCount')).toHaveText('1');
+});
+
+test('library rows rename and delete inline', async ({ page, request }) => {
+  const n = nonce();
+  const id = await seed(request, `gal-${n}-square`, `E2E Library Row ${n}`, SQUARE);
+  await page.goto('/');
+  await page.locator('#btnMenu').click();
+  await page.locator('#btnLibrary').click();
+  const row = page.locator('.lib-row', { hasText: `E2E Library Row ${n}` });
+  await expect(row).toBeVisible();
+
+  /* a STALE rename target must never clobber the wrong row: arm a
+   * rename, Esc out, then publish an unpublished canvas — the publish
+   * must create a NEW row and leave the library row untouched */
+  await row.locator('..').locator('.lib-act[aria-label^="Rename"]').click();
+  await expect(page.locator('#publishDialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#publishDialog')).not.toBeVisible();
+  await page.evaluate(() => localStorage.removeItem('m4wd.published'));
+  await page.locator('#btnPublishBar').click();
+  await page.locator('#pubName').fill(`E2E Escaped Publish ${n}`);
+  await page.locator('#pubOk').click();
+  await expect.poll(async () => page.evaluate(() =>
+    !!localStorage.getItem('m4wd.published')), { timeout: 10_000 }).toBe(true);
+  const escRow = await (await request.get(`/api/tracks/${id}`)).json();
+  expect(escRow.name).toBe(`E2E Library Row ${n}`);   /* NOT renamed */
+  const newId = await page.evaluate(() => JSON.parse(localStorage.getItem('m4wd.published')).id);
+  ids.push(newId);
+  expect((await (await request.get(`/api/tracks/${newId}`)).json()).name).toBe(`E2E Escaped Publish ${n}`);
+
+  /* the document-level Esc closes BOTH stacked dialogs (publishDialog
+   * first in DOM order, then the library underneath) — reopen it for
+   * the inline steps */
+  await page.locator('#btnMenu').click();
+  await page.locator('#btnLibrary').click();
+  await expect(page.locator('.lib-row', { hasText: `E2E Library Row ${n}` })).toBeVisible();
+
+  /* rename inline — any row, not just the bound one */
+  await row.locator('..').locator('.lib-act[aria-label^="Rename"]').click();
+  await page.locator('#pubName').fill(`E2E Renamed ${n}`);
+  await page.locator('#pubOk').click();
+  await expect.poll(async () => (await (await request.get(`/api/tracks/${id}`)).json()).name,
+    { timeout: 10_000 }).toBe(`E2E Renamed ${n}`);
+  await expect(page.locator('.lib-row', { hasText: `E2E Renamed ${n}` })).toBeVisible();
+
+  /* delete with confirm */
+  page.once('dialog', (d) => d.accept());
+  await page.locator('.lib-row', { hasText: `E2E Renamed ${n}` }).locator('..')
+    .locator('.lib-act[aria-label^="Delete"]').click();
+  await expect(page.locator('.lib-row', { hasText: `E2E Renamed ${n}` })).toHaveCount(0);
+  expect((await request.get(`/api/tracks/${id}`)).status()).toBe(404);
 });
 
 test('double-tapping Load more never appends a page twice', async ({ page, request }) => {

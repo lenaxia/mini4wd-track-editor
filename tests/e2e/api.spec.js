@@ -230,7 +230,7 @@ test('stats popup shows local facets + the server row (dates, stars, validity)',
   await expect(bubble).toContainText('widest piece');
   await expect(bubble.locator('xpath=ancestor::dialog')).toHaveId('statsDialog');
   /* server fields land asynchronously */
-  await expect(rows).toContainText('\u2605 2');
+  await expect(rows.locator('.stat-row', { hasText: 'Stars' })).toContainText(/\s2$/);
   await expect(rows).toContainText('\u2713 complete');
   const published = await rows.locator('.stat-row', { hasText: 'Published' }).locator('.stat-value').textContent();
   expect(new Date(published).getTime()).toBeGreaterThan(Date.now() - 3600_000);

@@ -396,6 +396,7 @@ export function init(dimsGetter) {
   }
 
   $('btnPublishBar').addEventListener('click', () => {
+    pubRenameTarget = null;   /* defensive: arming a publish is never a rename */
     const pub = publishedTrack();
     if (pub) {
       /* status tap: verdict toast, no dialog (autosave already persists) */
@@ -413,17 +414,56 @@ export function init(dimsGetter) {
     openDialog($('publishDialog'));
     $('pubName').focus();
   });
-  $('pubClose').addEventListener('click', () => closeDialog($('publishDialog')));
-  $('pubCancel').addEventListener('click', () => closeDialog($('publishDialog')));
   $('pubTipComplete').addEventListener('click', () => {
     closeDialog($('publishDialog'));
     setTool('Complete');       /* arm (this path has no data-tool binding) */
     completeToolIntro();       /* then the once-per-session intro, if due */
   });
+  /* renaming an arbitrary LIBRARY row targets that row (the default
+   * flow renames the BOUND track — renaming some other row through it
+   * would clobber the wrong one) */
+  let pubRenameTarget = null;
+
+  async function renamePublishedRow(id, name, trip) {
+    try {
+      const res = await fetch(`/api/tracks/${id}`);
+      if (!res.ok) return null;
+      const row = await res.json();
+      const put = await fetch(`/api/tracks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, data: row.data, ...(trip ? { trip } : {}) }),
+      });
+      if (put.status === 403) return 'locked';
+      if (!put.ok) return null;
+      const updated = await put.json();
+      if (publishedTrack()?.id === id) {   /* renamed the working track */
+        bindPublished(updated);
+        refreshPublishUi();
+      }
+      return updated;
+    } catch { return null; }
+  }
+
   $('pubOk').addEventListener('click', async () => {
     renderPubStatus();                /* refresh the status at save time */
     const name = $('pubName').value.trim() || 'Untitled';
     const trip = $('pubTrip').value.trim() || null;
+    if (pubRenameTarget) {
+      $('pubOk').disabled = true;
+      const row = await renamePublishedRow(pubRenameTarget, name, trip);
+      $('pubOk').disabled = false;
+      /* the target SURVIVES a failure: the dialog still reads as a
+       * rename, so a retry retries the rename — clearing it here would
+       * silently turn the retry into a publish of the bound canvas */
+      if (!row) { toast(row === 'locked' ? 'That track is signed — rename needs its passphrase' : 'Server unreachable'); return; }
+      pubRenameTarget = null;
+      closeDialog($('publishDialog'));
+      closeDialog($('libraryDialog'));
+      $('btnLibrary').click();        /* refresh the list under the new name */
+      toast(`Renamed to “${row.name}”`);
+      return;
+    }
     const wasPublished = !!publishedTrack();
     /* saving a locked-to-someone-else track means taking your own copy
      * (worklog 0023) — the server would 403 an overwrite */
@@ -449,6 +489,10 @@ export function init(dimsGetter) {
     toast(wasPublished ? `Saved “${row.name}”${row.author_trip ? ' · signed' : ''}`
                        : `Published “${row.name}” — edits now auto-save`);
   });
+  /* the close event covers Esc AND every closeDialog() — the rename
+   * target must never outlive the dialog it was armed for (a stale
+   * target would rename the WRONG row on the next publish) */
+  $('publishDialog').addEventListener('close', () => { pubRenameTarget = null; });
 
   $('btnLibrary').addEventListener('click', async () => {
     closeDialog($('menuDialog'));
@@ -461,13 +505,56 @@ export function init(dimsGetter) {
       list.textContent = '';
       if (!page.items.length) { list.textContent = 'No published tracks yet.'; return; }
       for (const it of page.items) {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'lib-row';
-        row.dataset.id = it.id;
+        /* row: info loads it; ✏ renames in place; 🗑 deletes (owner
+         * round: rename/delete live in the library itself) */
+        const row = document.createElement('div');
+        row.className = 'lib-row-wrap';
+        const main = document.createElement('button');
+        main.type = 'button';
+        main.className = 'lib-row';
+        main.dataset.id = it.id;
         const when = new Date(it.updated_at).toLocaleString();
-        row.textContent = `${it.name} · ${it.piece_count} pcs · ${(it.length_cm / 100).toFixed(2)} m · ${when}`;
-        row.addEventListener('click', () => loadPublishedTrack(it.id));
+        main.textContent = `${it.name} · ${it.piece_count} pcs · ${(it.length_cm / 100).toFixed(2)} m · ${when}`;
+        main.addEventListener('click', () => loadPublishedTrack(it.id));
+
+        const rename = document.createElement('button');
+        rename.type = 'button';
+        rename.className = 'lib-act';
+        rename.title = `Rename “${it.name}”`;
+        rename.setAttribute('aria-label', `Rename ${it.name}`);
+        rename.innerHTML = icon('pencil', 16);
+        rename.addEventListener('click', () => {
+          pubRenameTarget = it.id;    /* pubOk renames THIS row */
+          $('pubTitle').textContent = `Rename “${it.name}”`;
+          $('pubOk').textContent = 'Save name';
+          $('pubName').value = it.name;
+          $('pubTrip').value = rememberedTrip() ?? '';   /* signed rows 403 a trip-less rename */
+          renderPubStatus();
+          openDialog($('publishDialog'));
+          $('pubName').focus();
+        });
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'lib-act';
+        del.title = `Delete “${it.name}” from the server`;
+        del.setAttribute('aria-label', `Delete ${it.name}`);
+        del.innerHTML = icon('trash-can-outline', 16);
+        del.addEventListener('click', async () => {
+          if (!confirm(`Delete “${it.name}” from the server? This cannot be undone.`)) return;
+          try {
+            const r = await fetch(`/api/tracks/${it.id}`, { method: 'DELETE' });
+            if (!r.ok) { toast('Delete failed'); return; }
+            if (publishedTrack()?.id === it.id) {   /* the working track died */
+              unpublishTrack();
+              refreshPublishUi();
+            }
+            toast(`Deleted “${it.name}”`);
+            $('btnLibrary').click();   /* reload the list */
+          } catch { toast('Server unreachable'); }
+        });
+
+        row.append(main, rename, del);
         list.appendChild(row);
       }
     } catch { list.textContent = 'Server unreachable.'; }
@@ -498,6 +585,7 @@ export function init(dimsGetter) {
   /* ---------- gallery (ALL published tracks, not just this browser's) ---------- */
 
   const GAL_PAGE = 25;
+  const GAL_VIEW_KEY = 'm4wd.gallery';   /* persisted sort/unit/filters */
   /* complete-only is the owner's default view; the drawer's filter
    * state mirrors galFilterDefaults (Reset restores them) */
   const galFilterDefaults = () => ({
@@ -519,6 +607,38 @@ export function init(dimsGetter) {
       if (f[k] != null) n += 1;
     return n;
   }
+
+  /* the gallery view (sort/unit/filters) persists per browser — people
+   * set up their lens once; restoring is validated against the current
+   * sorts/units so a stale payload can never poison the state */
+  function galSaveView() {
+    try { localStorage.setItem(GAL_VIEW_KEY, JSON.stringify({
+      sort: gal.sort, complete: gal.complete, unit: gal.unit, filter: gal.filter,
+    })); } catch (_) {}
+  }
+  function galRestoreView() {
+    try {
+      const v = JSON.parse(localStorage.getItem(GAL_VIEW_KEY) || 'null');
+      if (!v || typeof v !== 'object') return;
+      if (GALLERY_SORTS.some((s) => s.value === v.sort)) gal.sort = v.sort;
+      if (typeof v.complete === 'boolean') gal.complete = v.complete;
+      if (v.unit === 'm' || v.unit === 'ft') gal.unit = v.unit;
+      if (v.filter && typeof v.filter === 'object') {
+        const f = v.filter, d = galFilterDefaults();
+        const numOr0 = (x) => (Number.isFinite(x) && x >= 0 ? x : 0);
+        const numOrNull = (x) => (Number.isFinite(x) && x >= 0 ? x : null);
+        gal.filter = {
+          minLength: numOr0(f.minLength),
+          maxLength: numOr0(f.maxLength),
+          lanes: Array.isArray(f.lanes) ? GALLERY_LANES.filter((x) => f.lanes.includes(x)) : d.lanes,
+          maxW: numOrNull(f.maxW), maxH: numOrNull(f.maxH),
+          maxStraights: numOrNull(f.maxStraights), maxSlopes: numOrNull(f.maxSlopes), maxCorners: numOrNull(f.maxCorners),
+        };
+        if (!gal.filter.lanes.length) gal.filter.lanes = d.lanes;   /* never restore an empty set */
+      }
+    } catch (_) {}
+  }
+  galRestoreView();
 
   function galRenderControls() {
     const sel = $('galSort');
@@ -617,10 +737,18 @@ export function init(dimsGetter) {
     try {
       const res = await fetch(`/api/tracks?${galleryQuery({
         sort: gal.sort, complete: gal.complete, filter: gal.filter,
-        limit: GAL_PAGE, offset: gal.items.length,
+        limit: GAL_PAGE, offset: gal.items.length, includeTrack: true,
       })}`);
       const page = await res.json();
       if (gen !== gal.gen) return;   /* a newer sort/filter/open owns the list now */
+      /* the page carries bodies: prime the thumbnail cache in ONE
+       * request — no per-row GETs */
+      for (const it of page.items) {
+        if (it.data?.track && !galThumbCache.has(it.id)) {
+          const sprites = spritesFromRow(it);
+          galThumbCache.set(it.id, sprites.length ? sprites : null);
+        }
+      }
       gal.items.push(...page.items);
       gal.total = page.total;
       galRenderList();
@@ -736,9 +864,10 @@ export function init(dimsGetter) {
       + ` · ${it.straights ?? 0} straights · ${it.slopes ?? 0} slopes · ${it.corners ?? 0} corners`;
     const sub = document.createElement('span');
     sub.className = 'gal-sub';
-    const by = it.author ? ` · by ${it.author}${it.author_trip ? `!${it.author_trip.slice(0, 8)}` : ''}` : '';
-    /* galStar rewrites the same line below — one suffix, two writers */
-    sub.textContent = `★ ${it.stars ?? 0} · ${galDate(it.updated_at)}${by}`;
+    /* icon via innerHTML (static), the rest as text — the byline is
+     * server-stored free text and must never enter innerHTML */
+    sub.innerHTML = `${icon('star', 12)} `;
+    sub.append(`${it.stars ?? 0} · ${galDate(it.updated_at)}${bylineOf(it)}`);
     card.append(thumb, top, facets, sub);
     if (it.parent_name) {
       const based = document.createElement('span');
@@ -761,8 +890,9 @@ export function init(dimsGetter) {
     star.className = 'gal-star';
     const starred = isStarred(localStorage, it.id);
     star.classList.toggle('starred', starred);
-    star.textContent = starred ? '★' : '☆';
-    star.title = starred ? 'Starred on this device — tap to unstar' : 'Star this track';
+    star.innerHTML = icon(starred ? 'star' : 'star-outline', 18);
+    star.title = starred ? 'Starred — tap to unstar' : 'Star this track';
+    star.setAttribute('aria-label', star.title);
     star.addEventListener('click', (e) => { e.stopPropagation(); galStar(it, star, sub); });
 
     /* Kebab menu (worklog 0021): Copy + History live behind ⋮ on the
@@ -897,14 +1027,19 @@ export function init(dimsGetter) {
       if (un) removeStarred(localStorage, it.id);
       else addStarred(localStorage, it.id);
       btn.classList.toggle('starred', !un);
-      btn.textContent = un ? '☆' : '★';
-      btn.title = un ? 'Star this track' : 'Starred on this device — tap to unstar';
-      sub.textContent = `★ ${stars} · ${galDate(it.updated_at)}${it.author ? ` · by ${it.author}${it.author_trip ? `!${it.author_trip.slice(0, 8)}` : ''}` : ''}`;
+      btn.innerHTML = icon(un ? 'star-outline' : 'star', 18);
+      btn.title = un ? 'Star this track' : 'Starred — tap to unstar';
+      btn.setAttribute('aria-label', btn.title);
+      sub.innerHTML = `${icon('star', 12)} `;
+      sub.append(`${stars} · ${galDate(it.updated_at)}${bylineOf(it)}`);
     } catch { toast('Server unreachable'); }
     btn.disabled = false;
   }
 
   function galDate(t) { return new Date(t).toLocaleDateString(); }
+  /* one byline suffix, two writers (card render + star rewrite) */
+  const bylineOf = (it) => it.author
+    ? ` · by ${it.author}${it.author_trip ? `!${it.author_trip.slice(0, 8)}` : ''}` : '';
 
   function openGallery(sort) {
     if (sort) gal.sort = sort;
@@ -913,6 +1048,7 @@ export function init(dimsGetter) {
     closeDialog($('menuDialog'));
     gal.items = [];
     gal.total = 0;
+    galSaveView();
     galRenderControls();
     galRenderDrawer();
     galLoad();
@@ -1048,8 +1184,8 @@ export function init(dimsGetter) {
   $('galDone').addEventListener('click', () => galOpenPanel(false));
   /* unit switch: re-render cards and drawer conversions — data is
    * already in gal.items, no refetch */
-  $('galUnitM').addEventListener('click', () => { gal.unit = 'm'; galRenderDrawer(); galRenderList(); });
-  $('galUnitFt').addEventListener('click', () => { gal.unit = 'ft'; galRenderDrawer(); galRenderList(); });
+  $('galUnitM').addEventListener('click', () => { gal.unit = 'm'; galSaveView(); galRenderDrawer(); galRenderList(); });
+  $('galUnitFt').addEventListener('click', () => { gal.unit = 'ft'; galSaveView(); galRenderDrawer(); galRenderList(); });
   /* two thumbs: each pushes the other past itself; values snap so
    * min <= max always holds */
   const galRangeInput = (which) => (e) => {
@@ -1185,7 +1321,7 @@ export function init(dimsGetter) {
       const row = await res.json();
       created.lastElementChild.textContent = statsDate(row.created_at);
       updated.lastElementChild.textContent = statsDate(row.updated_at);
-      stars.lastElementChild.textContent = `\u2605 ${row.stars}`;
+      stars.lastElementChild.innerHTML = `${icon('star', 12)} ${row.stars}`;
       const badge = completeBadge(row);
       valid.lastElementChild.textContent = badge.text === '\u2713' ? '✓ complete' : `${badge.text} — work in progress`;
       valid.lastElementChild.className = `stat-value ${badge.cls}`;
@@ -1206,6 +1342,7 @@ export function init(dimsGetter) {
   $('statsOk').addEventListener('click', () => closeDialog($('statsDialog')));
   $('statsRename').addEventListener('click', () => {
     const pub = publishedTrack();
+    if (pub) pubRenameTarget = pub.id;   /* the stats rename targets the bound row */
     if (!pub) return;
     closeDialog($('statsDialog'));
     $('pubTitle').textContent = `Rename “${pub.name}”`;

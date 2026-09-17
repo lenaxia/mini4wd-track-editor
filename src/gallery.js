@@ -37,10 +37,11 @@ export function cmToLength(cm, unit) {
  * "complete only", an off toggle lists everything. The drawer's filter
  * state rides along: min length (m) -> min_length (cm), lane selection
  * (all selected = no param), footprint caps + count caps. */
-export function galleryQuery({ sort, complete, limit, offset, filter }) {
+export function galleryQuery({ sort, complete, limit, offset, filter, includeTrack }) {
   /* pairs, not URLSearchParams: it percent-encodes the lanes comma;
    * every value here is a number or enum, so plain joining is safe */
   const parts = [`sort=${sort}`, `limit=${limit}`, `offset=${offset}`];
+  if (includeTrack) parts.push('include=track');   /* bodies for thumbnails */
   if (complete) parts.push('complete=true');
   if (filter) {
     if (filter.minLength > 0) parts.push(`min_length=${Math.round(filter.minLength * 100)}`);

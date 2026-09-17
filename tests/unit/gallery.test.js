@@ -35,6 +35,8 @@ test('galleryQuery builds the list query; complete only when asked', () => {
     'sort=-length&limit=25&offset=0');
   assert.equal(galleryQuery({ sort: '-updated_at', complete: true, limit: 25, offset: 50 }),
     'sort=-updated_at&limit=25&offset=50&complete=true');
+  assert.equal(galleryQuery({ sort: '-updated_at', complete: false, limit: 25, offset: 0, includeTrack: true }),
+    'sort=-updated_at&limit=25&offset=0&include=track');
 });
 
 /* the drawer's filter state -> query params (owner round 2026-09-16):
