@@ -62,7 +62,7 @@ function openDialog(dlg) {
 function closeDialog(dlg) {
   const i = dlgStack.indexOf(dlg);
   if (i >= 0) dlgStack.splice(i, 1);
-  if (dlg.close) dlg.close(); else dlg.removeAttribute('open', '');
+  if (dlg.close) dlg.close(); else dlg.removeAttribute('open');
 }
 function topOpenDialog() {
   for (let i = dlgStack.length - 1; i >= 0; i -= 1) {
