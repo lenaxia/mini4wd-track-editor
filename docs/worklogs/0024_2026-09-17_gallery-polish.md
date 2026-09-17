@@ -35,3 +35,21 @@ decision; canvas weld-dot flags = deferred by the #30 ruling).
   survive reload (toggle, slider, badge); library rename keeps the row
   id and delete 404s + refreshes; all star assertions aria-based.
 - unit: include=track query pin; everything existing unchanged.
+
+## Review round
+
+- BLOCKING: a stale `pubRenameTarget` could rename the WRONG row —
+  Esc and the Complete-tip closed the dialog without clearing it, so
+  the next publish renamed the old target instead of publishing (and
+  the stats rename armed without a target). The dialog's `close`
+  event now clears it (covers Esc + every closeDialog), arming paths
+  set it explicitly, and the regression is pinned: arm → Esc →
+  publish creates the new row and leaves the target untouched.
+- Unit switches persist immediately (they were saved only on the next
+  gallery open).
+- Filter restore validates per field (numbers-or-defaults, lanes
+  intersected with the known set, empty set never restored) — a
+  stale payload can no longer break the gallery open.
+- Star buttons carry title alongside aria-label (desktop hover hint).
+- Ledger note: the rename GET→PUT race can resurrect a concurrently
+  deleted row (PUT-create); accepted as noted.

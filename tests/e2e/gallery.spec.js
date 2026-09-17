@@ -345,6 +345,25 @@ test('library rows rename and delete inline', async ({ page, request }) => {
   const row = page.locator('.lib-row', { hasText: `E2E Library Row ${n}` });
   await expect(row).toBeVisible();
 
+  /* a STALE rename target must never clobber the wrong row: arm a
+   * rename, Esc out, then publish an unpublished canvas — the publish
+   * must create a NEW row and leave the library row untouched */
+  await row.locator('..').locator('.lib-act[aria-label^="Rename"]').click();
+  await expect(page.locator('#publishDialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#publishDialog')).not.toBeVisible();
+  await page.evaluate(() => localStorage.removeItem('m4wd.published'));
+  await page.locator('#btnPublishBar').click();
+  await page.locator('#pubName').fill(`E2E Escaped Publish ${n}`);
+  await page.locator('#pubOk').click();
+  await expect.poll(async () => page.evaluate(() =>
+    !!localStorage.getItem('m4wd.published')), { timeout: 10_000 }).toBe(true);
+  const escRow = await (await request.get(`/api/tracks/${id}`)).json();
+  expect(escRow.name).toBe(`E2E Library Row ${n}`);   /* NOT renamed */
+  const newId = await page.evaluate(() => JSON.parse(localStorage.getItem('m4wd.published')).id);
+  ids.push(newId);
+  expect((await (await request.get(`/api/tracks/${newId}`)).json()).name).toBe(`E2E Escaped Publish ${n}`);
+
   /* rename inline — any row, not just the bound one */
   await row.locator('..').locator('.lib-act[aria-label^="Rename"]').click();
   await page.locator('#pubName').fill(`E2E Renamed ${n}`);

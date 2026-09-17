@@ -386,6 +386,7 @@ export function init(dimsGetter) {
   }
 
   $('btnPublishBar').addEventListener('click', () => {
+    pubRenameTarget = null;   /* defensive: arming a publish is never a rename */
     const pub = publishedTrack();
     if (pub) {
       /* status tap: verdict toast, no dialog (autosave already persists) */
@@ -457,8 +458,10 @@ export function init(dimsGetter) {
     toast(wasPublished ? `Saved “${row.name}”`
                        : `Published “${row.name}” — edits now auto-save`);
   });
-  $('pubCancel').addEventListener('click', () => { pubRenameTarget = null; closeDialog($('publishDialog')); });
-  $('pubClose').addEventListener('click', () => { pubRenameTarget = null; closeDialog($('publishDialog')); });
+  /* the close event covers Esc AND every closeDialog() — the rename
+   * target must never outlive the dialog it was armed for (a stale
+   * target would rename the WRONG row on the next publish) */
+  $('publishDialog').addEventListener('close', () => { pubRenameTarget = null; });
 
   $('btnLibrary').addEventListener('click', async () => {
     closeDialog($('menuDialog'));
@@ -588,7 +591,19 @@ export function init(dimsGetter) {
       if (GALLERY_SORTS.some((s) => s.value === v.sort)) gal.sort = v.sort;
       if (typeof v.complete === 'boolean') gal.complete = v.complete;
       if (v.unit === 'm' || v.unit === 'ft') gal.unit = v.unit;
-      if (v.filter && typeof v.filter === 'object') gal.filter = { ...galFilterDefaults(), ...v.filter };
+      if (v.filter && typeof v.filter === 'object') {
+        const f = v.filter, d = galFilterDefaults();
+        const numOr0 = (x) => (Number.isFinite(x) && x >= 0 ? x : 0);
+        const numOrNull = (x) => (Number.isFinite(x) && x >= 0 ? x : null);
+        gal.filter = {
+          minLength: numOr0(f.minLength),
+          maxLength: numOr0(f.maxLength),
+          lanes: Array.isArray(f.lanes) ? GALLERY_LANES.filter((x) => f.lanes.includes(x)) : d.lanes,
+          maxW: numOrNull(f.maxW), maxH: numOrNull(f.maxH),
+          maxStraights: numOrNull(f.maxStraights), maxSlopes: numOrNull(f.maxSlopes), maxCorners: numOrNull(f.maxCorners),
+        };
+        if (!gal.filter.lanes.length) gal.filter.lanes = d.lanes;   /* never restore an empty set */
+      }
     } catch (_) {}
   }
   galRestoreView();
@@ -834,7 +849,8 @@ export function init(dimsGetter) {
     const starred = isStarred(localStorage, it.id);
     star.classList.toggle('starred', starred);
     star.innerHTML = icon(starred ? 'star' : 'star-outline', 18);
-    star.setAttribute('aria-label', starred ? 'Starred — tap to unstar' : 'Star this track');
+    star.title = starred ? 'Starred — tap to unstar' : 'Star this track';
+    star.setAttribute('aria-label', star.title);
     star.addEventListener('click', (e) => { e.stopPropagation(); galStar(it, star, sub); });
 
     /* Kebab menu (worklog 0021): Copy + History live behind ⋮ on the
@@ -954,7 +970,8 @@ export function init(dimsGetter) {
       else addStarred(localStorage, it.id);
       btn.classList.toggle('starred', !un);
       btn.innerHTML = icon(un ? 'star-outline' : 'star', 18);
-      btn.setAttribute('aria-label', un ? 'Star this track' : 'Starred — tap to unstar');
+      btn.title = un ? 'Star this track' : 'Starred — tap to unstar';
+      btn.setAttribute('aria-label', btn.title);
       sub.innerHTML = `${icon('star', 12)} ${stars} · ${galDate(it.updated_at)}`;
     } catch { toast('Server unreachable'); }
     btn.disabled = false;
@@ -1096,8 +1113,8 @@ export function init(dimsGetter) {
   $('galDone').addEventListener('click', () => galOpenPanel(false));
   /* unit switch: re-render cards and drawer conversions — data is
    * already in gal.items, no refetch */
-  $('galUnitM').addEventListener('click', () => { gal.unit = 'm'; galRenderDrawer(); galRenderList(); });
-  $('galUnitFt').addEventListener('click', () => { gal.unit = 'ft'; galRenderDrawer(); galRenderList(); });
+  $('galUnitM').addEventListener('click', () => { gal.unit = 'm'; galSaveView(); galRenderDrawer(); galRenderList(); });
+  $('galUnitFt').addEventListener('click', () => { gal.unit = 'ft'; galSaveView(); galRenderDrawer(); galRenderList(); });
   /* two thumbs: each pushes the other past itself; values snap so
    * min <= max always holds */
   const galRangeInput = (which) => (e) => {
@@ -1254,6 +1271,7 @@ export function init(dimsGetter) {
   $('statsOk').addEventListener('click', () => closeDialog($('statsDialog')));
   $('statsRename').addEventListener('click', () => {
     const pub = publishedTrack();
+    if (pub) pubRenameTarget = pub.id;   /* the stats rename targets the bound row */
     if (!pub) return;
     closeDialog($('statsDialog'));
     $('pubTitle').textContent = `Rename “${pub.name}”`;
