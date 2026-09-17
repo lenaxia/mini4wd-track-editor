@@ -114,9 +114,25 @@ function corridorSamples(p) {
 function sameLevelOverlaps(sprites, groups) {
   const samples = sprites.map(corridorSamples);
   const zAt = (p, t) => levelAt(p, 0) + (levelAt(p, 1) - levelAt(p, 0)) * t;
-  /* joint neighborhoods shared by BOTH pieces of a pair are exempt */
-  const sharedJoints = new Map();
+  /* joint neighborhoods shared by BOTH pieces of a pair are exempt.
+   * WELDED pairs (tangentially aligned at the shared vertex, the same
+   * test as the kink check) are true junctions — silent pardon. Pairs
+   * that merely share a coincident endpoint PERPENDICULARLY are not
+   * connected at all: they are plan CROSSINGS, and flat data cannot
+   * prove same-level (the original site's codec has no elevation — a
+   * crossing there is a bridge deck by construction, owner ruling:
+   * "one is supposed to be a bridge; does an F1 track have a 4-way
+   * stop?"). Those surface as WARNINGS, never errors. */
+  const sharedJoints = new Map();   /* "i:j" -> [ {x,y} ] (any shared vertex) */
+  const welded = new Set();         /* "i:j" with a tangential out-in pairing */
   for (const g of groups) {
+    for (const x of g) {
+      for (const y of g) {
+        if (x === y || sprites[x.i] === sprites[y.i]) continue;
+        const aligned = Math.abs(((outwardTangent(sprites[x.i], x.vi) - inwardTangent(sprites[y.i], y.vi) + 540) % 360) - 180) <= KINK_TANGENT_TOL;
+        if (aligned) welded.add(`${Math.min(x.i, y.i)}:${Math.max(x.i, y.i)}`);
+      }
+    }
     const idx = [...new Set(g.map((e) => e.i))];
     for (let a = 0; a < idx.length; a += 1)
       for (let b = a + 1; b < idx.length; b += 1) {
@@ -139,7 +155,8 @@ function sameLevelOverlaps(sprites, groups) {
       const ej = pieceHalfExtents(sprites[j]);
       if (Math.abs(sprites[i].x - sprites[j].x) >= ei.hx + ej.hx ||
           Math.abs(sprites[i].y - sprites[j].y) >= ei.hy + ej.hy) continue;
-      const joints = sharedJoints.get(`${i}:${j}`) || [];
+      const pairKey = `${i}:${j}`;
+      const joints = welded.has(pairKey) ? (sharedJoints.get(pairKey) || []) : [];   /* only WELDED pairs get the merge-zone pardon — a crossing pair must register its hit to warn */
       let hit = null;
       /* containment both ways — a thin crossing lens may hold samples
        * of only one side; dz compares the guest sample to the HOST's z
@@ -160,7 +177,14 @@ function sameLevelOverlaps(sprites, groups) {
         }
         if (hit) break;
       }
-      if (hit) findings.push(`Roads overlap at the same level near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) — a car cannot pass through another road`);
+      if (!hit) continue;
+      const key = `${i}:${j}`;
+      if (welded.has(key)) continue;   /* a true junction's merge zone (pardoned above) */
+      if (sharedJoints.has(key)) {
+        findings.push(`warn:Crossing near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) has no level difference recorded — if one road bridges over, raise its level (legacy imports: bridge decks read as level 0)`);
+        continue;
+      }
+      findings.push(`Roads overlap at the same level near (${hit.x.toFixed(0)}, ${hit.y.toFixed(0)}) — a car cannot pass through another road`);
     }
   }
   return findings;
@@ -243,7 +267,10 @@ export function validateTrack(sprites) {
     }
   }
 
-  errors.push(...sameLevelOverlaps(sprites, groups));
+  for (const f of sameLevelOverlaps(sprites, groups)) {
+    if (f.startsWith('warn:')) warnings.push(f.slice(5));
+    else errors.push(f);
+  }
 
   return { ok: errors.length === 0, errors: [...new Set(errors)], warnings };
 }

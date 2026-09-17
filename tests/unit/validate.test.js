@@ -159,25 +159,34 @@ test('the wave width fix is load-bearing, not just the bbox window (review r1 pi
   assert.equal(r.errors.filter((e) => /overlap/i.test(e)).length, 0);
 });
 
-test('a welded T-junction is legal (the seeds exposed the fixed-radius flaw)', () => {
-  /* vertical Str1 ends ON a horizontal Str1 pair's junction point —
-   * exactly the featured-track geometry that got flagged */
+test('perpendicular coincident-endpoint crossings warn (legacy bridge decks read level 0)', () => {
+  /* the K8EC79 signature: a vertical run and a horizontal run whose
+   * endpoints all coincide at one plan point. NOT a junction — the
+   * original codec has no elevation and crosses via bridge decks
+   * (owner ruling). Overlapping surface there is a WARNING, not an
+   * error, and never blocks. */
   const r = validateTrack([
-    P('Str1', 359, 143, 270),           /* vertical, end at (359,170) */
+    P('Str1', 359, 143, 270),           /* vertical run, end at (359,170) */
     P('Str1', 332, 170, 0),             /* horizontal, end at (359,170) */
     P('Str1', 386, 170, 0),             /* horizontal, start at (359,170) */
   ]);
   assert.equal(r.errors.filter((e) => /overlap/i.test(e)).length, 0);
+  assert.ok(r.warnings.some((w) => /no level difference recorded/.test(w)));
 });
 
-test('a crossing by an UNJOINED piece still errors (the pardon is per shared joint)', () => {
-  /* same T, plus a horizontal that truly crosses the vertical's
-   * midpoint — it shares no joint with the vertical, so no pardon */
+test('a welded (tangential) junction stays silent — no warning, no error', () => {
+  /* two pieces welded end-to-end PLUS a third truly joining in line */
+  const r = validateTrack([P('Str1', 0, 0), P('Str1', 54, 0), P('Str1', 108, 0)]);
+  assert.equal(r.errors.filter((e) => /overlap/i.test(e)).length, 0);
+  assert.equal(r.warnings.filter((w) => /no level difference/.test(w)).length, 0);
+});
+
+test('a mid-piece same-level crossing (no shared endpoints) still errors', () => {
   const r = validateTrack([
     P('Str1', 359, 143, 270),
     P('Str1', 332, 170, 0),
     P('Str1', 386, 170, 0),
-    P('Str1', 359, 143, 0),             /* spans x[332,386] through (359,143) */
+    P('Str1', 359, 143, 0),             /* spans x[332,386] through the vertical's midpoint */
   ]);
   assert.ok(r.errors.some((e) => /overlap/i.test(e)));
 });
