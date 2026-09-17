@@ -12,8 +12,10 @@ const mk = (n, extra = {}) => ({
 });
 
 test.afterAll(async ({ request }) => {
+  /* locked rows (phrase 'sekrit') need the trip to delete now too —
+   * the suite's own rows stay suite-owned (issue 64) */
   for (const id of ids) {
-    await request.delete(`/api/tracks/${id}`).catch(() => {});
+    await request.delete(`/api/tracks/${id}`, { headers: { 'X-Trip': 'Alex#sekrit' } }).catch(() => {});
   }
 });
 
@@ -631,4 +633,26 @@ test('restoring a version of a locked track requires the phrase', async ({ reque
   const ok = await request.post(`/api/tracks/${id}/history/${items[0].seq}/restore`, { data: { trip: 'Alex#sekrit' } });
   expect(ok.status()).toBe(200);
   expect((await ok.json()).author_trip).toBe(TRIP_HASH);
+});
+
+test('deleting a locked track requires the phrase (issue 64)', async ({ request }) => {
+  const id = `${PREFIX}-tripdel`; ids.push(id);
+  await request.put(`/api/tracks/${id}`, { data: { ...mk('del lock'), trip: 'Alex#sekrit' } });
+  /* bare delete, wrong header, wrong body phrase → 403; row survives */
+  expect((await request.delete(`/api/tracks/${id}`)).status()).toBe(403);
+  expect((await request.delete(`/api/tracks/${id}`, { headers: { 'X-Trip': 'Alex#wrong' } })).status()).toBe(403);
+  expect((await request.delete(`/api/tracks/${id}`, { data: { trip: 'Alex#wrong' } })).status()).toBe(403);
+  expect((await (await request.get(`/api/tracks/${id}`)).json()).author_trip).toBe(TRIP_HASH);
+  /* the right phrase opens it — header or body */
+  expect((await request.delete(`/api/tracks/${id}`, { headers: { 'X-Trip': 'Sam#sekrit' } })).status()).toBe(204);
+  expect((await request.get(`/api/tracks/${id}`)).status()).toBe(404);
+
+  const id2 = `${PREFIX}-tripdel2`; ids.push(id2);
+  await request.put(`/api/tracks/${id2}`, { data: { ...mk('del lock 2'), trip: 'Alex#sekrit' } });
+  expect((await request.delete(`/api/tracks/${id2}`, { data: { trip: '#sekrit' } })).status()).toBe(204);
+
+  /* unsigned rows stay freely deletable — the no-auth model */
+  const open = `${PREFIX}-tripdel-open`; ids.push(open);
+  await request.put(`/api/tracks/${open}`, { data: mk('del open') });
+  expect((await request.delete(`/api/tracks/${open}`)).status()).toBe(204);
 });

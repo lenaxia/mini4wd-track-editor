@@ -572,7 +572,10 @@ export function init(dimsGetter) {
         del.addEventListener('click', async () => {
           if (!confirm(`Delete “${it.name}” from the server? This cannot be undone.`)) return;
           try {
-            const r = await fetch(`/api/tracks/${it.id}`, { method: 'DELETE' });
+            const r = await fetch(`/api/tracks/${it.id}`, {
+              method: 'DELETE',
+              ...(rememberedTrip() ? { headers: { 'X-Trip': rememberedTrip() } } : {}),   /* signed rows 403 a trip-less delete (issue 64) */
+            });
             if (!r.ok) { toast('Delete failed'); return; }
             if (publishedTrack()?.id === it.id) {   /* the working track died */
               unpublishTrack();

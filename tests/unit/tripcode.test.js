@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseTrip, tripHash, tripCode, _resetSaltCache } from '../../lib/tripcode.js';
+import { parseTrip, tripHash, tripCode, tripMatches, _resetSaltCache } from '../../lib/tripcode.js';
 
 test('parseTrip: name#phrase splits on the first #', () => {
   assert.deepEqual(parseTrip('Alex#secret phrase'), { name: 'Alex', phrase: 'secret phrase' });
@@ -81,4 +81,25 @@ test('no SQLITE_PATH: salt still defaults to ./data next to the CWD', () => {
     tripHash('legacy', {});
     assert.ok(fs.existsSync(path.join(tmp, 'data', 'trip.salt')));
   } finally { process.chdir(cwd); }
+});
+
+/* Issue 64 — the DELETE lock gate. Unsigned rows (null hash) are always
+ * open (the no-auth model); a stored hash opens only for the matching
+ * phrase, presented as the raw byline form `name#phrase`. */
+test('tripMatches: null stored hash means no lock — everything opens it', () => {
+  assert.equal(tripMatches(null, null), true);
+  assert.equal(tripMatches(null, undefined), true);
+  assert.equal(tripMatches(null, ''), true);
+  assert.equal(tripMatches(null, 'Alex#anything'), true);
+});
+
+test('tripMatches: stored hash requires the exact phrase', () => {
+  const h = tripHash('secret phrase');
+  assert.equal(tripMatches(h, 'Alex#secret phrase'), true);   /* name part ignored */
+  assert.equal(tripMatches(h, '#secret phrase'), true);        /* anonymous form works too */
+  assert.equal(tripMatches(h, 'Alex#wrong'), false);
+  assert.equal(tripMatches(h, 'secret phrase'), false);       /* bare phrase is a name, not a phrase */
+  assert.equal(tripMatches(h, null), false);
+  assert.equal(tripMatches(h, ''), false);
+  assert.equal(tripMatches(tripHash(''), 'Alex#'), false);    /* empty phrase never hashes to a lock's key */
 });
