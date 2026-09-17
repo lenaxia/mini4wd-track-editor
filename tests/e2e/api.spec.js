@@ -579,9 +579,14 @@ test('a plain byline (no passphrase) never locks; the raw phrase is never stored
   const row = await put.json();
   expect(row.author).toBe('Just A Name');
   expect(row.author_trip).toBeNull();
-  /* anyone may edit an unsigned track in place */
+  /* anyone may edit an unsigned track in place — and the plain byline
+   * survives an author-less, trip-less save (round-4 contract, pinned) */
   await settle2();
-  expect((await request.put(`/api/tracks/${id}`, { data: mk('plain 2') })).status()).toBe(200);
+  const { author, ...noByline } = mk('plain 2');
+  expect((await request.put(`/api/tracks/${id}`, { data: noByline })).status()).toBe(200);
+  const after = await (await request.get(`/api/tracks/${id}`)).json();
+  expect(after.author).toBe('Just A Name');
+  expect(after.author_trip).toBeNull();
 });
 
 test('copying a locked track is always open — the copy starts unsigned', async ({ request }) => {

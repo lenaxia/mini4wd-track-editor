@@ -1100,6 +1100,7 @@ export function init(dimsGetter) {
   /* collapse/expand version chains (worklog 0023) */
   $('galGroup').addEventListener('click', () => {
     gal.group = !gal.group;
+    galSaveView();   /* persist immediately — like the unit buttons, not lazily via openGallery */
     galRenderControls();
     galRenderList();
   });
