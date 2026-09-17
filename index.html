@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>Mini4WD Track Editor</title>
   <meta name="description" content="Touch-first Mini4WD track editor — design, validate and publish circuits on phone or desktop.">
-  <link rel="stylesheet" href="style.css?v=23">
+  <link rel="stylesheet" href="style.css?v=24">
 </head>
 <body>
   <header id="topbar">
@@ -142,9 +142,27 @@
     <p class="io-hint">Publishing saves this track to the server under a name; from then on your edits save automatically. Unpublished tracks stay on this device only.</p>
     <input id="pubName" type="text" maxlength="200" placeholder="Track name"
            style="width:100%;margin-top:10px;background:#14161a;color:#dfe3ea;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;">
-    <input id="pubTrip" type="text" maxlength="200" placeholder="Your name # passphrase — optional; signs it and keeps editing yours"
+    <input id="pubTrip" type="text" maxlength="200" placeholder="Optional — your name, e.g. Alex, or Alex#secret phrase to keep it yours"
            style="width:100%;margin-top:8px;background:#14161a;color:#dfe3ea;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;"
            autocomplete="off">
+    <details class="trip-help">
+      <summary>Optional: name + passphrase — when to use one</summary>
+      <p><strong>All of this is optional.</strong> Leave the field empty and the track publishes
+      without a name — that's the default, and it's completely fine.</p>
+      <p><strong>Use a passphrase when</strong> you plan to keep the track and want to stay the only
+      one who can save over it — a finished layout you'll maintain, or tracks people should
+      recognize as yours.</p>
+      <p><strong>Skip it when</strong> you're sharing a quick sketch, you're happy for anyone to
+      improve it right where it is, or you'd rather not keep track of a phrase. Even signed tracks
+      can always be copied by anyone — signing never locks a track away.</p>
+      <p><strong>How it works:</strong> a name on its own, like <em>Alex</em>, is just a byline —
+      anyone could type the same one. Add <code>#</code> and a secret phrase, like
+      <em>Alex#fluffy track 42</em>, and the track is <em>signed</em>: it shows as
+      <em>Alex!9f3ab2c1</em>, and only the same phrase can save over it or restore old versions.</p>
+      <p>Same name + phrase on another device = the same <em>Alex!9f3ab2c1</em>. Your browser
+      remembers the phrase; write it down if you'll want it elsewhere. There's no account and no
+      reset — a lost phrase just leaves the track as it is.</p>
+    </details>
     <div id="pubStatus" style="margin-top:10px;font-size:12px;line-height:1.6;"></div>
     <button id="pubTipComplete" type="button" class="tip-cta" style="display:none;"><span data-icon="flag-checkered"></span> Close the gap with Complete track — select two ends and it fills the run</button>
     <div class="dialog-actions">
@@ -245,6 +263,6 @@
 
   <div id="toast" role="status"></div>
 
-  <script type="module" src="src/main.js?v=78"></script>
+  <script type="module" src="src/main.js?v=79"></script>
 </body>
 </html>
