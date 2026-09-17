@@ -306,6 +306,7 @@ function astar(start, h0, z0, goal, hGoal, zGoal, vb, obstacles, trans, opts, ct
   const seen = new Map();
   const open = new Heap();
   let ser = 0, expansions = 0;
+  ctx.missAt = 0; /* per-run anchor: expansions counters don't span combos */
 
   const push = (node) => {
     const key = `${Math.round(node.x * 20)},${Math.round(node.y * 20)},${Math.round(node.h * 10)},${node.z}`;
@@ -327,12 +328,14 @@ function astar(start, h0, z0, goal, hGoal, zGoal, vb, obstacles, trans, opts, ct
     const dh = angDist(node.h, hGoal);
     if (node.z === zGoal && d + 0.2 * dh < ctx.missD + 0.2 * ctx.missDh) { ctx.missD = d; ctx.missDh = dh; }
     /* An aligned near-miss within snap range settles the diagnostic: the
-     * ends are out of line by miss.d. A* pops by f, so any exact/flex
-     * closure (small f) has long since popped; stop after a safety headroom
-     * instead of flooding the whole detour budget (also keeps this return
-     * path out of the truncated flag below). */
+     * ends are out of line by miss.d. A* pops by f, so any cheap exact/flex
+     * closure has long since popped; stop after a safety headroom instead
+     * of flooding the whole detour budget. Checked AFTER the goal tests so
+     * a popped closure is never discarded. This exit deliberately skips the
+     * truncated flag — the miss is the actionable diagnostic — so the UI
+     * wording must not claim exhaustive proof (see the off-grid toast). */
     if (ctx.missD <= SNAP_RADIUS && ctx.missDh <= 5 && !ctx.missAt) ctx.missAt = expansions;
-    if (ctx.missAt && expansions > ctx.missAt + 5000) return;
+    if (ctx.missAt && expansions > ctx.missAt + 5000 && d > GOAL_EPS) return;
     if (node.z === zGoal && dh <= FLEX_TURN_EPS) {
       if (d <= GOAL_EPS) { ctx.exact = node; ctx.goal = goal; ctx.goalVb = vb; return; } /* first pop = optimal */
       if (d <= FLEX_WELD_MAX) {
