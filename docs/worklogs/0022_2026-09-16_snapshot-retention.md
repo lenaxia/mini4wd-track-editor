@@ -45,4 +45,4 @@ time within the week ("Wed 14:05"), date + time beyond ("Sep 12 16:00")
   back-to-back saves → ≤1; restore still archives; history row shows a
   HH:MM timestamp.
 
-Busters: main.js v74 (ui/gallery changed; style.css untouched at v21).
+Busters: main.js v76 — v74/v75 burned on main mid-flight (#48/#49); style.css untouched at v21.

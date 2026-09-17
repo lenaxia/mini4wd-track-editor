@@ -174,7 +174,8 @@ export function thumbFit(sprites, boxW, boxH, pad = 4) {
 }
 
 /* History-row timestamp (worklog 0022): time-only today, weekday + time
- * this week, date + time beyond. Pure — pinned in tests/unit/gallery. */
+ * within the last 7 days (rolling, not calendar week), date + time
+ * beyond. Pure — pinned in tests/unit/gallery. */
 export function formatVersionTime(t, now = Date.now()) {
   const d = new Date(t), n = new Date(now);
   const hm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

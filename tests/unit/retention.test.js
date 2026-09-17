@@ -1,15 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shouldArchive, keepSet, TIERS } from '../../lib/store/retention.js';
+import { shouldArchive, keepSet, TIERS, STABLE_MS } from '../../lib/store/retention.js';
 
 const MIN = 60 * 1000, H = 60 * MIN, D = 24 * H;
 const now = Date.now();
 const e = (seq, age) => ({ seq, created_at: now - age });
 
 test('stability rule: a head that lived under the window is never archived', () => {
-  assert.equal(shouldArchive(now - 4 * MIN, now), false);   /* mid-burst */
-  assert.equal(shouldArchive(now - 5 * MIN, now), true);    /* stable */
-  assert.equal(shouldArchive(now - 10 * MIN, now), true);
+  /* boundaries derived from STABLE_MS so an env override can't skew the suite */
+  assert.equal(shouldArchive(now - STABLE_MS, now), true);          /* stable (>= window) */
+  assert.equal(shouldArchive(now - STABLE_MS + 1, now), false);     /* mid-burst (< window) */
+  assert.equal(shouldArchive(now - STABLE_MS * 2, now), true);
   assert.equal(shouldArchive(undefined, now), true);        /* unknown age: keep, never lose */
   assert.equal(shouldArchive(NaN, now), true);
 });
