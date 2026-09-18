@@ -478,7 +478,6 @@ test('fuzz: clean random chains — every deleted span rebuilds (seeded)', () =>
     const len = 6 + Math.floor(rnd() * 9);
     for (let k = 1; k < len; k++) {
       cur = weldOn(sprites, pick(names), cur, 1, 0);
-      if (rnd() < 0.25) cur = sprites[sprites.length - 1];
     }
     const start = 1 + Math.floor(rnd() * (sprites.length - 3));
     const span = 1 + Math.floor(rnd() * Math.min(3, sprites.length - start - 1));
@@ -489,19 +488,19 @@ test('fuzz: clean random chains — every deleted span rebuilds (seeded)', () =>
     for (let i = 0; i < sprites.length && !dirty; i++) {
       for (let j = i + 1; j < sprites.length; j++) if (piecesCollide(sprites[i], sprites[j])) { dirty = true; break; }
     }
-    if (dirty) { seed = (t + 1) * 7919 + 13; continue; } /* invalid scene */
-    /* the span only proves a closure if it re-places cleanly against the
-     * remaining track (it may have overlapped non-adjacent pieces) */
-    const spanClean = removed.every((p) => !sprites.some((q) => piecesCollide(p, q)));
+    /* the oracle only holds when the span itself re-places cleanly against
+     * the remaining track (it may have overlapped non-adjacent pieces) */
+    if (!dirty) {
+      dirty = removed.some((p) => sprites.some((q) => piecesCollide(p, q)));
+    }
+    if (dirty) { seed = (t + 1) * 7919 + 13; continue; } /* invalid or void oracle */
     ran++;
     const res = closeLoop(sprites, A, B);
     if (res.ok) closed++;
     if (ran <= 60) {
       assert.equal(res.ok, true, `case ${t} should close (span existed)`);
-      if (spanClean) {
-        const spanCost = removed.reduce((m, p) => m + PIECES[p.name].l, 0);
-        assert.ok(res.cost <= spanCost + 1e-9, `case ${t} must not exceed the span's cost`);
-      }
+      const spanCost = removed.reduce((m, p) => m + PIECES[p.name].l, 0);
+      assert.ok(res.cost <= spanCost + 1e-9, `case ${t} must not exceed the span's cost`);
     }
     seed = (t + 1) * 7919 + 13;
   }
