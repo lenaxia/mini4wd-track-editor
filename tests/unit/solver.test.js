@@ -489,9 +489,11 @@ test('fuzz: clean random chains — every deleted span rebuilds (seeded)', () =>
       for (let j = i + 1; j < sprites.length; j++) if (piecesCollide(sprites[i], sprites[j])) { dirty = true; break; }
     }
     /* the oracle only holds when the span itself re-places cleanly against
-     * the remaining track (it may have overlapped non-adjacent pieces) */
+     * the remaining track (it may have overlapped non-adjacent pieces) and
+     * doesn't self-collide (reachable for span = 3: first vs last) */
     if (!dirty) {
-      dirty = removed.some((p) => sprites.some((q) => piecesCollide(p, q)));
+      dirty = removed.some((p) => sprites.some((q) => piecesCollide(p, q)))
+        || removed.some((p, i) => removed.some((q, j) => j > i && piecesCollide(p, q)));
     }
     if (dirty) { seed = (t + 1) * 7919 + 13; continue; } /* invalid or void oracle */
     ran++;
