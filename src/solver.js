@@ -60,11 +60,19 @@ const JOINT_WELD_EPS = OPEN_EPS;
  * shared vertex — proximity alone would exempt real crossings (a run whose
  * end happens to land near another piece's end while the roads cross). */
 const JOINT_TANGENT_EPS = 10; // deg
-const GOAL_EPS = 0.5;     // cm — exact landing (float-drifted chains land ~0.1)
+const GOAL_EPS = 0.2;     // cm — exact landing; welds at/under this are imperceptible (owner: 0.2)
 const TURN_EPS = 0.05;    // deg (refreshFlags tangent tolerance) — diagnostics only
 const FLEX_TURN_EPS = 1.5; // deg — flex weld re-orients onto the target, so a
                            // small heading mismatch (catalog corners carry
                            // ~0.024 deg each) becomes a sub-cm kink, not a flaw
+/* Flex welds are only acceptable when near-invisible: the weld anchors the
+ * last piece onto the goal and dumps the whole remainder as a break at the
+ * run's previous joint (owner: a 9 cm break reads as broken, not closed).
+ * Larger offsets report honestly and offer step-back instead. */
+const FLEX_WELD_MAX = 0.2; // cm (owner: 2 mm)
+/* GOAL_EPS == FLEX_WELD_MAX => the flex-capture branch is currently
+ * unreachable (d <= FLEX_WELD_MAX implies exact); it stays for the day
+ * the owner loosens the weld tolerance past the landing tolerance. */
 const FLEX_SLACK = 0.05;  // m — A* may keep searching past a flex find by this
 
 const norm360 = (deg) => ((deg % 360) + 360) % 360;
@@ -301,6 +309,7 @@ function astar(start, h0, z0, goal, hGoal, zGoal, vb, obstacles, trans, opts, ct
   const seen = new Map();
   const open = new Heap();
   let ser = 0, expansions = 0;
+  ctx.missAt = 0; /* per-run anchor: expansions counters don't span combos */
 
   const push = (node) => {
     const key = `${Math.round(node.x * 20)},${Math.round(node.y * 20)},${Math.round(node.h * 10)},${node.z}`;
@@ -321,9 +330,18 @@ function astar(start, h0, z0, goal, hGoal, zGoal, vb, obstacles, trans, opts, ct
     const d = Math.hypot(node.x - goal.x, node.y - goal.y);
     const dh = angDist(node.h, hGoal);
     if (node.z === zGoal && d + 0.2 * dh < ctx.missD + 0.2 * ctx.missDh) { ctx.missD = d; ctx.missDh = dh; }
+    /* An aligned near-miss within snap range settles the diagnostic: the
+     * ends are out of line by miss.d. A* pops by f, so any cheap exact/flex
+     * closure has long since popped; stop after a safety headroom instead
+     * of flooding the whole detour budget. Checked AFTER the goal tests so
+     * a popped closure is never discarded. This exit deliberately skips the
+     * truncated flag — the miss is the actionable diagnostic — so the UI
+     * wording must not claim exhaustive proof (see the off-grid toast). */
+    if (ctx.missD <= SNAP_RADIUS && ctx.missDh <= 5 && !ctx.missAt) ctx.missAt = expansions;
+    if (ctx.missAt && expansions > ctx.missAt + 5000 && d > GOAL_EPS) return;
     if (node.z === zGoal && dh <= FLEX_TURN_EPS) {
       if (d <= GOAL_EPS) { ctx.exact = node; ctx.goal = goal; ctx.goalVb = vb; return; } /* first pop = optimal */
-      if (d <= SNAP_RADIUS) {
+      if (d <= FLEX_WELD_MAX) {
         const key = node.g + 0.001 * d;
         if (!ctx.flex || key < ctx.flexCost) { ctx.flex = node; ctx.flexCost = key; ctx.flexGoal = goal; ctx.flexVb = vb; }
       }
@@ -445,13 +463,16 @@ export function closeLoop(sprites, a, b, opts = {}) {
     return { ok: true, pieces, cost: ctx.flex.g, length: lengthOf(pieces), flex: true, gap };
   }
   if (allLevelMiss) return { ok: false, reason: 'level', levels };
-  /* classify the miss so the toast can tell the owner what to do */
+  /* classify the miss so the toast can tell the owner what to do. The
+   * selected ends never count as blockers: a near-goal approach colliding
+   * with the target itself is misalignment (off-grid), not obstruction. */
   const miss = { d: ctx.missD, dh: ctx.missDh };
-  const why = ctx.blocker ? 'blocked'
+  const blocker = ctx.blocker && ctx.blocker !== a && ctx.blocker !== b ? ctx.blocker : null;
+  const why = blocker ? 'blocked'
     : ctx.truncated ? 'limit' /* half-explored: any miss guess would be a lie */
     : miss.dh > 5 ? 'facing'
     : 'off-grid';
-  return { ok: false, reason: 'no-path', why, miss, blocker: ctx.blocker };
+  return { ok: false, reason: 'no-path', why, miss, blocker };
 }
 
 /* ---------- step-back: remove pieces until a closure exists ---------- */

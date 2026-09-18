@@ -231,7 +231,7 @@ function offerStepBack(sel, res, set) {
   const why = {
     blocked: 'the closing pieces fit but track is in the way',
     facing: `the ends face ${res.miss.dh.toFixed(0)}\u00B0 apart`,
-    'off-grid': `the ends are ${res.miss.d.toFixed(1)} cm out of line for any piece run`,
+    'off-grid': `no run found — the ends are ${res.miss.d.toFixed(1)} cm out of line`,
     limit: 'the search gave up',
   }[res.why] || 'no run fits';
   toast(`Couldn\u2019t close — ${why}. Would you like to automatically remove pieces until a workable solution is found?`, {
