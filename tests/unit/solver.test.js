@@ -459,3 +459,52 @@ test('owner-reported bridge loop closes exactly (17-piece share-link track)', ()
     assert.equal(piecesCollide(all[i], all[j]), false, `${all[i].name}#${i} vs ${all[j].name}#${j}`);
   }
 });
+
+/* ---------- reliability fuzz: deleted spans always rebuild ---------- */
+
+test('fuzz: clean random chains — every deleted span rebuilds (seeded)', () => {
+  /* Oracle: weld a random chain, delete a middle span — the span proves a
+   * collision-free closure exists. Self-crossing scenes are skipped (the
+   * app allows building them; the closure contract is collision-free).
+   * Seeded LCG: deterministic across runs. */
+  let seed = 42;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+  let ran = 0, closed = 0;
+  for (let t = 0; t < 300; t++) {
+    const names = ['Str1', 'Str1', 'Str1', 'Cor1', 'Cor1', 'Cor1', 'Cor1'];
+    const sprites = [mk('Str1', 100, 100, 0)];
+    let cur = sprites[0];
+    const len = 6 + Math.floor(rnd() * 9);
+    for (let k = 1; k < len; k++) {
+      cur = weldOn(sprites, pick(names), cur, 1, 0);
+    }
+    const start = 1 + Math.floor(rnd() * (sprites.length - 3));
+    const span = 1 + Math.floor(rnd() * Math.min(3, sprites.length - start - 1));
+    const A = sprites[start - 1], B = sprites[start + span];
+    if (!A || !B) { seed = (t + 1) * 7919 + 13; continue; }
+    const removed = sprites.splice(start, span);
+    let dirty = false;
+    for (let i = 0; i < sprites.length && !dirty; i++) {
+      for (let j = i + 1; j < sprites.length; j++) if (piecesCollide(sprites[i], sprites[j])) { dirty = true; break; }
+    }
+    /* the oracle only holds when the span itself re-places cleanly against
+     * the remaining track (it may have overlapped non-adjacent pieces) and
+     * doesn't self-collide (reachable for span = 3: first vs last) */
+    if (!dirty) {
+      dirty = removed.some((p) => sprites.some((q) => piecesCollide(p, q)))
+        || removed.some((p, i) => removed.some((q, j) => j > i && piecesCollide(p, q)));
+    }
+    if (dirty) { seed = (t + 1) * 7919 + 13; continue; } /* invalid or void oracle */
+    ran++;
+    const res = closeLoop(sprites, A, B);
+    if (res.ok) closed++;
+    if (ran <= 60) {
+      assert.equal(res.ok, true, `case ${t} should close (span existed)`);
+      const spanCost = removed.reduce((m, p) => m + PIECES[p.name].l, 0);
+      assert.ok(res.cost <= spanCost + 1e-9, `case ${t} must not exceed the span's cost`);
+    }
+    seed = (t + 1) * 7919 + 13;
+  }
+  assert.ok(closed === ran, `all clean scenes close (${closed}/${ran})`);
+});
